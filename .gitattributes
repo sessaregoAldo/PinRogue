@@ -1,0 +1,5 @@
+# Normalize line endings (Godot recommendation); keep build files byte-exact.
+* text=auto eol=lf
+*.wasm binary
+*.pck binary
+*.png binary

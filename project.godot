@@ -1,0 +1,48 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="Pinball"
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.3", "GL Compatibility")
+
+[autoload]
+
+GameManager="*res://scripts/game_manager.gd"
+Sfx="*res://scripts/sfx.gd"
+Leaderboard="*res://scripts/leaderboard.gd"
+
+[display]
+
+window/size/viewport_width=600
+window/size/viewport_height=1120
+window/size/window_width_override=440
+window/size/window_height_override=822
+window/stretch/mode="canvas_items"
+
+[layer_names]
+
+2d_physics/layer_1="table"
+2d_physics/layer_2="ball"
+2d_physics/layer_3="ball_raised"
+2d_physics/layer_4="tunnel_rails_a"
+2d_physics/layer_5="tunnel_rails_b"
+
+[physics]
+
+common/physics_ticks_per_second=240
+common/max_physics_steps_per_frame=16
+2d/default_gravity=1100.0
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"

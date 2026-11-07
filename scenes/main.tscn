@@ -1,0 +1,353 @@
+[gd_scene load_steps=31 format=3 uid="uid://1j61wai0vxmj"]
+
+[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/wall.gd" id="2_wall"]
+[ext_resource type="PackedScene" path="res://scenes/ball.tscn" id="3_ball"]
+[ext_resource type="PackedScene" uid="uid://dhxllf4qkv4rg" path="res://scenes/flipper.tscn" id="4_flipper"]
+[ext_resource type="PackedScene" path="res://scenes/bumper.tscn" id="5_bumper"]
+[ext_resource type="PackedScene" path="res://scenes/slingshot.tscn" id="6_sling"]
+[ext_resource type="PackedScene" path="res://scenes/tunnel.tscn" id="7_tunnel"]
+[ext_resource type="PackedScene" path="res://scenes/hud.tscn" id="8_hud"]
+[ext_resource type="Script" path="res://scripts/plunger.gd" id="9_plunger"]
+[ext_resource type="Script" path="res://scripts/drain.gd" id="10_drain"]
+[ext_resource type="PackedScene" path="res://scenes/pause_menu.tscn" id="11_pause"]
+[ext_resource type="Script" path="res://scripts/rollover.gd" id="12_rollover"]
+[ext_resource type="PackedScene" path="res://scenes/boss_bumper.tscn" id="13_boss"]
+[ext_resource type="Script" path="res://scripts/score_popups.gd" id="14_popups"]
+[ext_resource type="Script" path="res://scripts/powerups.gd" id="15_powerups"]
+[ext_resource type="Script" path="res://scripts/end_screen.gd" id="16_end"]
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_n4c1k"]
+friction = 0.2
+bounce = 0.25
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_lhb5y"]
+friction = 0.2
+bounce = 0.25
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_7jn8w"]
+friction = 0.2
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_g5cro"]
+friction = 0.2
+bounce = 0.25
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_e7d5f"]
+friction = 0.2
+bounce = 0.25
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_tubv5"]
+friction = 0.2
+bounce = 0.25
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_xnpyh"]
+friction = 0.2
+bounce = 0.1
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_i2e31"]
+friction = 0.2
+bounce = 0.1
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_qsu32"]
+friction = 0.2
+bounce = 0.25
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_hlbha"]
+friction = 0.2
+bounce = 0.25
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_4s2yi"]
+friction = 0.2
+bounce = 0.4
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_ijqwg"]
+friction = 0.2
+bounce = 0.4
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_tye75"]
+friction = 0.2
+bounce = 0.4
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_bsqmp"]
+friction = 0.2
+bounce = 0.4
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_ev3ii"]
+friction = 0.2
+bounce = 0.6
+
+[node name="Main" type="Node2D"]
+script = ExtResource("1_main")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(300, 560)
+
+[node name="Walls" type="Node2D" parent="."]
+
+[node name="OuterWall" type="StaticBody2D" parent="Walls"]
+collision_mask = 0
+physics_material_override = SubResource("PhysicsMaterial_n4c1k")
+script = ExtResource("2_wall")
+points = PackedVector2Array(20, 1120, 20, 230, 24.3, 194.4, 36.9, 159.9, 57.5, 127.5, 85.5, 98.2, 120, 73, 160, 52.5, 204.2, 37.4, 251.4, 28.1, 300, 25, 348.6, 28.1, 395.8, 37.4, 440, 52.5, 480, 73, 514.5, 98.2, 542.5, 127.5, 563.1, 159.9, 575.7, 194.4, 580, 230, 580, 1120)
+
+[node name="ShooterLaneWall" type="StaticBody2D" parent="Walls"]
+collision_mask = 0
+physics_material_override = SubResource("PhysicsMaterial_lhb5y")
+script = ExtResource("2_wall")
+points = PackedVector2Array(540, 1120, 540, 300)
+
+[node name="ShooterLaneFloor" type="StaticBody2D" parent="Walls"]
+collision_mask = 0
+physics_material_override = SubResource("PhysicsMaterial_7jn8w")
+script = ExtResource("2_wall")
+points = PackedVector2Array(540, 1040, 580, 1040)
+bounce = 0.0
+
+[node name="ShooterGate" type="StaticBody2D" parent="Walls"]
+collision_mask = 0
+physics_material_override = SubResource("PhysicsMaterial_g5cro")
+script = ExtResource("2_wall")
+points = PackedVector2Array(544, 296, 576, 268)
+thickness = 6.0
+one_way = true
+
+[node name="LeftInlaneGuide" type="StaticBody2D" parent="Walls"]
+collision_mask = 0
+physics_material_override = SubResource("PhysicsMaterial_e7d5f")
+script = ExtResource("2_wall")
+points = PackedVector2Array(60, 813, 60, 893, 194, 970)
+
+[node name="RightInlaneGuide" type="StaticBody2D" parent="Walls"]
+collision_mask = 0
+physics_material_override = SubResource("PhysicsMaterial_tubv5")
+script = ExtResource("2_wall")
+points = PackedVector2Array(500, 813, 500, 893, 366, 970)
+
+[node name="FunnelLeft" type="StaticBody2D" parent="Walls"]
+collision_mask = 0
+physics_material_override = SubResource("PhysicsMaterial_xnpyh")
+script = ExtResource("2_wall")
+points = PackedVector2Array(24, 1010, 150, 1050, 252, 1080)
+bounce = 0.1
+
+[node name="FunnelRight" type="StaticBody2D" parent="Walls"]
+collision_mask = 0
+physics_material_override = SubResource("PhysicsMaterial_i2e31")
+script = ExtResource("2_wall")
+points = PackedVector2Array(536, 1010, 410, 1050, 308, 1080)
+bounce = 0.1
+
+[node name="OrbitDeflectorLeft" type="StaticBody2D" parent="Walls"]
+collision_mask = 0
+physics_material_override = SubResource("PhysicsMaterial_qsu32")
+script = ExtResource("2_wall")
+points = PackedVector2Array(24, 236, 29, 260, 42, 281, 64, 297, 96, 306)
+
+[node name="OrbitDeflectorRight" type="StaticBody2D" parent="Walls"]
+collision_mask = 0
+physics_material_override = SubResource("PhysicsMaterial_hlbha")
+script = ExtResource("2_wall")
+points = PackedVector2Array(536, 300, 531, 324, 518, 345, 496, 361, 464, 370)
+
+[node name="TopLaneGuide1" type="StaticBody2D" parent="Walls"]
+collision_mask = 0
+physics_material_override = SubResource("PhysicsMaterial_4s2yi")
+script = ExtResource("2_wall")
+points = PackedVector2Array(212, 162, 212, 195)
+thickness = 6.0
+bounce = 0.4
+
+[node name="TopLaneGuide2" type="StaticBody2D" parent="Walls"]
+collision_mask = 0
+physics_material_override = SubResource("PhysicsMaterial_ijqwg")
+script = ExtResource("2_wall")
+points = PackedVector2Array(257, 150, 257, 195)
+thickness = 6.0
+bounce = 0.4
+
+[node name="TopLaneGuide3" type="StaticBody2D" parent="Walls"]
+collision_mask = 0
+physics_material_override = SubResource("PhysicsMaterial_tye75")
+script = ExtResource("2_wall")
+points = PackedVector2Array(302, 150, 302, 195)
+thickness = 6.0
+bounce = 0.4
+
+[node name="TopLaneGuide4" type="StaticBody2D" parent="Walls"]
+collision_mask = 0
+physics_material_override = SubResource("PhysicsMaterial_bsqmp")
+script = ExtResource("2_wall")
+points = PackedVector2Array(347, 162, 347, 195)
+thickness = 6.0
+bounce = 0.4
+
+[node name="CenterPost" type="StaticBody2D" parent="Walls"]
+collision_mask = 0
+physics_material_override = SubResource("PhysicsMaterial_ev3ii")
+script = ExtResource("2_wall")
+points = PackedVector2Array(280, 720, 280, 720)
+thickness = 12.0
+bounce = 0.6
+color = Color(1, 0.4, 0.8, 1)
+
+[node name="Bumpers" type="Node2D" parent="."]
+
+[node name="BumperLeft" parent="Bumpers" instance=ExtResource("5_bumper")]
+position = Vector2(205, 300)
+
+[node name="BumperRight" parent="Bumpers" instance=ExtResource("5_bumper")]
+position = Vector2(355, 300)
+
+[node name="BossBumper" parent="Bumpers" instance=ExtResource("13_boss")]
+position = Vector2(280, 400)
+radius = 36.0
+kick_strength = 800.0
+legend_name = "Boss bumper"
+color = Color(1, 0.3, 0.5, 1)
+hit_pitch = 0.7
+
+[node name="MiniBumperLeft" parent="Bumpers" instance=ExtResource("5_bumper")]
+position = Vector2(105, 595)
+radius = 16.0
+kick_strength = 600.0
+score_value = 50
+legend_name = "Mini bumper"
+color = Color(0.4, 1, 0.5, 1)
+
+[node name="MiniBumperRight" parent="Bumpers" instance=ExtResource("5_bumper")]
+position = Vector2(455, 595)
+radius = 16.0
+kick_strength = 600.0
+score_value = 50
+legend_name = "Mini bumper"
+color = Color(0.4, 1, 0.5, 1)
+
+[node name="SlingshotLeft" parent="." instance=ExtResource("6_sling")]
+corner_a = Vector2(100, 793)
+corner_b = Vector2(145, 908)
+corner_c = Vector2(100, 883)
+kick_strength = 620.0
+kick_tilt_deg = 10.0
+kick_angle_jitter_deg = 4.0
+kick_strength_jitter = 0.08
+keep_tangent = 0.7
+
+[node name="SlingshotRight" parent="." instance=ExtResource("6_sling")]
+corner_a = Vector2(460, 793)
+corner_b = Vector2(415, 908)
+corner_c = Vector2(460, 883)
+kick_strength = 620.0
+kick_tilt_deg = 10.0
+kick_angle_jitter_deg = 4.0
+kick_strength_jitter = 0.08
+keep_tangent = 0.7
+
+[node name="KickerLeft" parent="." instance=ExtResource("6_sling")]
+corner_a = Vector2(26, 420)
+corner_b = Vector2(80, 480)
+corner_c = Vector2(26, 500)
+kick_strength = 550.0
+legend_name = "Wall kicker"
+color = Color(1, 0.8, 0.3, 1)
+
+[node name="KickerRight" parent="." instance=ExtResource("6_sling")]
+corner_a = Vector2(536, 420)
+corner_b = Vector2(482, 480)
+corner_c = Vector2(536, 500)
+kick_strength = 550.0
+legend_name = "Wall kicker"
+color = Color(1, 0.8, 0.3, 1)
+
+[node name="Rollovers" type="Node2D" parent="."]
+
+[node name="TopLaneA" type="Area2D" parent="Rollovers"]
+position = Vector2(234.5, 172)
+script = ExtResource("12_rollover")
+legend_name = "Top lane"
+
+[node name="TopLaneB" type="Area2D" parent="Rollovers"]
+position = Vector2(279.5, 172)
+script = ExtResource("12_rollover")
+legend_name = "Top lane"
+
+[node name="TopLaneC" type="Area2D" parent="Rollovers"]
+position = Vector2(324.5, 172)
+script = ExtResource("12_rollover")
+legend_name = "Top lane"
+
+[node name="InlaneLeft" type="Area2D" parent="Rollovers"]
+position = Vector2(80, 855)
+script = ExtResource("12_rollover")
+group_name = &"inlanes"
+score_value = 100
+legend_name = "Inlane"
+group_bonus = 1000
+color = Color(1, 0.5, 0.2, 1)
+
+[node name="InlaneRight" type="Area2D" parent="Rollovers"]
+position = Vector2(480, 855)
+script = ExtResource("12_rollover")
+group_name = &"inlanes"
+score_value = 100
+legend_name = "Inlane"
+group_bonus = 1000
+color = Color(1, 0.5, 0.2, 1)
+
+[node name="TunnelLeft" parent="." instance=ExtResource("7_tunnel")]
+modulate = Color(1, 1, 1, 0.8)
+z_index = 5
+path = PackedVector2Array(190, 700, 162, 630, 148, 560, 150, 505, 165, 465, 190, 440, 215, 428, 232, 440, 240, 475, 240, 520, 236, 560)
+exit_max_speed = 350.0
+normal_opacity = 0.8
+under_opacity = 0.25
+riding_opacity = 1.0
+fade_speed = 10.0
+fade_margin = 16.0
+
+[node name="TunnelRight" parent="." instance=ExtResource("7_tunnel")]
+modulate = Color(1, 1, 1, 0.8)
+z_index = 7
+path = PackedVector2Array(355, 705, 388, 640, 410, 580, 420, 525, 412, 485, 390, 458, 362, 446, 338, 456, 320, 482, 312, 515, 310, 550, 312, 590)
+rail_layer = 5
+exit_max_speed = 350.0
+score_value = 750
+color = Color(1, 0.6, 0.3, 1)
+normal_opacity = 0.8
+under_opacity = 0.25
+riding_opacity = 1.0
+fade_speed = 10.0
+fade_margin = 16.0
+
+[node name="FlipperLeft" parent="." instance=ExtResource("4_flipper")]
+position = Vector2(200, 982)
+
+[node name="FlipperRight" parent="." instance=ExtResource("4_flipper")]
+position = Vector2(360, 982)
+side = 1
+
+[node name="Plunger" type="Area2D" parent="."]
+position = Vector2(560, 1018)
+script = ExtResource("9_plunger")
+min_power = 650.0
+max_power = 2100.0
+
+[node name="Drain" type="Area2D" parent="."]
+position = Vector2(280, 1098)
+script = ExtResource("10_drain")
+size = Vector2(70, 24)
+
+[node name="Ball" parent="." instance=ExtResource("3_ball")]
+position = Vector2(560, 1020)
+
+[node name="ScorePopups" type="Node2D" parent="."]
+script = ExtResource("14_popups")
+
+[node name="Powerups" type="Node2D" parent="."]
+script = ExtResource("15_powerups")
+
+[node name="HUD" parent="." instance=ExtResource("8_hud")]
+
+[node name="EndScreen" type="CanvasLayer" parent="."]
+script = ExtResource("16_end")
+
+[node name="PauseMenu" parent="." instance=ExtResource("11_pause")]
