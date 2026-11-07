@@ -9,7 +9,7 @@ extends StaticBody2D
 ## Name shown in the pause menu's scoring legend.
 @export var legend_name: String = "Pop bumper"
 @export var cooldown: float = 0.08
-@export var color: Color = Color(0.2, 0.8, 1.0)
+@export var color: Color = Palette.BUMPER
 ## Pitch of the hit sound (lower = heavier).
 @export var hit_pitch: float = 1.0
 

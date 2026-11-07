@@ -11,7 +11,7 @@ var _warning_tween: Tween
 func _ready() -> void:
 	layer = 10
 	_score_label = _make_label(Vector2(8, 4), Vector2(200, 30), 22, HORIZONTAL_ALIGNMENT_LEFT)
-	_balls_label = _make_label(Vector2(392, 4), Vector2(200, 30), 22, HORIZONTAL_ALIGNMENT_RIGHT)
+	_balls_label = _make_label(Vector2(292, 4), Vector2(300, 30), 22, HORIZONTAL_ALIGNMENT_RIGHT)
 	_message = _make_label(Vector2(0, 620), Vector2(600, 160), 44, HORIZONTAL_ALIGNMENT_CENTER)
 	_message.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 
@@ -27,6 +27,8 @@ func _ready() -> void:
 
 	GameManager.score_changed.connect(func(_s: int) -> void: _refresh())
 	GameManager.balls_changed.connect(func(_b: int) -> void: _refresh())
+	GameManager.round_continued.connect(func(_r: int) -> void: _refresh())
+	GameManager.game_started.connect(_refresh)
 	GameManager.plunger_charge_changed.connect(func(c: float) -> void: _charge_bar.value = c)
 	GameManager.tilt_warning.connect(_on_tilt_warning)
 	GameManager.tilted_changed.connect(_on_tilted_changed)
@@ -92,7 +94,7 @@ func _make_label(pos: Vector2, size: Vector2, font_size: int, align: HorizontalA
 
 func _refresh() -> void:
 	_score_label.text = "SCORE %d" % GameManager.score
-	_balls_label.text = "BALL %d" % maxi(GameManager.balls_left, 0)
+	_balls_label.text = "ROUND %d   BALL %d" % [GameManager.boss_round, maxi(GameManager.balls_left, 0)]
 
 
 func _on_tilt_warning(_level: float) -> void:

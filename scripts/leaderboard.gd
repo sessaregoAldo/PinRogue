@@ -11,7 +11,8 @@ extends Node
 const CONFIG_PATH := "res://leaderboard_config.cfg"
 const LOCAL_PATH := "user://local_scores.cfg"
 const SETTINGS_PATH := "user://settings.cfg"
-const NAME_LENGTH := 5
+const NAME_MIN := 2
+const NAME_MAX := 5
 const TOP_COUNT := 10
 const LOCAL_KEEP := 50
 const TIMEOUT := 10.0
@@ -22,7 +23,7 @@ var table: String = "scores"
 ## The last name used on this device, offered again next time.
 var last_name: String = ""
 
-var _name_regex := RegEx.create_from_string("^[A-Z]{%d}$" % NAME_LENGTH)
+var _name_regex := RegEx.create_from_string("^[A-Z]{%d,%d}$" % [NAME_MIN, NAME_MAX])
 
 
 func _ready() -> void:
@@ -41,13 +42,18 @@ func is_online() -> bool:
 	return url != "" and key != ""
 
 
-## Upper-case, letters only, at most 5 characters.
+## Upper-case, letters only, at most NAME_MAX characters.
 func clean_name(text: String) -> String:
 	var out := ""
 	for ch in text.to_upper():
 		if ch >= "A" and ch <= "Z":
 			out += ch
-	return out.left(NAME_LENGTH)
+	return out.left(NAME_MAX)
+
+
+## Human-readable naming rule, e.g. "Names must be 2-5 letters (A-Z)."
+func name_rule() -> String:
+	return "Names must be %d-%d letters (A-Z)." % [NAME_MIN, NAME_MAX]
 
 
 func is_valid_name(player_name: String) -> bool:
@@ -94,7 +100,7 @@ func fetch_rank(score: int) -> int:
 ## Returns {ok, online, error}. Falls back to saving on this device.
 func submit(player_name: String, score: int, won: bool) -> Dictionary:
 	if not is_valid_name(player_name):
-		return {"ok": false, "online": false, "error": "Names must be exactly %d letters (A-Z)." % NAME_LENGTH}
+		return {"ok": false, "online": false, "error": name_rule()}
 	_remember_name(player_name)
 	if is_online():
 		var body := JSON.stringify({"name": player_name, "score": score, "won": won})

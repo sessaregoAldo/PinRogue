@@ -16,6 +16,7 @@
 [ext_resource type="Script" path="res://scripts/score_popups.gd" id="14_popups"]
 [ext_resource type="Script" path="res://scripts/powerups.gd" id="15_powerups"]
 [ext_resource type="Script" path="res://scripts/end_screen.gd" id="16_end"]
+[ext_resource type="Script" path="res://scripts/boss_menu.gd" id="17_bossmenu"]
 
 [sub_resource type="PhysicsMaterial" id="PhysicsMaterial_n4c1k"]
 friction = 0.2
@@ -188,7 +189,7 @@ script = ExtResource("2_wall")
 points = PackedVector2Array(280, 720, 280, 720)
 thickness = 12.0
 bounce = 0.6
-color = Color(1, 0.4, 0.8, 1)
+color = Color(0.55, 0.52, 1, 1)
 
 [node name="Bumpers" type="Node2D" parent="."]
 
@@ -203,7 +204,7 @@ position = Vector2(280, 400)
 radius = 36.0
 kick_strength = 800.0
 legend_name = "Boss bumper"
-color = Color(1, 0.3, 0.5, 1)
+color = Color(0.9, 0.16, 0.22, 1)
 hit_pitch = 0.7
 
 [node name="MiniBumperLeft" parent="Bumpers" instance=ExtResource("5_bumper")]
@@ -212,7 +213,7 @@ radius = 16.0
 kick_strength = 600.0
 score_value = 50
 legend_name = "Mini bumper"
-color = Color(0.4, 1, 0.5, 1)
+color = Color(0.25, 0.95, 0.8, 1)
 
 [node name="MiniBumperRight" parent="Bumpers" instance=ExtResource("5_bumper")]
 position = Vector2(455, 595)
@@ -220,7 +221,7 @@ radius = 16.0
 kick_strength = 600.0
 score_value = 50
 legend_name = "Mini bumper"
-color = Color(0.4, 1, 0.5, 1)
+color = Color(0.25, 0.95, 0.8, 1)
 
 [node name="SlingshotLeft" parent="." instance=ExtResource("6_sling")]
 corner_a = Vector2(100, 793)
@@ -346,6 +347,9 @@ script = ExtResource("14_popups")
 script = ExtResource("15_powerups")
 
 [node name="HUD" parent="." instance=ExtResource("8_hud")]
+
+[node name="BossMenu" type="CanvasLayer" parent="."]
+script = ExtResource("17_bossmenu")
 
 [node name="EndScreen" type="CanvasLayer" parent="."]
 script = ExtResource("16_end")

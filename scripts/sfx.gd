@@ -1,32 +1,35 @@
 extends Node
-## Sound effects (autoload "Sfx").
-## The sounds are synthesized at startup, so the project needs no audio files.
-## To use real samples, put an AudioStream into `_streams` under the same name.
+## Sound effects and background music (autoload "Sfx").
+## Sound effects are synthesized at startup (no audio files needed). To use real
+## samples, put an AudioStream into `_streams` under the same name.
+## Music: res://assets/music/lofi_loop.wav, an original loop made by
+## tools/make_lofi.py. Re-run that script to regenerate or tweak it.
 ## Also owns the audio volume settings (saved to user://settings.cfg).
 
 const MIX_RATE := 22050
 const VOICES := 12
 const SETTINGS_PATH := "user://settings.cfg"
 const SFX_BUS := "SFX"
+const MUSIC_BUS := "Music"
+const MUSIC_PATH := "res://assets/music/lofi_loop.wav"
 
 var master_volume: float = 0.8
 var sfx_volume: float = 0.8
+var music_volume: float = 0.5
 
 var _streams: Dictionary = {}
 var _players: Array[AudioStreamPlayer] = []
 var _next_voice: int = 0
 var _last_play_ms: Dictionary = {}
 var _sfx_bus_index: int = -1
+var _music_bus_index: int = -1
+var _music: AudioStreamPlayer
 
 
 func _ready() -> void:
-	process_mode = Node.PROCESS_MODE_ALWAYS # UI clicks still play while paused
-	_sfx_bus_index = AudioServer.get_bus_index(SFX_BUS)
-	if _sfx_bus_index == -1:
-		AudioServer.add_bus()
-		_sfx_bus_index = AudioServer.bus_count - 1
-		AudioServer.set_bus_name(_sfx_bus_index, SFX_BUS)
-		AudioServer.set_bus_send(_sfx_bus_index, "Master")
+	process_mode = Node.PROCESS_MODE_ALWAYS # UI clicks and music keep going while paused
+	_sfx_bus_index = _ensure_bus(SFX_BUS)
+	_music_bus_index = _ensure_bus(MUSIC_BUS)
 	for i in VOICES:
 		var player := AudioStreamPlayer.new()
 		player.bus = SFX_BUS
@@ -34,6 +37,44 @@ func _ready() -> void:
 		_players.append(player)
 	_build_sounds()
 	load_settings()
+	_start_music()
+	get_tree().set_auto_accept_quit(false) # closing the window goes through quit_game()
+
+
+func _ensure_bus(bus_name: String) -> int:
+	var index := AudioServer.get_bus_index(bus_name)
+	if index == -1:
+		AudioServer.add_bus()
+		index = AudioServer.bus_count - 1
+		AudioServer.set_bus_name(index, bus_name)
+		AudioServer.set_bus_send(index, "Master")
+	return index
+
+
+## Looping background music (the loop points come from the WAV import settings).
+func _start_music() -> void:
+	if not ResourceLoader.exists(MUSIC_PATH):
+		return
+	_music = AudioStreamPlayer.new()
+	_music.stream = load(MUSIC_PATH)
+	_music.bus = MUSIC_BUS
+	add_child(_music)
+	_music.play()
+
+
+## Quit cleanly: stop the music and give the audio engine a moment to release it
+## (quitting while it plays leaves "resources still in use" errors at exit).
+func quit_game() -> void:
+	if _music:
+		_music.stop()
+	save_settings()
+	await get_tree().create_timer(0.1, true, false, true).timeout
+	get_tree().quit()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		quit_game() # window close button
 
 
 ## Play a sound by name. `min_interval_ms` stops the same sound from stacking up.
@@ -61,6 +102,11 @@ func set_master_volume(value: float) -> void:
 	_apply_bus(0, master_volume)
 
 
+func set_music_volume(value: float) -> void:
+	music_volume = clampf(value, 0.0, 1.0)
+	_apply_bus(_music_bus_index, music_volume)
+
+
 func set_sfx_volume(value: float) -> void:
 	sfx_volume = clampf(value, 0.0, 1.0)
 	_apply_bus(_sfx_bus_index, sfx_volume)
@@ -71,6 +117,7 @@ func save_settings() -> void:
 	cfg.load(SETTINGS_PATH) # keep other sections if they exist
 	cfg.set_value("audio", "master", master_volume)
 	cfg.set_value("audio", "sfx", sfx_volume)
+	cfg.set_value("audio", "music", music_volume)
 	cfg.save(SETTINGS_PATH)
 
 
@@ -79,8 +126,10 @@ func load_settings() -> void:
 	if cfg.load(SETTINGS_PATH) == OK:
 		master_volume = float(cfg.get_value("audio", "master", master_volume))
 		sfx_volume = float(cfg.get_value("audio", "sfx", sfx_volume))
+		music_volume = float(cfg.get_value("audio", "music", music_volume))
 	set_master_volume(master_volume)
 	set_sfx_volume(sfx_volume)
+	set_music_volume(music_volume)
 
 
 func _apply_bus(index: int, linear: float) -> void:

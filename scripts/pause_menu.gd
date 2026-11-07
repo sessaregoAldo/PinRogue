@@ -17,6 +17,7 @@ var _resume_button: Button
 var _confirm_yes_button: Button
 var _master_slider: HSlider
 var _sfx_slider: HSlider
+var _music_slider: HSlider
 var _scoring_grid: GridContainer
 var _scoring_footer: Label
 var _popups_toggle: CheckButton
@@ -73,6 +74,7 @@ func _show_page(page: VBoxContainer) -> void:
 	elif page == _settings_page:
 		_master_slider.set_value_no_signal(Sfx.master_volume)
 		_sfx_slider.set_value_no_signal(Sfx.sfx_volume)
+		_music_slider.set_value_no_signal(Sfx.music_volume)
 		_popups_toggle.set_pressed_no_signal(GameManager.show_score_popups)
 		_master_slider.grab_focus()
 	elif page == _highscores_page:
@@ -268,8 +270,7 @@ func _build() -> void:
 	_make_button(_main_page, "Restart", _on_button(func() -> void: _show_page(_confirm_page)))
 	if not OS.has_feature("web"): # a browser tab can't be closed by the game
 		_make_button(_main_page, "Exit", func() -> void:
-			Sfx.save_settings()
-			get_tree().quit())
+			Sfx.quit_game())
 
 	# High scores page
 	_highscores_page = _make_page(holder, "HIGH SCORES")
@@ -296,6 +297,7 @@ func _build() -> void:
 	_sfx_slider = _make_slider(_settings_page, "Effects volume", func(v: float) -> void:
 		Sfx.set_sfx_volume(v)
 		Sfx.play("bumper", 0.0, 1.0, 120))
+	_music_slider = _make_slider(_settings_page, "Music volume", func(v: float) -> void: Sfx.set_music_volume(v))
 	_popups_toggle = CheckButton.new()
 	_popups_toggle.text = "Score popups"
 	_popups_toggle.add_theme_font_size_override("font_size", 18)

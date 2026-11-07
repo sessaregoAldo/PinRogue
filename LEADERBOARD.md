@@ -7,7 +7,7 @@ free Supabase database. Until Supabase is configured, the game keeps scores per 
 
 1. Sign up at https://supabase.com and create a **New project** (free tier is fine).
 2. Open **SQL Editor → New query**, paste the contents of `supabase/schema.sql`, click **Run**.
-   This creates the `scores` table: exactly 5 letters A–Z for names, and rules so that
+   This creates the `scores` table: names of 2–5 letters A–Z, and rules so that
    anyone can read and add scores but nobody can edit or delete them.
 3. Open **Project Settings → API** (or **Connect**) and copy:
    - the **Project URL**, like `https://abcdefghijklmnop.supabase.co`

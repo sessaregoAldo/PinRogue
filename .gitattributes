@@ -3,3 +3,5 @@
 *.wasm binary
 *.pck binary
 *.png binary
+*.wav binary
+*.sample binary

@@ -1,11 +1,16 @@
--- High-score table for the pinball game. Run once in Supabase: SQL Editor -> New query -> Run.
+-- High-score table for PinRogue. Run in Supabase: SQL Editor -> New query -> Run.
+-- Safe to run again: it also updates an existing table to the current rules.
 create table if not exists public.scores (
   id         bigint generated always as identity primary key,
-  name       text        not null check (name ~ '^[A-Z]{5}$'),        -- exactly 5 letters A-Z
+  name       text        not null,
   score      bigint      not null check (score >= 0 and score < 1000000000000),
   won        boolean     not null default false,                      -- defeated the boss
   created_at timestamptz not null default now()
 );
+
+-- Player names: 2 to 5 letters, A-Z only (matches the game).
+alter table public.scores drop constraint if exists scores_name_check;
+alter table public.scores add constraint scores_name_check check (name ~ '^[A-Z]{2,5}$');
 
 create index if not exists scores_score_idx on public.scores (score desc, created_at asc);
 

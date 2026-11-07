@@ -23,7 +23,7 @@ enum FlipperSide { LEFT, RIGHT }
 @export var down_speed: float = 12.0 # rad/s while falling back
 ## 1.0 = ball leaves at the face's surface speed; 0 disables the assist.
 @export var hit_assist: float = 1.0
-@export var color: Color = Color(0.95, 0.35, 0.25)
+@export var color: Color = Palette.FLIPPER
 
 ## Current angular speed in rad/s (read-only for other scripts).
 var angular_speed: float = 0.0

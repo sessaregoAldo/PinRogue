@@ -75,6 +75,10 @@ func _ready() -> void:
 	GameManager.powerup_choice_requested.connect(_on_choice_requested)
 	GameManager.part_hit.connect(_on_part_hit)
 	GameManager.game_started.connect(_reset_run)
+	# A lane set completed while the boss menu was open is offered after Continue.
+	GameManager.round_continued.connect(func(_r: int) -> void:
+		if _pending_choices > 0 and not GameManager.choosing:
+			_open_choice.call_deferred())
 	_update_status()
 
 

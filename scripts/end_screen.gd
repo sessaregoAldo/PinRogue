@@ -1,6 +1,6 @@
 extends CanvasLayer
 ## Game over / victory screen with high-score entry and the all-time top 10.
-## Names are exactly 5 letters (A-Z). See leaderboard.gd for where scores go.
+## Names are 2-5 letters (A-Z). See leaderboard.gd for where scores go.
 
 const GOLD := Color(1.0, 0.85, 0.3)
 const SOFT := Color(0.75, 0.8, 0.95)
@@ -34,12 +34,13 @@ func _ready() -> void:
 
 func _open(score: int, won: bool) -> void:
 	_final_score = score
-	_won = won
+	_won = won or GameManager.bosses_defeated > 0 # star on the board for any boss beaten
 	_submitted_name = ""
 	_title.text = "VICTORY!" if won else "GAME OVER"
 	_title.add_theme_color_override("font_color", GOLD if won else Color.WHITE)
-	_subtitle.text = "The boss bumper is destroyed" if won else ""
-	_subtitle.visible = won
+	var beaten := GameManager.bosses_defeated
+	_subtitle.text = "" if beaten == 0 else ("1 boss defeated" if beaten == 1 else "%d bosses defeated" % beaten)
+	_subtitle.visible = beaten > 0
 	_score_label.text = "Score  %s" % GameManager.format_number(score)
 	var can_submit := score > 0
 	_entry_row.visible = can_submit
@@ -47,7 +48,7 @@ func _open(score: int, won: bool) -> void:
 	_name_edit.text = Leaderboard.last_name
 	_update_submit_state()
 	_skip_button.disabled = false
-	_status.text = "Enter a 5-letter name for the all-time board." if can_submit else ""
+	_status.text = "Enter a name (2-5 letters) for the all-time board." if can_submit else ""
 	_status.modulate = SOFT
 	_footer.text = "Press R or Play again" if not can_submit else "Enter submits  ·  Skip to play again"
 	_root.visible = true
@@ -83,7 +84,7 @@ func _update_submit_state() -> void:
 func _on_submit(_text: String = "") -> void:
 	var player_name := _name_edit.text
 	if not Leaderboard.is_valid_name(player_name) or not _name_edit.editable:
-		_status.text = "Names must be exactly 5 letters (A-Z)."
+		_status.text = Leaderboard.name_rule()
 		_status.modulate = GOLD
 		return
 	_name_edit.editable = false
@@ -207,8 +208,8 @@ func _build() -> void:
 	_entry_row.add_theme_constant_override("separation", 8)
 	col.add_child(_entry_row)
 	_name_edit = LineEdit.new()
-	# No max_length: clean_name() trims to 5 letters, so pasting "zz9top" gives "ZZTOP".
-	_name_edit.placeholder_text = "AAAAA"
+	# No max_length: clean_name() trims to 5 letters max, so pasting "zz9top" gives "ZZTOP".
+	_name_edit.placeholder_text = "NAME"
 	_name_edit.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_name_edit.custom_minimum_size = Vector2(150, 44)
 	_name_edit.add_theme_font_size_override("font_size", 26)

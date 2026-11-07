@@ -12,6 +12,10 @@ signal plunger_charge_changed(charge: float)
 ## A floating text should appear at `world_pos` (see score_popups.gd).
 signal popup_requested(text: String, world_pos: Vector2, color: Color, big: bool)
 signal victory(final_score: int)
+## The boss reached 0 HP: the player picks Continue or End Run (boss_menu.gd).
+signal boss_beaten(info: Dictionary)
+## The player chose Continue: a new round starts with all progress kept.
+signal round_continued(round_number: int)
 ## A scoring part (bumper, slingshot, kicker) registered a hit. Used by power-ups.
 @warning_ignore("unused_signal")
 signal part_hit(part: Node)
@@ -43,6 +47,9 @@ var tilt_meter: float = 0.0
 var is_game_over: bool = false
 ## True when the game ended because the level was won (boss defeated).
 var won: bool = false
+## Current boss round (1 = first boss) and how many bosses were beaten this run.
+var boss_round: int = 1
+var bosses_defeated: int = 0
 ## Incremented on every restart so delayed callbacks from an old game can bail out.
 var round_id: int = 0
 ## Option: show floating "+points" text where points are earned.
@@ -122,13 +129,27 @@ func request_powerup_choice() -> void:
 		powerup_choice_requested.emit()
 
 
+## The boss is down: count it and let the player choose what happens next.
+func boss_defeated(info: Dictionary) -> void:
+	if is_game_over:
+		return
+	bosses_defeated += 1
+	Sfx.play("victory")
+	boss_beaten.emit(info)
+
+
+## Continue the run: keep score, balls and power-ups; the boss returns stronger.
+func continue_run() -> void:
+	boss_round += 1
+	round_continued.emit(boss_round)
+
+
 ## End the level as a win.
 func declare_victory() -> void:
 	if is_game_over:
 		return
 	is_game_over = true
 	won = true
-	Sfx.play("victory")
 	victory.emit(score)
 
 
@@ -184,6 +205,8 @@ func restart() -> void:
 	tilted = false
 	is_game_over = false
 	won = false
+	boss_round = 1
+	bosses_defeated = 0
 	choosing = false
 	entering_name = false
 	tilt_limit_bonus = 0.0
