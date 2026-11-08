@@ -78,7 +78,7 @@ color = Color(0.9, 0.16, 0.22, 1)
 hit_pitch = 0.7
 
 [node name="MiniBumperLeft" parent="Bumpers" instance=ExtResource("3_bumper")]
-position = Vector2(240, 575)
+position = Vector2(250, 628)
 radius = 16.0
 kick_strength = 600.0
 score_value = 50
@@ -86,7 +86,7 @@ legend_name = "Mini bumper"
 color = Color(0.25, 0.95, 0.8, 1)
 
 [node name="MiniBumperRight" parent="Bumpers" instance=ExtResource("3_bumper")]
-position = Vector2(320, 575)
+position = Vector2(310, 628)
 radius = 16.0
 kick_strength = 600.0
 score_value = 50
@@ -94,17 +94,17 @@ legend_name = "Mini bumper"
 color = Color(0.25, 0.95, 0.8, 1)
 
 [node name="KickerLeft" parent="." instance=ExtResource("5_sling")]
-corner_a = Vector2(26, 420)
-corner_b = Vector2(80, 480)
-corner_c = Vector2(26, 500)
+corner_a = Vector2(26, 370)
+corner_b = Vector2(80, 430)
+corner_c = Vector2(26, 450)
 kick_strength = 550.0
 legend_name = "Wall kicker"
 color = Color(1, 0.8, 0.3, 1)
 
 [node name="KickerRight" parent="." instance=ExtResource("5_sling")]
-corner_a = Vector2(536, 420)
-corner_b = Vector2(482, 480)
-corner_c = Vector2(536, 500)
+corner_a = Vector2(536, 370)
+corner_b = Vector2(482, 430)
+corner_c = Vector2(536, 450)
 kick_strength = 550.0
 legend_name = "Wall kicker"
 color = Color(1, 0.8, 0.3, 1)
@@ -144,7 +144,7 @@ point_b = Vector2(440.5, 381.5)
 
 [node name="TunnelLeft" parent="." instance=ExtResource("9_tunnel")]
 z_index = 5
-path = PackedVector2Array(95, 640, 72, 598, 64, 557, 72, 530, 94, 513, 120, 503, 145, 506, 160, 527, 165, 560, 166, 595)
+path = PackedVector2Array(95, 640, 76, 598, 68, 555, 72, 515, 90, 484, 120, 466, 155, 465, 185, 480, 203, 510, 208, 548, 206, 590)
 width = 52.0
 entrance_posts = false
 min_entry_speed = 250.0
@@ -154,7 +154,7 @@ legend_name = "Left loop"
 
 [node name="TunnelRight" parent="." instance=ExtResource("9_tunnel")]
 z_index = 7
-path = PackedVector2Array(465, 630, 488, 590, 496, 555, 488, 527, 466, 515, 440, 503, 410, 507, 388, 528, 380, 560, 382, 592)
+path = PackedVector2Array(465, 630, 484, 590, 492, 548, 488, 510, 470, 480, 440, 463, 405, 462, 375, 478, 356, 508, 352, 548, 354, 588)
 width = 52.0
 rail_layer = 5
 entrance_posts = false

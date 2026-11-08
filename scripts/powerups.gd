@@ -22,7 +22,7 @@ const POWERUPS := [
 		"desc": "Ramp boosters fire from the entrance, so any ramp you get into completes. Ramps score +100% per stack.",
 		"color": Color(1.0, 0.7, 0.35), "weight": 0.9},
 	{"id": "boss_magnet", "title": "Boss Magnet", "icon": "(o)",
-		"desc": "The boss pulls nearby balls toward it for more boss hits. Stacks twice.",
+		"desc": "The boss gently pulls nearby balls toward it for more boss hits. Stacks up to 3 times.",
 		"color": Color(1.0, 0.45, 0.45), "weight": 0.8},
 	{"id": "combo_master", "title": "Combo Master", "icon": "+%",
 		"desc": "Button combinations add +5% more of your score (10% -> 15%). Stacks.",

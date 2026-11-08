@@ -110,10 +110,10 @@ func _short_number(n: int) -> String:
 
 
 ## Boss Magnet power-up: pull playfield balls within MAGNET_RANGE toward the boss.
-const MAGNET_RANGE := 220.0
-const MAGNET_PULL := 3800.0 # px/s² per stack at point blank (gravity is 1100)
+const MAGNET_RANGE := 210.0
+const MAGNET_PULL := 3000.0 # px/s² per stack at point blank (gravity is 1100)
 ## More than this traps the ball in orbit around the boss.
-const MAGNET_MAX_STACKS := 2
+const MAGNET_MAX_STACKS := 3
 
 func _physics_process(delta: float) -> void:
 	if Engine.is_editor_hint() or GameManager.boss_magnet <= 0 or hp <= 0:

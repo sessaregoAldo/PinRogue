@@ -17,6 +17,8 @@ extends Node2D
 ## Tunnels that cross each other need different `rail_layer` and `z_index` values.
 
 const LAYER_TABLE := 1
+## Drop shadow layers: [offset, extra width per side, alpha] (outer = softer).
+const SHADOW_LAYERS := [[Vector2(18, 24), 7.0, 0.07], [Vector2(13, 17), 4.0, 0.09], [Vector2(8, 11), 1.0, 0.13]]
 
 @export var path: PackedVector2Array = PackedVector2Array([Vector2(0, 0), Vector2(0, -200)]):
 	set(value):
@@ -27,7 +29,7 @@ const LAYER_TABLE := 1
 		width = value
 		_rebuild()
 ## Catmull-Rom subdivisions per path segment (higher = smoother curves).
-@export_range(1, 16) var smoothing: int = 6:
+@export_range(1, 16) var smoothing: int = 10:
 	set(value):
 		smoothing = value
 		_rebuild()
@@ -41,6 +43,16 @@ const LAYER_TABLE := 1
 		rail_thickness = value
 		_rebuild()
 ## Small posts on the playfield at the mouth corners.
+## The mouth flares open by this many px per side, narrowing to the track width
+## over `flare_length` px: a funnel that guides off-center shots in.
+@export var mouth_flare: float = 10.0:
+	set(value):
+		mouth_flare = value
+		_rebuild()
+@export var flare_length: float = 70.0:
+	set(value):
+		flare_length = value
+		_rebuild()
 @export var entrance_posts: bool = true:
 	set(value):
 		entrance_posts = value
@@ -51,6 +63,10 @@ const LAYER_TABLE := 1
 @export_group("Ride")
 ## Extra rolling drag while the ball is on the tunnel.
 @export var ramp_damp: float = 0.3
+## How strongly the rails steer the ball along the track (sideways motion is
+## damped at this rate per second), so fast shots follow the curves instead of
+## ricocheting between the rails and back out of the mouth.
+@export var guide_strength: float = 14.0
 ## The ball's speed is capped at this when it drops out of the far end.
 @export var exit_max_speed: float = 400.0
 @export var score_value: int = 1000
@@ -89,6 +105,7 @@ var _left := PackedVector2Array()
 var _right := PackedVector2Array()
 var _prev_pos: Dictionary = {} # Ball -> last local position
 var _stall_time: Dictionary = {} # Ball -> seconds spent nearly stopped on the rails
+var _last_along: Dictionary = {} # Ball -> speed along the track last step (guide)
 func _ready() -> void:
 	_rebuild()
 	if not Engine.is_editor_hint():
@@ -135,6 +152,7 @@ func _physics_process(delta: float) -> void:
 					and _entry_allowed(ball.linear_velocity):
 				ball.enter_ramp(self, 1 << (rail_layer - 1), z_index + 1, ramp_damp)
 				_stall_time[ball] = 0.0
+				_last_along.erase(ball)
 				Sfx.play("ramp_enter")
 		elif ball.ramp == self:
 			var last := _center.size() - 1
@@ -148,8 +166,34 @@ func _physics_process(delta: float) -> void:
 				ball.leave_ramp() # rolled back out of the mouth
 				Sfx.play("ramp_land", -6.0)
 			else:
+				_guide(ball, cur, delta)
 				_apply_booster(ball, cur, delta)
 				_check_stall(ball, delta)
+
+
+## Steer the ball along the track: damp its sideways motion (relative to the
+## track direction) and never let a rail collision flip a fast forward ride into
+## a backward one. A ball that is genuinely too slow still rolls back.
+func _guide(ball: Ball, local_pos: Vector2, delta: float) -> void:
+	if guide_strength <= 0.0:
+		return
+	var info := _track_info(local_pos)
+	var tangent := global_transform.basis_xform(info[1]).normalized()
+	var v := ball.linear_velocity
+	var along := v.dot(tangent)
+	# A ball going forward fast cannot reverse in a single step except by a hard
+	# rail impact: keep it going forward (a real rollback slows down gradually).
+	var last_along: float = _last_along.get(ball, along)
+	_last_along[ball] = along
+	if last_along > 300.0 and along < -50.0:
+		ball.set_velocity_safe(tangent * v.length() * 0.7)
+		_last_along[ball] = v.length() * 0.7
+		return
+	var sideways := v - tangent * along
+	var k := 1.0 - exp(-guide_strength * delta)
+	# Sideways energy is redirected along the track in the current direction of travel.
+	var redirect := sideways.length() * k * (1.0 if along >= 0.0 else -1.0) * 0.85
+	ball.add_impulse(-sideways * k + tangent * redirect)
 
 
 ## Past the halfway mark, accelerate the ball along the track so it makes it through.
@@ -254,8 +298,8 @@ func _rebuild() -> void:
 	for i in range(1, _center.size()):
 		_cum.append(_cum[i - 1] + _center[i - 1].distance_to(_center[i]))
 	_length = _cum[_cum.size() - 1]
-	_left = _offset(_center, width * 0.5)
-	_right = _offset(_center, -width * 0.5)
+	_left = _offset(_center, width * 0.5, true)
+	_right = _offset(_center, -width * 0.5, true)
 
 	var bits := 1 << (rail_layer - 1)
 	_add_rail(_left, bits)
@@ -281,7 +325,7 @@ func _add_rail(points: PackedVector2Array, bits: int) -> void:
 	var rail := Wall.new()
 	rail.physics_layers = bits
 	rail.thickness = rail_thickness
-	rail.bounce = 0.1
+	rail.bounce = 0.0 # dead rails: the ball slides along instead of bouncing back
 	rail.color = Color(0.85, 0.88, 0.95)
 	rail.points = points
 	rail.set_meta("generated", true)
@@ -309,10 +353,15 @@ func _smooth(pts: PackedVector2Array, steps: int) -> PackedVector2Array:
 
 
 ## Offset a polyline sideways by `dist` (positive = left of travel direction), mitered.
-func _offset(pts: PackedVector2Array, dist: float) -> PackedVector2Array:
+## With `flare`, the first `flare_length` px widen by up to `mouth_flare` (a funnel).
+func _offset(pts: PackedVector2Array, dist: float, flare: bool = false) -> PackedVector2Array:
 	var out := PackedVector2Array()
 	var n := pts.size()
 	for i in n:
+		var d := dist
+		if flare and flare_length > 0.0 and i < _cum.size():
+			var t := clampf(1.0 - _cum[i] / flare_length, 0.0, 1.0)
+			d += signf(dist) * mouth_flare * t * t # eases back to the track width
 		var d_prev := (pts[i] - pts[i - 1]).normalized() if i > 0 else (pts[1] - pts[0]).normalized()
 		var d_next := (pts[i + 1] - pts[i]).normalized() if i < n - 1 else d_prev
 		var tangent := (d_prev + d_next).normalized()
@@ -320,7 +369,7 @@ func _offset(pts: PackedVector2Array, dist: float) -> PackedVector2Array:
 			tangent = d_prev
 		var normal := tangent.orthogonal()
 		var miter := 1.0 / maxf(0.35, normal.dot(d_prev.orthogonal()))
-		out.append(pts[i] + normal * dist * miter)
+		out.append(pts[i] + normal * d * miter)
 	return out
 
 
@@ -329,14 +378,28 @@ func _offset(pts: PackedVector2Array, dist: float) -> PackedVector2Array:
 func _draw() -> void:
 	if _center.size() < 2:
 		return
-	var shadow_offset := Vector2(8, 10)
+	# Soft drop shadow on the table: layered, spreading copies offset down-right,
+	# so the track reads as raised above the playfield.
+	for layer in SHADOW_LAYERS:
+		var off: Vector2 = layer[0]
+		var spread: float = layer[1]
+		var col := Color(0, 0, 0, layer[2])
+		for i in _center.size() - 1:
+			var n0 := (_left[i] - _right[i]).normalized() * spread
+			var n1 := (_left[i + 1] - _right[i + 1]).normalized() * spread
+			draw_primitive(PackedVector2Array([_left[i] + off + n0, _left[i + 1] + off + n1,
+					_right[i + 1] + off - n1, _right[i] + off - n0]), PackedColorArray([col]), PackedVector2Array())
 	for i in _center.size() - 1:
 		var quad := PackedVector2Array([_left[i], _left[i + 1], _right[i + 1], _right[i]])
-		var shadow := PackedVector2Array()
-		for p in quad:
-			shadow.append(p + shadow_offset)
-		draw_primitive(shadow, PackedColorArray([Color(0, 0, 0, 0.22)]), PackedVector2Array())
 		draw_primitive(quad, PackedColorArray([Color(color, 0.32)]), PackedVector2Array())
+	# Track edges: a dark underside line (thickness) and a lit top line.
+	var under := _left.duplicate()
+	var under_r := _right.duplicate()
+	for i in under.size():
+		under[i] += Vector2(2, 3)
+		under_r[i] += Vector2(2, 3)
+	draw_polyline(under, Color(0, 0, 0, 0.45), 3.0, true)
+	draw_polyline(under_r, Color(0, 0, 0, 0.45), 3.0, true)
 	# Chevrons at the mouth show which way the ball has to be going to get in.
 	var dir := _mouth_dir()
 	var side := dir.orthogonal() * width * 0.3

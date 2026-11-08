@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/levels/level_base.tscn" id="1_base"]
 [ext_resource type="Script" path="res://scripts/wall.gd" id="2_wall"]
@@ -9,10 +9,11 @@
 [ext_resource type="Script" path="res://scripts/button_bank.gd" id="7_bank"]
 [ext_resource type="Script" path="res://scripts/target_button.gd" id="8_button"]
 [ext_resource type="PackedScene" path="res://scenes/tunnel.tscn" id="9_tunnel"]
+[ext_resource type="Script" path="res://scripts/breakable_wall.gd" id="10_break"]
 
 [node name="LevelFortress" instance=ExtResource("1_base")]
 level_name = "Fortress"
-description = "The boss hides inside a ring wall with two narrow gates. Get the ball in and it rattles off the boss again and again. The drawbridge ramp on the right drops the ball straight into the fortress."
+description = "The boss hides inside a ring wall with two narrow gates. Wall sections break after enough damage (10% of the boss's HP) and rebuild 10-15 s later. The drawbridge ramp on the right drops the ball straight into the fortress."
 art_rings = PackedVector3Array(280, 215, 98)
 
 [node name="CenterPost" type="StaticBody2D" parent="Walls"]
@@ -23,14 +24,26 @@ bounce = 0.6
 color = Color(0.55, 0.52, 1, 1)
 
 [node name="FortressBottom" type="StaticBody2D" parent="Walls"]
-script = ExtResource("2_wall")
+script = ExtResource("10_break")
 points = PackedVector2Array(317.6, 285.6, 299.4, 292.6, 280, 295, 260.6, 292.6, 242.4, 285.6)
 bounce = 0.5
 color = Color(0.62, 0.55, 0.95, 1)
 
-[node name="FortressTop" type="StaticBody2D" parent="Walls"]
-script = ExtResource("2_wall")
-points = PackedVector2Array(209.4, 252.6, 201.5, 230.5, 200.4, 207, 206.1, 184.3, 218.2, 164.2, 235.6, 148.5, 256.8, 138.4, 280, 135, 303.2, 138.4, 324.4, 148.5, 341.8, 164.2, 353.9, 184.3, 359.6, 207, 358.5, 230.5, 350.6, 252.6)
+[node name="FortressTopLeft" type="StaticBody2D" parent="Walls"]
+script = ExtResource("10_break")
+points = PackedVector2Array(209.4, 252.6, 201.9, 232.5, 200.1, 211.1, 204, 190, 213.4, 170.7, 227.5, 154.6)
+bounce = 0.5
+color = Color(0.62, 0.55, 0.95, 1)
+
+[node name="FortressTopMid" type="StaticBody2D" parent="Walls"]
+script = ExtResource("10_break")
+points = PackedVector2Array(230.7, 152, 249, 141.3, 269.4, 135.7, 290.6, 135.7, 311, 141.3, 329.3, 152)
+bounce = 0.5
+color = Color(0.62, 0.55, 0.95, 1)
+
+[node name="FortressTopRight" type="StaticBody2D" parent="Walls"]
+script = ExtResource("10_break")
+points = PackedVector2Array(332.5, 154.6, 346.6, 170.7, 356, 190, 359.9, 211.1, 358.1, 232.5, 350.6, 252.6)
 bounce = 0.5
 color = Color(0.62, 0.55, 0.95, 1)
 
