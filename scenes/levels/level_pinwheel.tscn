@@ -1,0 +1,154 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/levels/level_base.tscn" id="1_base"]
+[ext_resource type="Script" path="res://scripts/wall.gd" id="2_wall"]
+[ext_resource type="PackedScene" path="res://scenes/bumper.tscn" id="3_bumper"]
+[ext_resource type="PackedScene" path="res://scenes/boss_bumper.tscn" id="4_boss"]
+[ext_resource type="PackedScene" path="res://scenes/slingshot.tscn" id="5_sling"]
+[ext_resource type="Script" path="res://scripts/rollover.gd" id="6_rollover"]
+[ext_resource type="Script" path="res://scripts/button_bank.gd" id="7_bank"]
+[ext_resource type="Script" path="res://scripts/target_button.gd" id="8_button"]
+[ext_resource type="PackedScene" path="res://scenes/tunnel.tscn" id="9_tunnel"]
+
+[node name="LevelPinwheel" instance=ExtResource("1_base")]
+level_name = "Pinwheel"
+description = "The boss sits in the middle of a cross of four pop bumpers. Light all four spoke rollovers between them. The spiral ramp on the right drops the ball onto the top of the pinwheel."
+art_rings = PackedVector3Array(280, 390, 128)
+
+[node name="CenterPost" type="StaticBody2D" parent="Walls"]
+script = ExtResource("2_wall")
+points = PackedVector2Array(280, 720, 280, 720)
+thickness = 12.0
+bounce = 0.6
+color = Color(0.55, 0.52, 1, 1)
+
+[node name="SpokeNW" type="Area2D" parent="Rollovers"]
+position = Vector2(208, 318)
+script = ExtResource("6_rollover")
+group_name = &"spokes"
+legend_name = "Spoke"
+score_value = 100
+group_bonus = 2000
+color = Color(0.4, 0.9, 1, 1)
+
+[node name="SpokeNE" type="Area2D" parent="Rollovers"]
+position = Vector2(352, 318)
+script = ExtResource("6_rollover")
+group_name = &"spokes"
+legend_name = "Spoke"
+score_value = 100
+group_bonus = 2000
+color = Color(0.4, 0.9, 1, 1)
+
+[node name="SpokeSW" type="Area2D" parent="Rollovers"]
+position = Vector2(208, 462)
+script = ExtResource("6_rollover")
+group_name = &"spokes"
+legend_name = "Spoke"
+score_value = 100
+group_bonus = 2000
+color = Color(0.4, 0.9, 1, 1)
+
+[node name="SpokeSE" type="Area2D" parent="Rollovers"]
+position = Vector2(352, 462)
+script = ExtResource("6_rollover")
+group_name = &"spokes"
+legend_name = "Spoke"
+score_value = 100
+group_bonus = 2000
+color = Color(0.4, 0.9, 1, 1)
+
+[node name="Bumpers" type="Node2D" parent="."]
+
+[node name="BossBumper" parent="Bumpers" instance=ExtResource("4_boss")]
+position = Vector2(280, 390)
+radius = 36.0
+kick_strength = 800.0
+legend_name = "Boss bumper"
+color = Color(0.9, 0.16, 0.22, 1)
+hit_pitch = 0.7
+
+[node name="BumperN" parent="Bumpers" instance=ExtResource("3_bumper")]
+position = Vector2(280, 288)
+radius = 22.0
+
+[node name="BumperW" parent="Bumpers" instance=ExtResource("3_bumper")]
+position = Vector2(178, 390)
+radius = 22.0
+
+[node name="BumperE" parent="Bumpers" instance=ExtResource("3_bumper")]
+position = Vector2(382, 390)
+radius = 22.0
+
+[node name="BumperS" parent="Bumpers" instance=ExtResource("3_bumper")]
+position = Vector2(280, 492)
+radius = 22.0
+
+[node name="MiniBumperLeft" parent="Bumpers" instance=ExtResource("3_bumper")]
+position = Vector2(200, 610)
+radius = 16.0
+kick_strength = 600.0
+score_value = 50
+legend_name = "Mini bumper"
+color = Color(0.25, 0.95, 0.8, 1)
+
+[node name="MiniBumperRight" parent="Bumpers" instance=ExtResource("3_bumper")]
+position = Vector2(360, 610)
+radius = 16.0
+kick_strength = 600.0
+score_value = 50
+legend_name = "Mini bumper"
+color = Color(0.25, 0.95, 0.8, 1)
+
+[node name="KickerLeft" parent="." instance=ExtResource("5_sling")]
+corner_a = Vector2(26, 420)
+corner_b = Vector2(80, 480)
+corner_c = Vector2(26, 500)
+kick_strength = 550.0
+legend_name = "Wall kicker"
+color = Color(1, 0.8, 0.3, 1)
+
+[node name="Buttons" type="Node2D" parent="."]
+script = ExtResource("7_bank")
+
+[node name="ButtonL1" type="StaticBody2D" parent="Buttons"]
+script = ExtResource("8_button")
+point_a = Vector2(26, 236)
+point_b = Vector2(51.6, 258.3)
+
+[node name="ButtonL2" type="StaticBody2D" parent="Buttons"]
+script = ExtResource("8_button")
+point_a = Vector2(59.9, 265.6)
+point_b = Vector2(85.6, 287.9)
+
+[node name="ButtonL3" type="StaticBody2D" parent="Buttons"]
+script = ExtResource("8_button")
+point_a = Vector2(93.9, 295.1)
+point_b = Vector2(119.5, 317.5)
+
+[node name="ButtonT1" type="StaticBody2D" parent="Buttons"]
+script = ExtResource("8_button")
+point_a = Vector2(233, 128)
+point_b = Vector2(256, 128)
+
+[node name="ButtonT2" type="StaticBody2D" parent="Buttons"]
+script = ExtResource("8_button")
+point_a = Vector2(268, 128)
+point_b = Vector2(292, 128)
+
+[node name="ButtonT3" type="StaticBody2D" parent="Buttons"]
+script = ExtResource("8_button")
+point_a = Vector2(304, 128)
+point_b = Vector2(327, 128)
+
+[node name="Spiral" parent="." instance=ExtResource("9_tunnel")]
+z_index = 5
+path = PackedVector2Array(455, 650, 480, 590, 494, 520, 496, 450, 486, 380, 462, 322, 425, 275, 380, 248, 335, 236)
+width = 50.0
+entrance_posts = false
+min_entry_speed = 250.0
+entry_angle_deg = 65.0
+exit_max_speed = 400.0
+score_value = 1200
+color = Color(0.55, 0.75, 1, 1)
+legend_name = "Spiral ramp"

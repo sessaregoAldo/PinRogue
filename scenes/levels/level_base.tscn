@@ -60,6 +60,7 @@ kick_tilt_deg = 10.0
 kick_angle_jitter_deg = 4.0
 kick_strength_jitter = 0.08
 keep_tangent = 0.7
+multiplier_target = false
 
 [node name="SlingshotRight" parent="." instance=ExtResource("4_sling")]
 corner_a = Vector2(460, 793)
@@ -70,6 +71,7 @@ kick_tilt_deg = 10.0
 kick_angle_jitter_deg = 4.0
 kick_strength_jitter = 0.08
 keep_tangent = 0.7
+multiplier_target = false
 
 [node name="Rollovers" type="Node2D" parent="."]
 

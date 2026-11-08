@@ -39,6 +39,7 @@ func _physics_process(delta: float) -> void:
 			var ball := body as Ball
 			if ball and ball.in_play:
 				ball.set_velocity_safe(Vector2.UP * power)
+				GameManager.mark_launch()
 				Sfx.play("launch", linear_to_db(lerpf(0.4, 1.0, charge)))
 		charge = 0.0
 	if charge != previous:

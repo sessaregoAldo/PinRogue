@@ -141,7 +141,7 @@ func _physics_process(delta: float) -> void:
 			if _crosses(prev, cur, _left[last], _right[last]) and step.dot(_exit_dir()) > 0.0:
 				ball.leave_ramp()
 				ball.set_velocity_safe(ball.linear_velocity.limit_length(exit_max_speed))
-				GameManager.add_score(score_value, to_global(_center[_center.size() - 1]))
+				GameManager.add_score(score_value * (1 + GameManager.ramp_turbo), to_global(_center[_center.size() - 1]))
 				Sfx.play("ramp_land")
 				Sfx.play("ramp_complete")
 			elif _crosses(prev, cur, _left[0], _right[0]) and step.dot(_mouth_dir()) < 0.0:
@@ -154,11 +154,12 @@ func _physics_process(delta: float) -> void:
 
 ## Past the halfway mark, accelerate the ball along the track so it makes it through.
 func _apply_booster(ball: Ball, local_pos: Vector2, delta: float) -> void:
-	if not booster_enabled or _length <= 0.0:
+	if (not booster_enabled and GameManager.ramp_turbo <= 0) or _length <= 0.0:
 		return
 	var info := _track_info(local_pos)
 	var progress: float = info[0] / _length
-	if progress < booster_from or progress > booster_to:
+	var from := 0.0 if GameManager.ramp_turbo > 0 else booster_from # Turbo Ramps power-up
+	if progress < from or progress > booster_to:
 		return
 	var tangent := global_transform.basis_xform(info[1]).normalized()
 	var along := ball.linear_velocity.dot(tangent)
@@ -345,7 +346,8 @@ func _draw() -> void:
 	# Booster section: chevrons scrolling toward the exit, brighter while pushing.
 	if booster_enabled and _length > 0.0:
 		var spacing := 22.0
-		var start := _length * booster_from
+		var turbo := not Engine.is_editor_hint() and GameManager.ramp_turbo > 0
+		var start := _length * (0.0 if turbo else booster_from)
 		var finish := _length * booster_to
 		var shift := fmod(_anim * 60.0, spacing)
 		var s := start + shift

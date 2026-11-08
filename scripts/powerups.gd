@@ -12,9 +12,21 @@ extends Node2D
 const POWERUPS := [
 	{"id": "extra_ball", "title": "Extra Ball", "icon": "+1",
 		"desc": "One more ball for this run.", "color": Color(0.4, 1.0, 0.5), "weight": 0.8},
-	{"id": "multiplier", "title": "x2 Multiplier", "icon": "x2",
-		"desc": "Place it on a bumper or kicker. Hitting that part doubles your total score. 20 s cooldown.",
+	{"id": "multiplier", "title": "Score Multiplier", "icon": "x1.25",
+		"desc": "Place on a bumper or wall kicker: hitting it multiplies your score by 1.25. Pick again to upgrade a part to x1.5, then x2. 20 s cooldown.",
 		"color": Color(0.45, 1.0, 0.9), "weight": 1.2},
+	{"id": "ball_saver", "title": "Ball Saver", "icon": "<3",
+		"desc": "For 10 s after each launch, a drained ball comes back. Each stack adds 10 s.",
+		"color": Color(0.5, 1.0, 0.6), "weight": 0.9},
+	{"id": "turbo_ramps", "title": "Turbo Ramps", "icon": ">>",
+		"desc": "Ramp boosters fire from the entrance, so any ramp you get into completes. Ramps score +100% per stack.",
+		"color": Color(1.0, 0.7, 0.35), "weight": 0.9},
+	{"id": "boss_magnet", "title": "Boss Magnet", "icon": "(o)",
+		"desc": "The boss pulls nearby balls toward it for more boss hits. Stacks twice.",
+		"color": Color(1.0, 0.45, 0.45), "weight": 0.8},
+	{"id": "combo_master", "title": "Combo Master", "icon": "+%",
+		"desc": "Button combinations add +5% more of your score (10% -> 15%). Stacks.",
+		"color": Color(0.75, 0.55, 1.0), "weight": 0.8},
 	{"id": "gap_guard", "title": "Gap Guard", "icon": "==",
 		"desc": "A barrier below the flipper gap pops the ball back up. Breaks after 2 saves.",
 		"color": Color(0.4, 0.8, 1.0), "weight": 1.0},
@@ -27,8 +39,10 @@ const POWERUPS := [
 		"desc": "Boss hits deal +50% damage.", "color": Color(1.0, 0.4, 0.5), "weight": 0.8},
 ]
 
+## Score multiplier tiers: first pick on a part = x1.25, upgrades go x1.5, x2.
+const MULT_TIERS: Array[float] = [1.25, 1.5, 2.0]
+
 @export_group("Multiplier")
-@export var multiplier_value: float = 2.0
 @export var multiplier_cooldown: float = 20.0
 @export_group("Gap Guard")
 @export var gap_guard_a: Vector2 = Vector2(262, 1030)
@@ -162,7 +176,9 @@ func _roll_offer(count: int) -> Array:
 func _is_available(id: String) -> bool:
 	match id:
 		"multiplier":
-			return not _free_targets().is_empty()
+			return not _placeable_targets().is_empty()
+		"boss_magnet":
+			return GameManager.boss_magnet < BossBumper.MAGNET_MAX_STACKS
 		"gap_guard":
 			return not is_instance_valid(_gap_guard) or _gap_guard.saves < gap_guard_max
 		"outlane_guards":
@@ -197,6 +213,14 @@ func _apply(id: String) -> void:
 		"boss_crusher":
 			_crusher_stacks += 1
 			GameManager.boss_damage_mult += 0.5
+		"ball_saver":
+			GameManager.ball_save_seconds += 10.0
+		"turbo_ramps":
+			GameManager.ramp_turbo += 1
+		"boss_magnet":
+			GameManager.boss_magnet += 1
+		"combo_master":
+			GameManager.combo_bonus_extra += 0.05
 	_finish_choice()
 
 
@@ -288,15 +312,40 @@ func _free_targets() -> Array[Node2D]:
 	return out
 
 
+## Parts a multiplier pick can go on: free parts, plus parts whose multiplier
+## can still be upgraded.
+func _placeable_targets() -> Array[Node2D]:
+	var all: Array[Node2D] = []
+	_collect_targets(get_parent(), all)
+	var out: Array[Node2D] = []
+	for n in all:
+		if not _multipliers.has(n) or int(_multipliers[n].get("tier", 0)) < MULT_TIERS.size() - 1:
+			out.append(n)
+	return out
+
+
+## Bumpers (including the boss) and wall kickers. The bottom slingshots are
+## excluded (Slingshot.multiplier_target = false).
 func _collect_targets(node: Node, out: Array[Node2D]) -> void:
-	if node is Bumper or node is Slingshot:
+	if node is Bumper or (node is Slingshot and node.multiplier_target):
 		out.append(node)
 	for child in node.get_children():
 		_collect_targets(child, out)
 
 
+func _mult_text(mult: float) -> String:
+	return "x" + String.num(mult, 2)
+
+
+## What placing on `target` would give: "x1.25" for a free part, or the next tier.
+func _placement_label(target: Node2D) -> String:
+	if _multipliers.has(target):
+		return "%s (upgrade)" % _mult_text(MULT_TIERS[int(_multipliers[target]["tier"]) + 1])
+	return _mult_text(MULT_TIERS[0]) + " here"
+
+
 func _start_placement() -> void:
-	_place_targets = _free_targets()
+	_place_targets = _placeable_targets()
 	if _place_targets.is_empty():
 		_finish_choice()
 		return
@@ -311,15 +360,21 @@ func _start_placement() -> void:
 			best = d
 			_place_index = i
 	_placing = true
-	_banner.text = "Place your x%d multiplier\n<- / -> choose   ·   Enter / Space place   ·   or click a part" % int(multiplier_value)
+	_banner.text = "Place a x1.25 multiplier, or upgrade one you placed\n<- / -> choose   ·   Enter / Space place   ·   or click a part"
 	_banner.visible = true
 
 
 func _confirm_placement() -> void:
 	var target := _place_targets[_place_index]
-	_multipliers[target] = {"mult": multiplier_value, "ready_at": 0.0, "legend": _legend_of(target)}
+	var tier := 0
+	if _multipliers.has(target):
+		tier = mini(int(_multipliers[target]["tier"]) + 1, MULT_TIERS.size() - 1)
+		_multipliers[target]["tier"] = tier
+		_multipliers[target]["mult"] = MULT_TIERS[tier]
+	else:
+		_multipliers[target] = {"mult": MULT_TIERS[0], "tier": 0, "ready_at": 0.0, "legend": _legend_of(target)}
 	Sfx.play("multiplier")
-	GameManager.popup("x%d placed" % int(multiplier_value), _target_center(target), Color(0.45, 1.0, 0.9), true)
+	GameManager.popup(_mult_text(MULT_TIERS[tier]) + (" placed" if tier == 0 else "!"), _target_center(target), Color(0.45, 1.0, 0.9), true)
 	_finish_choice()
 
 
@@ -401,7 +456,7 @@ func _draw() -> void:
 		var center := _target_center(part)
 		var r := _target_radius(part) + 7.0
 		var remaining := clampf((float(m["ready_at"]) - _clock) / multiplier_cooldown, 0.0, 1.0)
-		var label := "x%d" % int(m["mult"])
+		var label := _mult_text(float(m["mult"]))
 		if remaining <= 0.0:
 			var glow := 0.6 + 0.4 * sin(_pulse * 5.0)
 			draw_arc(center, r, 0.0, TAU, 48, Color(0.45, 1.0, 0.9, glow), 3.0, true)
@@ -419,8 +474,9 @@ func _draw() -> void:
 			if i == _place_index:
 				var grow := 3.0 * sin(_pulse * 8.0)
 				draw_arc(center, r + grow, 0.0, TAU, 48, Color(1.0, 0.9, 0.3), 4.0, true)
-				draw_string_outline(font, center + Vector2(-40, -r - 8.0), "x%d here" % int(multiplier_value), HORIZONTAL_ALIGNMENT_CENTER, 80, 15, 4, Color.BLACK)
-				draw_string(font, center + Vector2(-40, -r - 8.0), "x%d here" % int(multiplier_value), HORIZONTAL_ALIGNMENT_CENTER, 80, 15, Color(1.0, 0.9, 0.3))
+				var label_y := -r - (24.0 if _multipliers.has(target) else 8.0)
+				draw_string_outline(font, center + Vector2(-60, label_y), _placement_label(target), HORIZONTAL_ALIGNMENT_CENTER, 120, 15, 4, Color.BLACK)
+				draw_string(font, center + Vector2(-60, label_y), _placement_label(target), HORIZONTAL_ALIGNMENT_CENTER, 120, 15, Color(1.0, 0.9, 0.3))
 			else:
 				draw_arc(center, r, 0.0, TAU, 40, Color(1, 1, 1, 0.35), 2.0, true)
 
@@ -437,7 +493,7 @@ func _status_lines() -> Array[String]:
 	for part in _multipliers:
 		if is_instance_valid(part):
 			var name_text: String = part.legend_name if "legend_name" in part else str(part.name)
-			lines.append("x%d on %s" % [int(_multipliers[part]["mult"]), name_text])
+			lines.append("%s on %s" % [_mult_text(float(_multipliers[part]["mult"])), name_text])
 	if is_instance_valid(_gap_guard) and not _gap_guard.is_queued_for_deletion() and _gap_guard.saves > 0:
 		lines.append("Gap Guard  %s" % "o".repeat(_gap_guard.saves))
 	var l := _left_guard.saves if is_instance_valid(_left_guard) and not _left_guard.is_queued_for_deletion() else 0
@@ -448,6 +504,14 @@ func _status_lines() -> Array[String]:
 		lines.append("Steady Hands +%d" % _steady_stacks)
 	if _crusher_stacks > 0:
 		lines.append("Boss Crusher +%d%%" % (_crusher_stacks * 50))
+	if GameManager.ball_save_seconds > 0.0:
+		lines.append("Ball Saver %ds" % int(GameManager.ball_save_seconds))
+	if GameManager.ramp_turbo > 0:
+		lines.append("Turbo Ramps x%d" % GameManager.ramp_turbo)
+	if GameManager.boss_magnet > 0:
+		lines.append("Boss Magnet x%d" % GameManager.boss_magnet)
+	if GameManager.combo_bonus_extra > 0.0:
+		lines.append("Combo Master +%d%%" % int(round(GameManager.combo_bonus_extra * 100.0)))
 	return lines
 
 
@@ -459,7 +523,7 @@ func _build_ui() -> void:
 	add_child(_ui)
 
 	_status = Label.new()
-	_status.position = Vector2(8, 34)
+	_status.position = Vector2(8, 52)
 	_status.add_theme_font_size_override("font_size", 13)
 	_status.add_theme_color_override("font_color", Color(0.75, 0.95, 1.0))
 	_status.add_theme_constant_override("outline_size", 4)

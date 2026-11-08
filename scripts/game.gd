@@ -39,6 +39,7 @@ func _ready() -> void:
 	_build_fade()
 	GameManager.nudge_cost = nudge_tilt_cost
 	GameManager.ball_lost.connect(_on_ball_lost)
+	GameManager.ball_saved.connect(_on_ball_saved)
 	GameManager.game_started.connect(_on_game_started)
 	GameManager.round_continued.connect(_on_round_continued)
 	GameManager.victory.connect(func(_score: int) -> void: ball.remove_from_play())
@@ -105,6 +106,11 @@ func _on_round_continued(_round_number: int) -> void:
 
 func _spawn_ball() -> void:
 	ball.place(level.spawn_point)
+
+
+func _on_ball_saved() -> void:
+	hud.show_banner("BALL SAVED", 0.8)
+	_on_ball_lost()
 
 
 func _on_ball_lost() -> void:

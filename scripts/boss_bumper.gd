@@ -107,3 +107,23 @@ func _short_number(n: int) -> String:
 		var k := n / 1000.0
 		return ("%dK" % int(k)) if is_equal_approx(k, roundf(k)) or k >= 100.0 else ("%.1fK" % k)
 	return str(n)
+
+
+## Boss Magnet power-up: pull playfield balls within MAGNET_RANGE toward the boss.
+const MAGNET_RANGE := 220.0
+const MAGNET_PULL := 3800.0 # px/s² per stack at point blank (gravity is 1100)
+## More than this traps the ball in orbit around the boss.
+const MAGNET_MAX_STACKS := 2
+
+func _physics_process(delta: float) -> void:
+	if Engine.is_editor_hint() or GameManager.boss_magnet <= 0 or hp <= 0:
+		return
+	for node in get_tree().get_nodes_in_group("ball"):
+		var ball := node as Ball
+		if ball == null or not ball.in_play or ball.ramp != null:
+			continue
+		var to_boss := global_position - ball.global_position
+		var dist := to_boss.length()
+		if dist < MAGNET_RANGE and dist > radius:
+			var falloff := 1.0 - dist / MAGNET_RANGE
+			ball.add_impulse(to_boss / dist * MAGNET_PULL * mini(GameManager.boss_magnet, MAGNET_MAX_STACKS) * falloff * delta)

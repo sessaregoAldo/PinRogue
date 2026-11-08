@@ -7,6 +7,8 @@ const PATHS: Array[String] = [
 	"res://scenes/levels/level_classic.tscn",
 	"res://scenes/levels/level_crossfire.tscn",
 	"res://scenes/levels/level_fortress.tscn",
+	"res://scenes/levels/level_pinwheel.tscn",
+	"res://scenes/levels/level_gauntlet.tscn",
 ]
 
 

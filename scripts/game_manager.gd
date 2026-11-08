@@ -24,6 +24,8 @@ signal powerup_choice_requested
 ## A new table layout was loaded (game.gd). Power-ups move their multipliers onto it.
 @warning_ignore("unused_signal")
 signal level_changed(level: Node)
+## A drained ball was rescued by the Ball Saver power-up (no ball lost).
+signal ball_saved
 
 const STARTING_BALLS := 3
 const TILT_WARN := 2.0
@@ -78,6 +80,15 @@ var tilt_limit_bonus: float = 0.0
 var nudge_cost: float = 1.0
 ## Multiplier applied to boss damage.
 var boss_damage_mult: float = 1.0
+## Ball Saver: seconds after each launch during which a drain is forgiven.
+var ball_save_seconds: float = 0.0
+## Turbo Ramps stacks: boosters fire from the entrance; ramps score +100% each.
+var ramp_turbo: int = 0
+## Boss Magnet stacks: the boss pulls nearby balls in.
+var boss_magnet: int = 0
+## Combo Master: extra share of the score added by a button combination.
+var combo_bonus_extra: float = 0.0
+var _save_timer: float = 0.0
 
 const SETTINGS_PATH := "user://settings.cfg"
 
@@ -101,6 +112,8 @@ func set_show_score_popups(on: bool) -> void:
 func _process(delta: float) -> void:
 	if not tilted and tilt_meter > 0.0 and not get_tree().paused:
 		tilt_meter = maxf(0.0, tilt_meter - TILT_DECAY * delta)
+	if _save_timer > 0.0 and not get_tree().paused:
+		_save_timer = maxf(0.0, _save_timer - delta)
 
 
 ## Award points. Pass `at` (a world position) to show a "+points" popup there.
@@ -195,6 +208,11 @@ func add_tilt(amount: float) -> void:
 func ball_drained() -> void:
 	if is_game_over:
 		return
+	if _save_timer > 0.0: # Ball Saver: this ball comes back
+		_save_timer = 0.0
+		Sfx.play("ramp_complete")
+		ball_saved.emit()
+		return
 	Sfx.play("drain")
 	balls_left -= 1
 	balls_changed.emit(balls_left)
@@ -231,6 +249,11 @@ func restart() -> void:
 	entering_name = false
 	tilt_limit_bonus = 0.0
 	boss_damage_mult = 1.0
+	ball_save_seconds = 0.0
+	ramp_turbo = 0
+	boss_magnet = 0
+	combo_bonus_extra = 0.0
+	_save_timer = 0.0
 	score_changed.emit(score)
 	balls_changed.emit(balls_left)
 	tilted_changed.emit(false)
@@ -247,3 +270,13 @@ func _setup_input() -> void:
 			var ev := InputEventKey.new()
 			ev.physical_keycode = key as Key
 			InputMap.action_add_event(action, ev)
+
+
+## Called when the plunger fires: starts the Ball Saver window (if owned).
+func mark_launch() -> void:
+	_save_timer = ball_save_seconds
+
+
+## Seconds left on the Ball Saver for the current ball (0 = not protected).
+func ball_save_remaining() -> float:
+	return _save_timer

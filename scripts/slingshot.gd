@@ -11,6 +11,8 @@ extends StaticBody2D
 @export var score_value: int = 10
 ## Name shown in the pause menu's scoring legend.
 @export var legend_name: String = "Slingshot"
+## Can the Score Multiplier power-up be placed on this part?
+@export var multiplier_target: bool = true
 @export var cooldown: float = 0.1
 @export var color: Color = Color(0.4, 1.0, 0.5)
 @export_group("Kick shaping")

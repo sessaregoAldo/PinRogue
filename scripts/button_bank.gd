@@ -99,7 +99,7 @@ func _on_button_hit(b: TargetButton) -> void:
 		_move_gold(b)
 
 	if _matches_goal():
-		var bonus := int(round(GameManager.score * match_bonus_ratio))
+		var bonus := int(round(GameManager.score * (match_bonus_ratio + GameManager.combo_bonus_extra)))
 		var where := _bank_center()
 		GameManager.add_score(bonus, where + Vector2(0, -18))
 		GameManager.popup("COMBO BONUS", where + Vector2(0, 8), Palette.BUTTON_LIT, true)

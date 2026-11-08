@@ -88,6 +88,21 @@ func _build_nudge_meter() -> void:
 
 func _process(_delta: float) -> void:
 	_update_nudge_meter()
+	_update_ball_save()
+
+
+var _save_label: Label
+
+
+## "BALL SAVE 7s" under the score while the Ball Saver protects the current ball.
+func _update_ball_save() -> void:
+	if _save_label == null:
+		_save_label = _make_label(Vector2(8, 30), Vector2(220, 20), 14, HORIZONTAL_ALIGNMENT_LEFT)
+		_save_label.add_theme_color_override("font_color", Color(0.5, 1.0, 0.6))
+	var left := GameManager.ball_save_remaining()
+	_save_label.visible = left > 0.0
+	if left > 0.0:
+		_save_label.text = "BALL SAVE %ds" % int(ceil(left))
 
 
 func _update_nudge_meter() -> void:
