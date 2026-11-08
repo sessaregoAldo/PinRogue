@@ -95,7 +95,7 @@ func _draw() -> void:
 
 	if show_hp_number:
 		var font := ThemeDB.fallback_font
-		var text := _short_number(hp)
+		var text := GameManager.format_short(hp) if not Engine.is_editor_hint() else _short_number(hp)
 		var pos := Vector2(-r, 5)
 		draw_string_outline(font, pos, text, HORIZONTAL_ALIGNMENT_CENTER, r * 2.0, 13, 4, Color(0, 0, 0, 0.9))
 		draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_CENTER, r * 2.0, 13, Color.WHITE)

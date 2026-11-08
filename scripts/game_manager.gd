@@ -280,3 +280,22 @@ func mark_launch() -> void:
 ## Seconds left on the Ball Saver for the current ball (0 = not protected).
 func ball_save_remaining() -> float:
 	return _save_timer
+
+
+## Compact number for small labels: 950 -> "950", 69900 -> "69.9K", 1250000 -> "1.25M".
+func format_short(n: int) -> String:
+	var a := absi(n)
+	var prefix := "-" if n < 0 else ""
+	if a >= 1000000000:
+		return prefix + _trim_decimals(a / 1000000000.0) + "B"
+	if a >= 1000000:
+		return prefix + _trim_decimals(a / 1000000.0) + "M"
+	if a >= 1000:
+		return prefix + _trim_decimals(a / 1000.0) + "K"
+	return str(n)
+
+
+func _trim_decimals(v: float) -> String:
+	if v >= 100.0:
+		return str(int(v))
+	return String.num(v, 1 if v >= 10.0 else 2)

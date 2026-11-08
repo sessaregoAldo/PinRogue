@@ -130,20 +130,45 @@ func _draw() -> void:
 		for i in range(points.size() - 1):
 			draw_dashed_line(points[i], points[i + 1], Color(color, 0.15 + 0.35 * progress), 2.0, 6.0)
 		return
-	var ratio := float(hp) / float(max_hp) if not Engine.is_editor_hint() else 1.0
-	var c := color.lerp(Color(0.85, 0.2, 0.3), 1.0 - ratio).lerp(Color.WHITE, _flash * 0.6)
-	draw_polyline(points, c, thickness, true)
+	var ratio := clampf(float(hp) / float(max_hp), 0.0, 1.0) if not Engine.is_editor_hint() else 1.0
+
+	# Casing: the section's full size, always drawn, so the bar keeps its place.
+	var border := Color(color.lightened(0.2), 0.75)
+	draw_polyline(points, border, thickness + 2.0, true)
 	for p in points:
-		draw_circle(p, thickness * 0.5, c)
-	# Cracks appear as it weakens.
-	if ratio < 0.67:
-		var mid := int(points.size() / 2.0)
-		var a := points[mid]
-		var b := points[mini(mid + 1, points.size() - 1)]
-		var n := (b - a).orthogonal().normalized() * thickness * 0.5
-		draw_line(a - n, a + n * 0.3 + (b - a) * 0.3, Color(0, 0, 0, 0.6), 1.5)
-	if ratio < 0.34:
-		var a2 := points[1]
-		var b2 := points[mini(2, points.size() - 1)]
-		var n2 := (b2 - a2).orthogonal().normalized() * thickness * 0.5
-		draw_line(a2 + n2, a2 - n2 * 0.3 + (b2 - a2) * 0.4, Color(0, 0, 0, 0.6), 1.5)
+		draw_circle(p, thickness * 0.5 + 1.0, border)
+	var casing := color.darkened(0.6)
+	draw_polyline(points, casing, thickness - 1.0, true)
+	for p in points:
+		draw_circle(p, thickness * 0.5 - 0.5, casing)
+
+	# Health fill: thins across the bar's width as HP drops (centered in the casing).
+	var fill_w := maxf(1.5, (thickness - 4.0) * ratio)
+	var fill := color.lerp(Color(0.95, 0.25, 0.35), 1.0 - ratio).lerp(Color.WHITE, _flash * 0.6)
+	draw_polyline(points, fill, fill_w, true)
+	for p in points:
+		draw_circle(p, fill_w * 0.5, fill)
+
+	# End caps mark where one section stops and the next begins.
+	for end in [[points[0], points[1]], [points[points.size() - 1], points[points.size() - 2]]]:
+		var p0: Vector2 = end[0]
+		var dir: Vector2 = ((end[1] as Vector2) - p0).normalized()
+		var side: Vector2 = dir.orthogonal() * (thickness * 0.5 + 2.0)
+		draw_line(p0 - side, p0 + side, Color(1, 1, 1, 0.8), 2.0, true)
+
+	# HP written along the middle of the bar, kept upright.
+	var mid := int(points.size() / 2.0)
+	var a := points[maxi(mid - 1, 0)]
+	var b := points[mid]
+	var angle := (b - a).angle()
+	if angle > PI * 0.5 or angle < -PI * 0.5:
+		angle += PI
+	var text := GameManager.format_short(hp) if not Engine.is_editor_hint() else "HP"
+	var font := ThemeDB.fallback_font
+	var font_size := 11
+	var width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+	draw_set_transform((a + b) * 0.5, angle)
+	var pos := Vector2(-width * 0.5, font_size * 0.35)
+	draw_string_outline(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, 3, Color(0, 0, 0, 0.85))
+	draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color.WHITE)
+	draw_set_transform(Vector2.ZERO, 0.0)

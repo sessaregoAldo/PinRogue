@@ -27,24 +27,28 @@ color = Color(0.55, 0.52, 1, 1)
 script = ExtResource("10_break")
 points = PackedVector2Array(317.6, 285.6, 299.4, 292.6, 280, 295, 260.6, 292.6, 242.4, 285.6)
 bounce = 0.5
+thickness = 14.0
 color = Color(0.62, 0.55, 0.95, 1)
 
 [node name="FortressTopLeft" type="StaticBody2D" parent="Walls"]
 script = ExtResource("10_break")
 points = PackedVector2Array(209.4, 252.6, 201.9, 232.5, 200.1, 211.1, 204, 190, 213.4, 170.7, 227.5, 154.6)
 bounce = 0.5
+thickness = 14.0
 color = Color(0.62, 0.55, 0.95, 1)
 
 [node name="FortressTopMid" type="StaticBody2D" parent="Walls"]
 script = ExtResource("10_break")
 points = PackedVector2Array(230.7, 152, 249, 141.3, 269.4, 135.7, 290.6, 135.7, 311, 141.3, 329.3, 152)
 bounce = 0.5
+thickness = 14.0
 color = Color(0.62, 0.55, 0.95, 1)
 
 [node name="FortressTopRight" type="StaticBody2D" parent="Walls"]
 script = ExtResource("10_break")
 points = PackedVector2Array(332.5, 154.6, 346.6, 170.7, 356, 190, 359.9, 211.1, 358.1, 232.5, 350.6, 252.6)
 bounce = 0.5
+thickness = 14.0
 color = Color(0.62, 0.55, 0.95, 1)
 
 [node name="GateLeft" type="Area2D" parent="Rollovers"]
