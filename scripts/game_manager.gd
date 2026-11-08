@@ -26,6 +26,8 @@ signal powerup_choice_requested
 signal level_changed(level: Node)
 ## A drained ball was rescued by the Ball Saver power-up (no ball lost).
 signal ball_saved
+## Touch and nudge control settings changed (Options > Controls).
+signal controls_changed
 
 const STARTING_BALLS := 3
 const TILT_WARN := 2.0
@@ -68,6 +70,11 @@ var current_level: int = 0
 var round_id: int = 0
 ## Option: show floating "+points" text where points are earned.
 var show_score_popups: bool = true
+## Touch and mobile controls (Options > Controls).
+## nudge_mode: "swipe" (swipe the upper screen) or "tilt" (jolt the phone).
+var nudge_mode: String = "swipe"
+## touch_controls: "auto" (shown on touch screens), "on" or "off".
+var touch_controls: String = "auto"
 
 # --- Run modifiers (set by power-ups, reset on restart) ---
 ## True while the high-score name entry is focused (blocks the pause menu / restart key).
@@ -99,6 +106,8 @@ func _ready() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(SETTINGS_PATH) == OK:
 		show_score_popups = bool(cfg.get_value("gameplay", "score_popups", true))
+		nudge_mode = str(cfg.get_value("controls", "nudge_mode", nudge_mode))
+		touch_controls = str(cfg.get_value("controls", "touch_controls", touch_controls))
 
 
 func set_show_score_popups(on: bool) -> void:
@@ -299,3 +308,22 @@ func _trim_decimals(v: float) -> String:
 	if v >= 100.0:
 		return str(int(v))
 	return String.num(v, 1 if v >= 10.0 else 2)
+
+
+func set_nudge_mode(mode: String) -> void:
+	nudge_mode = mode
+	_save_controls()
+
+
+func set_touch_controls(mode: String) -> void:
+	touch_controls = mode
+	_save_controls()
+
+
+func _save_controls() -> void:
+	var cfg := ConfigFile.new()
+	cfg.load(SETTINGS_PATH) # keep the other sections
+	cfg.set_value("controls", "nudge_mode", nudge_mode)
+	cfg.set_value("controls", "touch_controls", touch_controls)
+	cfg.save(SETTINGS_PATH)
+	controls_changed.emit()

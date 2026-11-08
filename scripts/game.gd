@@ -122,6 +122,16 @@ func _on_ball_lost() -> void:
 
 # --- Nudge ----------------------------------------------------------------------
 
+## Nudge in a direction: Vector2.LEFT, Vector2.RIGHT or Vector2.UP (touch swipes / phone tilt).
+func nudge_direction(dir: Vector2) -> void:
+	if dir.x < 0.0:
+		_nudge(Vector2(-nudge_side_strength, -nudge_side_strength * 0.25))
+	elif dir.x > 0.0:
+		_nudge(Vector2(nudge_side_strength, -nudge_side_strength * 0.25))
+	else:
+		_nudge(Vector2(0, -nudge_up_strength))
+
+
 ## Shove the cabinet: the ball gets a velocity change and the table jolts.
 func _nudge(impulse: Vector2) -> void:
 	if _nudge_timer > 0.0 or GameManager.tilted or GameManager.is_game_over:

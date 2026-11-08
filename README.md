@@ -12,6 +12,8 @@ Open this folder in Godot 4.3 and press F5.
 | Pause menu (Resume, Settings, Scoring, Restart, Exit) | Esc |
 | Debug: drop ball at mouse | Ctrl + left click (turn off with `debug_mouse_drop` on Main) |
 
+**Phones and tablets:** hold the bottom-left / bottom-right buttons for the flippers, pull the launcher (right lane) down and release, and swipe left / up / right in the upper screen to nudge. Options > Controls switches nudging to tilting the phone, and can force the on-screen buttons on or off. The "II" button at the top pauses.
+
 Rebind keys in Project Settings > Input Map. Any action you define there replaces the defaults in `game_manager.gd`.
 
 ## Layout
@@ -20,6 +22,7 @@ Rebind keys in Project Settings > Input Map. Any action you define there replace
 - `scenes/game.tscn` / `scripts/game.gd`: the game shell. It holds the ball, HUD, menus and power-ups, loads levels, and handles nudge/tilt and camera shake. Continue after a boss loads a random other level. **Debug builds: F9 / F10 switch level.**
 - `scenes/levels/`: the table layouts ("machines"). Each inherits `level_base.tscn`, which holds the shared walls, launcher, slingshots, inlanes, flippers and drain. Register new ones in `scripts/level_registry.gd`. Current machines: Classic, Crossfire, Fortress, Pinwheel, Gauntlet.
 - `scripts/breakable_wall.gd`: wall sections that take boss-style damage (HP = 10% of the boss's max HP), break, and rebuild 10-15 s later (the Fortress ring).
+- `scripts/touch_controls.gd`: on-screen controls for touch devices (flipper buttons, drag-back launcher, swipe or tilt nudges, pause button).
 - `scripts/version_tag.gd`: the version and build time shown in the bottom-left corner. Bump `application/config/version` in Project Settings for releases.
 - `scripts/sfx.gd`: autoload `Sfx`. It synthesizes the sound effects at startup, plays them on the "SFX" bus with `Sfx.play("name")`, and saves the volume settings to `user://settings.cfg`. To use real samples, replace entries in `_streams` with your own AudioStreams.
 - `scripts/pause_menu.gd`: the Esc menu. It runs while the game is paused.

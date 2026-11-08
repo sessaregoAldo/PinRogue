@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/game.gd" id="1_game"]
 [ext_resource type="PackedScene" path="res://scenes/ball.tscn" id="2_ball"]
@@ -8,6 +8,7 @@
 [ext_resource type="Script" path="res://scripts/boss_menu.gd" id="6_bossmenu"]
 [ext_resource type="Script" path="res://scripts/end_screen.gd" id="7_end"]
 [ext_resource type="PackedScene" path="res://scenes/pause_menu.tscn" id="8_pause"]
+[ext_resource type="Script" path="res://scripts/touch_controls.gd" id="9_touch"]
 
 [node name="Game" type="Node2D"]
 script = ExtResource("1_game")
@@ -27,6 +28,9 @@ script = ExtResource("3_popups")
 script = ExtResource("4_powerups")
 
 [node name="HUD" parent="." instance=ExtResource("5_hud")]
+
+[node name="TouchControls" type="CanvasLayer" parent="."]
+script = ExtResource("9_touch")
 
 [node name="BossMenu" type="CanvasLayer" parent="."]
 script = ExtResource("6_bossmenu")
