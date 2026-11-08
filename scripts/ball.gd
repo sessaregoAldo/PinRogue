@@ -78,7 +78,7 @@ func _ready() -> void:
 ## Wall/post hits click, louder when faster. Bumpers, slingshots and flippers
 ## play their own sounds.
 func _on_body_entered(body: Node) -> void:
-	if not in_play or body is Bumper or body is Slingshot or body is Flipper:
+	if not in_play or body is Bumper or body is Slingshot or body is Flipper or body is TargetButton:
 		return
 	var speed := linear_velocity.length()
 	if speed < 150.0:

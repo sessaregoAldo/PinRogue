@@ -1,6 +1,12 @@
-[gd_scene load_steps=2 format=3 uid="uid://dhxllf4qkv4rg"]
+[gd_scene load_steps=3 format=3 uid="uid://dhxllf4qkv4rg"]
 
 [ext_resource type="Script" path="res://scripts/flipper.gd" id="1_script"]
 
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_jymjd"]
+friction = 0.6
+
 [node name="Flipper" type="AnimatableBody2D"]
+collision_mask = 0
+physics_material_override = SubResource("PhysicsMaterial_jymjd")
+sync_to_physics = false
 script = ExtResource("1_script")

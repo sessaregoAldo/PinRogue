@@ -30,6 +30,7 @@ Rebind keys in Project Settings > Input Map. Any action you define there replace
 - `scripts/boss_menu.gd`: when the boss falls, choose **Continue** (keep score, balls and power-ups; the next boss has previous max HP × 5 × overkill ratio and a new red color) or **End Run** (victory screen). The HUD shows the round.
 - `scripts/palette.gd`: shared colors. The boss uses reds; the flippers, bumpers and post use a cool blue/teal family.
 - `tools/make_lofi.py` → `assets/music/lofi_loop.wav`: the background music, an original lo-fi loop composed in code (no third-party audio, free to use). Re-run with `py tools/make_lofi.py` to regenerate it. Its volume is under Pause → Settings → Music volume.
+- `scripts/button_bank.gd` + `scripts/target_button.gd`: the 6 buttons in the top corners (they also turn the launched ball into the bumpers). A hit toggles a button and scores 25. Light exactly the diamond-marked ones for +10% of your score. Hit the gold button through all 6 for score x1.25.
 - `scripts/rollover.gd`: lane switches. They light up when the ball rolls over them. When every rollover in a `group_name` is lit, the group pays `group_bonus` and resets (top lanes 2000, inlanes 1000).
 - `flipper.gd`, `bumper.gd`, `slingshot.gd`, `tunnel.gd`, `plunger.gd`, `drain.gd`: one script per table part. Tune them through the inspector exports.
 

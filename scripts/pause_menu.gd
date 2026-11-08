@@ -122,10 +122,25 @@ func _fill_scoring() -> void:
 	if boss:
 		var how := "your current score" if boss.damage_mode == BossBumper.DamageMode.CURRENT_SCORE \
 				else "%s" % GameManager.format_number(boss.score_value)
-		_scoring_footer.text = "Boss bumper: %s HP left.\nEach hit deals damage equal to %s.\nNothing scores while TILTed." \
+		_scoring_footer.text = "Boss bumper: %s HP left.\nEach hit deals damage equal to %s.\n" \
 				% [GameManager.format_number(boss.hp), how]
 	else:
-		_scoring_footer.text = "Nothing scores while TILTed."
+		_scoring_footer.text = ""
+	var bank := _find_bank(get_parent() if get_parent() else get_tree().current_scene)
+	if bank:
+		_scoring_footer.text += "\nButtons: light exactly the ones marked with a diamond\nfor +%d%% of your score.\nHit the gold button: it moves on. Clear all %d (%d left)\nfor score x%s.\n" \
+				% [int(round(bank.match_bonus_ratio * 100.0)), bank.button_count(), bank.chase_remaining(), String.num(bank.chase_multiplier, 2)]
+	_scoring_footer.text += "\nNothing scores while TILTed."
+
+
+func _find_bank(node: Node) -> ButtonBank:
+	if node is ButtonBank:
+		return node
+	for child in node.get_children():
+		var found := _find_bank(child)
+		if found:
+			return found
+	return null
 
 
 ## Top 10 from the Leaderboard autoload (online board, or this device's scores).
@@ -204,6 +219,9 @@ func _collect(node: Node, rows: Dictionary, groups: Dictionary) -> void:
 		_add_row(rows, node.legend_name, node.score_value, "per kick")
 	elif node is Tunnel:
 		_add_row(rows, node.legend_name, node.score_value, "full ride")
+	elif node is TargetButton:
+		var owner_bank := node.get_parent() as ButtonBank
+		_add_row(rows, owner_bank.legend_name if owner_bank else "Button", owner_bank.hit_points if owner_bank else 0, "per hit")
 	elif node is Rollover:
 		_add_row(rows, node.legend_name, node.score_value, "per pass")
 		var g: Dictionary = groups.get(node.group_name, {"name": node.legend_name, "bonus": node.group_bonus, "count": 0})

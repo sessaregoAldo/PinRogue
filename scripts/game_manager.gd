@@ -114,7 +114,7 @@ func multiply_score(mult: float, at: Variant = null) -> void:
 	score = int(round(score * mult))
 	score_changed.emit(score)
 	if at is Vector2:
-		var label := ("x%d" % int(mult)) if is_equal_approx(mult, roundf(mult)) else ("x%.1f" % mult)
+		var label := ("x%d" % int(mult)) if is_equal_approx(mult, roundf(mult)) else ("x" + String.num(mult, 2))
 		popup(label + " SCORE!", at, Color(0.45, 1.0, 0.9), true)
 
 

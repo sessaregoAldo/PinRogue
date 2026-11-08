@@ -191,6 +191,8 @@ func _build_sounds() -> void:
 		return _noise() * 0.5 * exp(-t * 9.0) + sin(TAU * (900.0 * t - 700.0 * t * t)) * 0.3 * (1.0 - p))
 	_streams["booster"] = _synth(0.3, func(t: float, p: float) -> float:
 		return (sin(TAU * (200.0 * t + 1500.0 * t * t)) * 0.4 + _noise() * 0.25) * sin(PI * p))
+	_streams["button"] = _synth(0.09, func(t: float, _p: float) -> float:
+		return (sin(TAU * 1046.5 * t) + 0.5 * sin(TAU * 1568.0 * t)) / 1.5 * 0.45 * exp(-t * 38.0) + _noise() * 0.2 * exp(-t * 400.0))
 	_streams["click"] = _synth(0.03, func(t: float, _p: float) -> float:
 		return sin(TAU * 1200.0 * t) * 0.4 * exp(-t * 200.0))
 

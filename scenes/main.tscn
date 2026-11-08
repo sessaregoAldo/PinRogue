@@ -1,4 +1,4 @@
-[gd_scene load_steps=31 format=3 uid="uid://1j61wai0vxmj"]
+[gd_scene load_steps=45 format=3 uid="uid://1j61wai0vxmj"]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/wall.gd" id="2_wall"]
@@ -17,65 +17,104 @@
 [ext_resource type="Script" path="res://scripts/powerups.gd" id="15_powerups"]
 [ext_resource type="Script" path="res://scripts/end_screen.gd" id="16_end"]
 [ext_resource type="Script" path="res://scripts/boss_menu.gd" id="17_bossmenu"]
+[ext_resource type="Script" path="res://scripts/button_bank.gd" id="18_bank"]
+[ext_resource type="Script" path="res://scripts/target_button.gd" id="19_button"]
 
-[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_n4c1k"]
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_yp5vg"]
 friction = 0.2
 bounce = 0.25
 
-[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_lhb5y"]
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_mt7g6"]
 friction = 0.2
 bounce = 0.25
 
-[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_7jn8w"]
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_iw1oi"]
 friction = 0.2
 
-[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_g5cro"]
-friction = 0.2
-bounce = 0.25
-
-[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_e7d5f"]
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_yj80c"]
 friction = 0.2
 bounce = 0.25
 
-[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_tubv5"]
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_onwic"]
 friction = 0.2
 bounce = 0.25
 
-[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_xnpyh"]
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_kjmm7"]
+friction = 0.2
+bounce = 0.25
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_wsg4w"]
 friction = 0.2
 bounce = 0.1
 
-[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_i2e31"]
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_vwdjf"]
 friction = 0.2
 bounce = 0.1
 
-[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_qsu32"]
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_uekv2"]
 friction = 0.2
 bounce = 0.25
 
-[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_hlbha"]
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_tl8h7"]
 friction = 0.2
 bounce = 0.25
 
-[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_4s2yi"]
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_73frh"]
 friction = 0.2
 bounce = 0.4
 
-[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_ijqwg"]
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_a6sbu"]
 friction = 0.2
 bounce = 0.4
 
-[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_tye75"]
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_t8w1q"]
 friction = 0.2
 bounce = 0.4
 
-[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_bsqmp"]
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_dui4o"]
 friction = 0.2
 bounce = 0.4
 
-[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_ev3ii"]
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_n46wb"]
 friction = 0.2
 bounce = 0.6
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_86p58"]
+bounce = 0.3
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_q5ghs"]
+bounce = 0.3
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_8dfl6"]
+bounce = 0.3
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_my1dg"]
+bounce = 0.3
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_luboe"]
+bounce = 0.3
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_oym3k"]
+bounce = 0.4
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_2eyxk"]
+bounce = 0.4
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_650t0"]
+bounce = 0.4
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_568c5"]
+bounce = 0.4
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_q1vq7"]
+friction = 0.6
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_gt3f4"]
+friction = 0.6
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_sn60x"]
+friction = 0.15
+bounce = 0.2
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -87,26 +126,26 @@ position = Vector2(300, 560)
 
 [node name="OuterWall" type="StaticBody2D" parent="Walls"]
 collision_mask = 0
-physics_material_override = SubResource("PhysicsMaterial_n4c1k")
+physics_material_override = SubResource("PhysicsMaterial_yp5vg")
 script = ExtResource("2_wall")
 points = PackedVector2Array(20, 1120, 20, 230, 24.3, 194.4, 36.9, 159.9, 57.5, 127.5, 85.5, 98.2, 120, 73, 160, 52.5, 204.2, 37.4, 251.4, 28.1, 300, 25, 348.6, 28.1, 395.8, 37.4, 440, 52.5, 480, 73, 514.5, 98.2, 542.5, 127.5, 563.1, 159.9, 575.7, 194.4, 580, 230, 580, 1120)
 
 [node name="ShooterLaneWall" type="StaticBody2D" parent="Walls"]
 collision_mask = 0
-physics_material_override = SubResource("PhysicsMaterial_lhb5y")
+physics_material_override = SubResource("PhysicsMaterial_mt7g6")
 script = ExtResource("2_wall")
 points = PackedVector2Array(540, 1120, 540, 300)
 
 [node name="ShooterLaneFloor" type="StaticBody2D" parent="Walls"]
 collision_mask = 0
-physics_material_override = SubResource("PhysicsMaterial_7jn8w")
+physics_material_override = SubResource("PhysicsMaterial_iw1oi")
 script = ExtResource("2_wall")
 points = PackedVector2Array(540, 1040, 580, 1040)
 bounce = 0.0
 
 [node name="ShooterGate" type="StaticBody2D" parent="Walls"]
 collision_mask = 0
-physics_material_override = SubResource("PhysicsMaterial_g5cro")
+physics_material_override = SubResource("PhysicsMaterial_yj80c")
 script = ExtResource("2_wall")
 points = PackedVector2Array(544, 296, 576, 268)
 thickness = 6.0
@@ -114,45 +153,33 @@ one_way = true
 
 [node name="LeftInlaneGuide" type="StaticBody2D" parent="Walls"]
 collision_mask = 0
-physics_material_override = SubResource("PhysicsMaterial_e7d5f")
+physics_material_override = SubResource("PhysicsMaterial_onwic")
 script = ExtResource("2_wall")
 points = PackedVector2Array(60, 813, 60, 893, 194, 970)
 
 [node name="RightInlaneGuide" type="StaticBody2D" parent="Walls"]
 collision_mask = 0
-physics_material_override = SubResource("PhysicsMaterial_tubv5")
+physics_material_override = SubResource("PhysicsMaterial_kjmm7")
 script = ExtResource("2_wall")
 points = PackedVector2Array(500, 813, 500, 893, 366, 970)
 
 [node name="FunnelLeft" type="StaticBody2D" parent="Walls"]
 collision_mask = 0
-physics_material_override = SubResource("PhysicsMaterial_xnpyh")
+physics_material_override = SubResource("PhysicsMaterial_wsg4w")
 script = ExtResource("2_wall")
 points = PackedVector2Array(24, 1010, 150, 1050, 252, 1080)
 bounce = 0.1
 
 [node name="FunnelRight" type="StaticBody2D" parent="Walls"]
 collision_mask = 0
-physics_material_override = SubResource("PhysicsMaterial_i2e31")
+physics_material_override = SubResource("PhysicsMaterial_vwdjf")
 script = ExtResource("2_wall")
 points = PackedVector2Array(536, 1010, 410, 1050, 308, 1080)
 bounce = 0.1
 
-[node name="OrbitDeflectorLeft" type="StaticBody2D" parent="Walls"]
-collision_mask = 0
-physics_material_override = SubResource("PhysicsMaterial_qsu32")
-script = ExtResource("2_wall")
-points = PackedVector2Array(24, 236, 29, 260, 42, 281, 64, 297, 96, 306)
-
-[node name="OrbitDeflectorRight" type="StaticBody2D" parent="Walls"]
-collision_mask = 0
-physics_material_override = SubResource("PhysicsMaterial_hlbha")
-script = ExtResource("2_wall")
-points = PackedVector2Array(536, 300, 531, 324, 518, 345, 496, 361, 464, 370)
-
 [node name="TopLaneGuide1" type="StaticBody2D" parent="Walls"]
 collision_mask = 0
-physics_material_override = SubResource("PhysicsMaterial_4s2yi")
+physics_material_override = SubResource("PhysicsMaterial_73frh")
 script = ExtResource("2_wall")
 points = PackedVector2Array(212, 162, 212, 195)
 thickness = 6.0
@@ -160,7 +187,7 @@ bounce = 0.4
 
 [node name="TopLaneGuide2" type="StaticBody2D" parent="Walls"]
 collision_mask = 0
-physics_material_override = SubResource("PhysicsMaterial_ijqwg")
+physics_material_override = SubResource("PhysicsMaterial_a6sbu")
 script = ExtResource("2_wall")
 points = PackedVector2Array(257, 150, 257, 195)
 thickness = 6.0
@@ -168,7 +195,7 @@ bounce = 0.4
 
 [node name="TopLaneGuide3" type="StaticBody2D" parent="Walls"]
 collision_mask = 0
-physics_material_override = SubResource("PhysicsMaterial_tye75")
+physics_material_override = SubResource("PhysicsMaterial_t8w1q")
 script = ExtResource("2_wall")
 points = PackedVector2Array(302, 150, 302, 195)
 thickness = 6.0
@@ -176,7 +203,7 @@ bounce = 0.4
 
 [node name="TopLaneGuide4" type="StaticBody2D" parent="Walls"]
 collision_mask = 0
-physics_material_override = SubResource("PhysicsMaterial_bsqmp")
+physics_material_override = SubResource("PhysicsMaterial_dui4o")
 script = ExtResource("2_wall")
 points = PackedVector2Array(347, 162, 347, 195)
 thickness = 6.0
@@ -184,7 +211,7 @@ bounce = 0.4
 
 [node name="CenterPost" type="StaticBody2D" parent="Walls"]
 collision_mask = 0
-physics_material_override = SubResource("PhysicsMaterial_ev3ii")
+physics_material_override = SubResource("PhysicsMaterial_n46wb")
 script = ExtResource("2_wall")
 points = PackedVector2Array(280, 720, 280, 720)
 thickness = 12.0
@@ -195,12 +222,18 @@ color = Color(0.55, 0.52, 1, 1)
 
 [node name="BumperLeft" parent="Bumpers" instance=ExtResource("5_bumper")]
 position = Vector2(205, 300)
+collision_mask = 0
+physics_material_override = SubResource("PhysicsMaterial_86p58")
 
 [node name="BumperRight" parent="Bumpers" instance=ExtResource("5_bumper")]
 position = Vector2(355, 300)
+collision_mask = 0
+physics_material_override = SubResource("PhysicsMaterial_q5ghs")
 
 [node name="BossBumper" parent="Bumpers" instance=ExtResource("13_boss")]
 position = Vector2(280, 400)
+collision_mask = 0
+physics_material_override = SubResource("PhysicsMaterial_8dfl6")
 radius = 36.0
 kick_strength = 800.0
 legend_name = "Boss bumper"
@@ -208,7 +241,9 @@ color = Color(0.9, 0.16, 0.22, 1)
 hit_pitch = 0.7
 
 [node name="MiniBumperLeft" parent="Bumpers" instance=ExtResource("5_bumper")]
-position = Vector2(105, 595)
+position = Vector2(145, 215)
+collision_mask = 0
+physics_material_override = SubResource("PhysicsMaterial_my1dg")
 radius = 16.0
 kick_strength = 600.0
 score_value = 50
@@ -216,7 +251,9 @@ legend_name = "Mini bumper"
 color = Color(0.25, 0.95, 0.8, 1)
 
 [node name="MiniBumperRight" parent="Bumpers" instance=ExtResource("5_bumper")]
-position = Vector2(455, 595)
+position = Vector2(415, 215)
+collision_mask = 0
+physics_material_override = SubResource("PhysicsMaterial_luboe")
 radius = 16.0
 kick_strength = 600.0
 score_value = 50
@@ -224,6 +261,8 @@ legend_name = "Mini bumper"
 color = Color(0.25, 0.95, 0.8, 1)
 
 [node name="SlingshotLeft" parent="." instance=ExtResource("6_sling")]
+collision_mask = 0
+physics_material_override = SubResource("PhysicsMaterial_oym3k")
 corner_a = Vector2(100, 793)
 corner_b = Vector2(145, 908)
 corner_c = Vector2(100, 883)
@@ -234,6 +273,8 @@ kick_strength_jitter = 0.08
 keep_tangent = 0.7
 
 [node name="SlingshotRight" parent="." instance=ExtResource("6_sling")]
+collision_mask = 0
+physics_material_override = SubResource("PhysicsMaterial_2eyxk")
 corner_a = Vector2(460, 793)
 corner_b = Vector2(415, 908)
 corner_c = Vector2(460, 883)
@@ -244,6 +285,8 @@ kick_strength_jitter = 0.08
 keep_tangent = 0.7
 
 [node name="KickerLeft" parent="." instance=ExtResource("6_sling")]
+collision_mask = 0
+physics_material_override = SubResource("PhysicsMaterial_650t0")
 corner_a = Vector2(26, 420)
 corner_b = Vector2(80, 480)
 corner_c = Vector2(26, 500)
@@ -252,6 +295,8 @@ legend_name = "Wall kicker"
 color = Color(1, 0.8, 0.3, 1)
 
 [node name="KickerRight" parent="." instance=ExtResource("6_sling")]
+collision_mask = 0
+physics_material_override = SubResource("PhysicsMaterial_568c5")
 corner_a = Vector2(536, 420)
 corner_b = Vector2(482, 480)
 corner_c = Vector2(536, 500)
@@ -263,21 +308,33 @@ color = Color(1, 0.8, 0.3, 1)
 
 [node name="TopLaneA" type="Area2D" parent="Rollovers"]
 position = Vector2(234.5, 172)
+collision_layer = 0
+collision_mask = 2
+monitorable = false
 script = ExtResource("12_rollover")
 legend_name = "Top lane"
 
 [node name="TopLaneB" type="Area2D" parent="Rollovers"]
 position = Vector2(279.5, 172)
+collision_layer = 0
+collision_mask = 2
+monitorable = false
 script = ExtResource("12_rollover")
 legend_name = "Top lane"
 
 [node name="TopLaneC" type="Area2D" parent="Rollovers"]
 position = Vector2(324.5, 172)
+collision_layer = 0
+collision_mask = 2
+monitorable = false
 script = ExtResource("12_rollover")
 legend_name = "Top lane"
 
 [node name="InlaneLeft" type="Area2D" parent="Rollovers"]
 position = Vector2(80, 855)
+collision_layer = 0
+collision_mask = 2
+monitorable = false
 script = ExtResource("12_rollover")
 group_name = &"inlanes"
 score_value = 100
@@ -287,6 +344,9 @@ color = Color(1, 0.5, 0.2, 1)
 
 [node name="InlaneRight" type="Area2D" parent="Rollovers"]
 position = Vector2(480, 855)
+collision_layer = 0
+collision_mask = 2
+monitorable = false
 script = ExtResource("12_rollover")
 group_name = &"inlanes"
 score_value = 100
@@ -294,51 +354,101 @@ legend_name = "Inlane"
 group_bonus = 1000
 color = Color(1, 0.5, 0.2, 1)
 
+[node name="Buttons" type="Node2D" parent="."]
+script = ExtResource("18_bank")
+
+[node name="ButtonL1" type="StaticBody2D" parent="Buttons"]
+script = ExtResource("19_button")
+point_a = Vector2(26, 236)
+point_b = Vector2(51.6, 258.3)
+
+[node name="ButtonL2" type="StaticBody2D" parent="Buttons"]
+script = ExtResource("19_button")
+point_a = Vector2(59.9, 265.6)
+point_b = Vector2(85.6, 287.9)
+
+[node name="ButtonL3" type="StaticBody2D" parent="Buttons"]
+script = ExtResource("19_button")
+point_a = Vector2(93.9, 295.1)
+point_b = Vector2(119.5, 317.5)
+
+[node name="ButtonR1" type="StaticBody2D" parent="Buttons"]
+script = ExtResource("19_button")
+point_a = Vector2(534, 300)
+point_b = Vector2(508.4, 322.3)
+
+[node name="ButtonR2" type="StaticBody2D" parent="Buttons"]
+script = ExtResource("19_button")
+point_a = Vector2(500.1, 329.6)
+point_b = Vector2(474.4, 351.9)
+
+[node name="ButtonR3" type="StaticBody2D" parent="Buttons"]
+script = ExtResource("19_button")
+point_a = Vector2(466.2, 359.1)
+point_b = Vector2(440.5, 381.5)
+
 [node name="TunnelLeft" parent="." instance=ExtResource("7_tunnel")]
-modulate = Color(1, 1, 1, 0.8)
 z_index = 5
-path = PackedVector2Array(190, 700, 162, 630, 148, 560, 150, 505, 165, 465, 190, 440, 215, 428, 232, 440, 240, 475, 240, 520, 236, 560)
+path = PackedVector2Array(80, 730, 66, 660, 60, 595, 66, 545, 88, 515, 118, 503, 145, 508, 160, 530, 165, 565, 166, 600)
+width = 44.0
+min_entry_speed = 250.0
+entry_angle_deg = 65.0
 exit_max_speed = 350.0
-normal_opacity = 0.8
-under_opacity = 0.25
-riding_opacity = 1.0
-fade_speed = 10.0
-fade_margin = 16.0
+legend_name = "Left loop"
 
 [node name="TunnelRight" parent="." instance=ExtResource("7_tunnel")]
-modulate = Color(1, 1, 1, 0.8)
 z_index = 7
-path = PackedVector2Array(355, 705, 388, 640, 410, 580, 420, 525, 412, 485, 390, 458, 362, 446, 338, 456, 320, 482, 312, 515, 310, 550, 312, 590)
+path = PackedVector2Array(478, 720, 495, 650, 500, 590, 490, 545, 465, 520, 430, 510, 400, 518, 378, 545, 372, 585, 375, 620)
+width = 44.0
 rail_layer = 5
+min_entry_speed = 250.0
+entry_angle_deg = 65.0
 exit_max_speed = 350.0
 score_value = 750
 color = Color(1, 0.6, 0.3, 1)
-normal_opacity = 0.8
-under_opacity = 0.25
-riding_opacity = 1.0
-fade_speed = 10.0
-fade_margin = 16.0
+legend_name = "Right loop"
 
 [node name="FlipperLeft" parent="." instance=ExtResource("4_flipper")]
 position = Vector2(200, 982)
+collision_mask = 0
+physics_material_override = SubResource("PhysicsMaterial_q1vq7")
+sync_to_physics = false
 
 [node name="FlipperRight" parent="." instance=ExtResource("4_flipper")]
 position = Vector2(360, 982)
+collision_mask = 0
+physics_material_override = SubResource("PhysicsMaterial_gt3f4")
+sync_to_physics = false
 side = 1
 
 [node name="Plunger" type="Area2D" parent="."]
 position = Vector2(560, 1018)
+collision_layer = 0
+collision_mask = 2
+monitorable = false
 script = ExtResource("9_plunger")
 min_power = 650.0
 max_power = 2100.0
 
 [node name="Drain" type="Area2D" parent="."]
 position = Vector2(280, 1098)
+collision_layer = 0
+collision_mask = 2
+monitorable = false
 script = ExtResource("10_drain")
 size = Vector2(70, 24)
 
 [node name="Ball" parent="." instance=ExtResource("3_ball")]
 position = Vector2(560, 1020)
+collision_layer = 2
+collision_mask = 3
+physics_material_override = SubResource("PhysicsMaterial_sn60x")
+can_sleep = false
+freeze_mode = 1
+continuous_cd = 2
+contact_monitor = true
+max_contacts_reported = 4
+angular_damp = 1.0
 
 [node name="ScorePopups" type="Node2D" parent="."]
 script = ExtResource("14_popups")

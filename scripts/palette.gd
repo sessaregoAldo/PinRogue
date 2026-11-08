@@ -30,3 +30,8 @@ static func random_boss_color(current: Color) -> Color:
 		if not c.is_equal_approx(current):
 			choices.append(c)
 	return choices[randi() % choices.size()]
+
+# --- Target buttons -------------------------------------------------------------
+const BUTTON_OFF := Color(0.34, 0.37, 0.55) # unlit
+const BUTTON_LIT := Color(0.74, 0.52, 1.0) # violet
+const BUTTON_SPECIAL := Color(1.0, 0.82, 0.25) # gold: the "chase" button
