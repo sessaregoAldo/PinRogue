@@ -32,21 +32,21 @@ color = Color(0.62, 0.55, 0.95, 1)
 
 [node name="FortressTopLeft" type="StaticBody2D" parent="Walls"]
 script = ExtResource("10_break")
-points = PackedVector2Array(209.4, 252.6, 201.9, 232.5, 200.1, 211.1, 204, 190, 213.4, 170.7, 227.5, 154.6)
+points = PackedVector2Array(209.4, 252.6, 202.6, 235.2, 200, 216.8, 201.8, 198.3, 207.7, 180.7, 217.6, 165)
 bounce = 0.5
 thickness = 14.0
 color = Color(0.62, 0.55, 0.95, 1)
 
 [node name="FortressTopMid" type="StaticBody2D" parent="Walls"]
 script = ExtResource("10_break")
-points = PackedVector2Array(230.7, 152, 249, 141.3, 269.4, 135.7, 290.6, 135.7, 311, 141.3, 329.3, 152)
+points = PackedVector2Array(236.1, 148.1, 252.7, 139.8, 270.7, 135.5, 289.3, 135.5, 307.3, 139.8, 323.9, 148.1)
 bounce = 0.5
 thickness = 14.0
 color = Color(0.62, 0.55, 0.95, 1)
 
 [node name="FortressTopRight" type="StaticBody2D" parent="Walls"]
 script = ExtResource("10_break")
-points = PackedVector2Array(332.5, 154.6, 346.6, 170.7, 356, 190, 359.9, 211.1, 358.1, 232.5, 350.6, 252.6)
+points = PackedVector2Array(342.4, 165, 352.3, 180.7, 358.2, 198.3, 360, 216.8, 357.4, 235.2, 350.6, 252.6)
 bounce = 0.5
 thickness = 14.0
 color = Color(0.62, 0.55, 0.95, 1)

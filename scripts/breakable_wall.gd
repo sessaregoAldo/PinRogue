@@ -149,13 +149,6 @@ func _draw() -> void:
 	for p in points:
 		draw_circle(p, fill_w * 0.5, fill)
 
-	# End caps mark where one section stops and the next begins.
-	for end in [[points[0], points[1]], [points[points.size() - 1], points[points.size() - 2]]]:
-		var p0: Vector2 = end[0]
-		var dir: Vector2 = ((end[1] as Vector2) - p0).normalized()
-		var side: Vector2 = dir.orthogonal() * (thickness * 0.5 + 2.0)
-		draw_line(p0 - side, p0 + side, Color(1, 1, 1, 0.8), 2.0, true)
-
 	# HP written along the middle of the bar, kept upright.
 	var mid := int(points.size() / 2.0)
 	var a := points[maxi(mid - 1, 0)]
