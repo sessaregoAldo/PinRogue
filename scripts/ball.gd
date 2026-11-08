@@ -28,6 +28,8 @@ var _ramp_bits: int = 0
 ## Physics frames left with collisions disabled after a teleport. Without this,
 ## the solver treats the jump as motion through walls and shoves the ball out
 ## the wrong side (e.g. out of the shooter lane on restart).
+## -1 = a teleport is requested but not applied yet; the 2-frame count only
+## starts once the physics step has actually moved the ball.
 var _collision_hold: int = 0
 ## 0 = fully visible, 1 = hidden under an overpass (only the outline shows).
 var _behind: float = 0.0
@@ -89,6 +91,8 @@ func _on_body_entered(body: Node) -> void:
 func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:
 	if _pending_position != null:
 		state.transform = Transform2D(0.0, _pending_position)
+		if _collision_hold != 0:
+			_collision_hold = 2 # count from the moment the ball is really there
 		_pending_position = null
 	if _pending_velocity != null:
 		state.linear_velocity = _pending_velocity
@@ -212,7 +216,7 @@ func place(pos: Vector2, vel: Vector2 = Vector2.ZERO) -> void:
 
 
 func _do_place(pos: Vector2, vel: Vector2) -> void:
-	_collision_hold = 2 # collide again only once the ball is at `pos`
+	_collision_hold = -1 # collisions stay off until the teleport has happened + 2 frames
 	if freeze:
 		global_position = pos
 	leave_ramp()
@@ -230,7 +234,7 @@ func _set_frozen(frozen: bool) -> void:
 
 
 func _apply_layers() -> void:
-	if freeze or _collision_hold > 0:
+	if freeze or _collision_hold != 0:
 		collision_layer = 0
 		collision_mask = 0
 	elif ramp != null:

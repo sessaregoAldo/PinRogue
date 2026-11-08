@@ -16,7 +16,10 @@ Rebind keys in Project Settings > Input Map. Any action you define there replace
 
 ## Layout
 - `scripts/game_manager.gd`: autoload with score, balls, tilt and signals.
-- `scripts/main.gd`: spawning, nudge/tilt, camera shake (on the root of `scenes/main.tscn`).
+- `scenes/main_menu.tscn` / `scripts/main_menu.gd`: the main menu (Start Run, Options, Leaderboard, Machines, Exit). It is the project's main scene.
+- `scenes/game.tscn` / `scripts/game.gd`: the game shell. It holds the ball, HUD, menus and power-ups, loads levels, and handles nudge/tilt and camera shake. Continue after a boss loads a random other level. **Debug builds: F9 / F10 switch level.**
+- `scenes/levels/`: the table layouts ("machines"). Each inherits `level_base.tscn`, which holds the shared walls, launcher, slingshots, inlanes, flippers and drain. Register new ones in `scripts/level_registry.gd`. Current machines: Classic, Crossfire, Fortress.
+- `scripts/version_tag.gd`: the version and build time shown in the bottom-left corner. Bump `application/config/version` in Project Settings for releases.
 - `scripts/sfx.gd`: autoload `Sfx`. It synthesizes the sound effects at startup, plays them on the "SFX" bus with `Sfx.play("name")`, and saves the volume settings to `user://settings.cfg`. To use real samples, replace entries in `_streams` with your own AudioStreams.
 - `scripts/pause_menu.gd`: the Esc menu. It runs while the game is paused.
 - `scripts/ball.gd`: the ball. Change its position and velocity only through `place()`, `kick()`, `add_impulse()` and `set_velocity_safe()`.

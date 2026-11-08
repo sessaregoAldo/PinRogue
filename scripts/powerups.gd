@@ -75,6 +75,7 @@ func _ready() -> void:
 	GameManager.powerup_choice_requested.connect(_on_choice_requested)
 	GameManager.part_hit.connect(_on_part_hit)
 	GameManager.game_started.connect(_reset_run)
+	GameManager.level_changed.connect(_on_level_changed)
 	# A lane set completed while the boss menu was open is offered after Continue.
 	GameManager.round_continued.connect(func(_r: int) -> void:
 		if _pending_choices > 0 and not GameManager.choosing:
@@ -186,10 +187,10 @@ func _apply(id: String) -> void:
 			_start_placement()
 			return # finishes after the player places it
 		"gap_guard":
-			_gap_guard = _grow_guard(_gap_guard, gap_guard_a, gap_guard_b, Vector2.UP, 450.0, 8.0, 16.0, gap_guard_saves, gap_guard_max)
+			_gap_guard = _grow_guard(_gap_guard, _guard_pos("gap_guard", 0, gap_guard_a), _guard_pos("gap_guard", 1, gap_guard_b), Vector2.UP, 450.0, 8.0, 16.0, gap_guard_saves, gap_guard_max)
 		"outlane_guards":
-			_left_guard = _grow_guard(_left_guard, left_outlane_a, left_outlane_b, Vector2(0.35, -1.0), 620.0, 0.0, 0.0, outlane_guard_saves, outlane_guard_max)
-			_right_guard = _grow_guard(_right_guard, right_outlane_a, right_outlane_b, Vector2(-0.35, -1.0), 620.0, 0.0, 0.0, outlane_guard_saves, outlane_guard_max)
+			_left_guard = _grow_guard(_left_guard, _guard_pos("left_outlane_guard", 0, left_outlane_a), _guard_pos("left_outlane_guard", 1, left_outlane_b), Vector2(0.35, -1.0), 620.0, 0.0, 0.0, outlane_guard_saves, outlane_guard_max)
+			_right_guard = _grow_guard(_right_guard, _guard_pos("right_outlane_guard", 0, right_outlane_a), _guard_pos("right_outlane_guard", 1, right_outlane_b), Vector2(-0.35, -1.0), 620.0, 0.0, 0.0, outlane_guard_saves, outlane_guard_max)
 		"steady_hands":
 			_steady_stacks += 1
 			GameManager.tilt_limit_bonus += 1.0
@@ -209,6 +210,48 @@ func _finish_choice() -> void:
 		return
 	GameManager.choosing = false
 	get_tree().paused = false
+
+
+# --- Level switching ------------------------------------------------------------
+
+var _level: Level
+
+
+## A new layout was loaded: move each placed multiplier onto a part of the new
+## level, preferring the same kind (e.g. "Pop bumper"), otherwise any free part.
+## Guards stay: every level shares the same flipper/outlane area.
+func _on_level_changed(new_level: Node) -> void:
+	_level = new_level as Level
+	if _multipliers.is_empty():
+		return
+	var carried: Array = _multipliers.values()
+	_multipliers.clear()
+	for info: Dictionary in carried:
+		var free := _free_targets()
+		if free.is_empty():
+			break
+		var target: Node2D = free[randi() % free.size()]
+		for t in free:
+			if _legend_of(t) == info.get("legend", ""):
+				target = t
+				break
+		info["legend"] = _legend_of(target)
+		_multipliers[target] = info
+	_update_status()
+	queue_redraw()
+
+
+func _legend_of(node: Node) -> String:
+	return str(node.legend_name) if "legend_name" in node else str(node.name)
+
+
+## Guard endpoint from the current level's exports, falling back to this node's.
+func _guard_pos(property: String, index: int, fallback: Vector2) -> Vector2:
+	if _level and property in _level:
+		var points: PackedVector2Array = _level.get(property)
+		if points.size() > index:
+			return points[index]
+	return fallback
 
 
 # --- Guards -------------------------------------------------------------------
@@ -274,7 +317,7 @@ func _start_placement() -> void:
 
 func _confirm_placement() -> void:
 	var target := _place_targets[_place_index]
-	_multipliers[target] = {"mult": multiplier_value, "ready_at": 0.0}
+	_multipliers[target] = {"mult": multiplier_value, "ready_at": 0.0, "legend": _legend_of(target)}
 	Sfx.play("multiplier")
 	GameManager.popup("x%d placed" % int(multiplier_value), _target_center(target), Color(0.45, 1.0, 0.9), true)
 	_finish_choice()

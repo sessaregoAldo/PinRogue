@@ -21,6 +21,9 @@ signal round_continued(round_number: int)
 signal part_hit(part: Node)
 ## A lane set was completed: offer the player a power-up pick.
 signal powerup_choice_requested
+## A new table layout was loaded (game.gd). Power-ups move their multipliers onto it.
+@warning_ignore("unused_signal")
+signal level_changed(level: Node)
 
 const STARTING_BALLS := 3
 const TILT_WARN := 2.0
@@ -50,6 +53,15 @@ var won: bool = false
 ## Current boss round (1 = first boss) and how many bosses were beaten this run.
 var boss_round: int = 1
 var bosses_defeated: int = 0
+## Boss progression lives here so it carries across levels.
+const BOSS_BASE_HP := 100000
+const BOSS_HP_GROWTH := 5.0 # next max HP = max HP x growth x overkill ratio
+var boss_max_hp: int = BOSS_BASE_HP
+var boss_color: Color = Palette.BOSS_START
+var next_boss_hp: int = BOSS_BASE_HP
+## Level the run starts on, and the level being played (indexes into LevelRegistry).
+var start_level: int = 0
+var current_level: int = 0
 ## Incremented on every restart so delayed callbacks from an old game can bail out.
 var round_id: int = 0
 ## Option: show floating "+points" text where points are earned.
@@ -134,6 +146,8 @@ func boss_defeated(info: Dictionary) -> void:
 	if is_game_over:
 		return
 	bosses_defeated += 1
+	next_boss_hp = int(round(float(info["max_hp"]) * BOSS_HP_GROWTH * float(info["ratio"])))
+	info["next_max_hp"] = next_boss_hp
 	Sfx.play("victory")
 	boss_beaten.emit(info)
 
@@ -141,6 +155,8 @@ func boss_defeated(info: Dictionary) -> void:
 ## Continue the run: keep score, balls and power-ups; the boss returns stronger.
 func continue_run() -> void:
 	boss_round += 1
+	boss_max_hp = next_boss_hp
+	boss_color = Palette.random_boss_color(boss_color)
 	round_continued.emit(boss_round)
 
 
@@ -207,6 +223,10 @@ func restart() -> void:
 	won = false
 	boss_round = 1
 	bosses_defeated = 0
+	boss_max_hp = BOSS_BASE_HP
+	boss_color = Palette.BOSS_START
+	next_boss_hp = BOSS_BASE_HP
+	current_level = start_level
 	choosing = false
 	entering_name = false
 	tilt_limit_bonus = 0.0

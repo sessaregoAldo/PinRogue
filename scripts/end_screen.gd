@@ -121,6 +121,14 @@ func _finish_entry() -> void:
 	_footer.text = "Press R or Play again"
 
 
+func _on_main_menu() -> void:
+	Sfx.play("click")
+	_finish_entry()
+	var game := get_parent()
+	if game and game.has_method("go_to_main_menu"):
+		game.go_to_main_menu()
+
+
 func _on_play_again() -> void:
 	Sfx.play("click")
 	_finish_entry()
@@ -233,6 +241,8 @@ func _build() -> void:
 	again_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_child(again_row)
 	_button(again_row, "Play again", _on_play_again)
+	_button(again_row, "Main Menu", _on_main_menu)
+	again_row.add_theme_constant_override("separation", 12)
 	_footer = _label(col, "", 14, SOFT)
 
 

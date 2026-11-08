@@ -9,10 +9,12 @@ extends Bumper
 ## so building score elsewhere on the table makes each boss hit stronger.
 ##
 ## Rounds: at 0 HP the player chooses Continue or End Run (see boss_menu.gd).
-## On Continue the boss comes back with
-##     new max HP = previous max HP x hp_growth x (total damage dealt / previous max HP)
-## so overkill makes the next boss tougher (e.g. 150,000 damage on a 100,000 HP
-## boss gives 100,000 x 5 x 1.5 = 750,000 HP). It also picks a new red-family color.
+## The boss's max HP and color come from the run (GameManager.boss_max_hp /
+## boss_color), so they carry over when Continue loads a different level. On
+## Continue the next boss gets
+##     previous max HP x 5 x (total damage dealt / previous max HP)
+## (GameManager.BOSS_HP_GROWTH), e.g. 150,000 damage on a 100,000 HP boss gives
+## 750,000 HP, plus a new red-family color.
 
 enum DamageMode {
 	CURRENT_SCORE, ## damage = player's total score at the moment of the hit
@@ -26,46 +28,18 @@ enum DamageMode {
 ## Show the remaining HP as a number in the middle of the dial.
 @export var show_hp_number: bool = true
 
-## Next boss max HP = previous max HP x hp_growth x overkill ratio.
-@export var hp_growth: float = 5.0
-
 var hp: int = 0
 var _shown_hp: float = 0.0 # animated value the dial draws
 var _hurt: float = 0.0 # white flash on the dial when damaged
-var _base_max_hp: int = 0
-var _base_color: Color
-var _next_max_hp: int = 0
 
 
 func _ready() -> void:
 	super()
-	_base_max_hp = max_hp
-	_base_color = color
-	hp = max_hp
-	_shown_hp = hp
 	if not Engine.is_editor_hint():
-		GameManager.game_started.connect(_reset)
-		GameManager.round_continued.connect(_next_round)
-
-
-## New run: back to the first boss.
-func _reset() -> void:
-	max_hp = _base_max_hp
-	color = _base_color
+		max_hp = GameManager.boss_max_hp
+		color = GameManager.boss_color
 	hp = max_hp
 	_shown_hp = hp
-	_hurt = 0.0
-	queue_redraw()
-
-
-## Player chose Continue: a tougher boss in a new red.
-func _next_round(_round_number: int) -> void:
-	max_hp = maxi(_next_max_hp, 1)
-	hp = max_hp
-	_shown_hp = hp
-	_hurt = 0.0
-	color = Palette.random_boss_color(color)
-	queue_redraw()
 
 
 func _after_hit(_ball: Ball) -> void:
@@ -79,13 +53,10 @@ func _after_hit(_ball: Ball) -> void:
 	GameManager.popup("-%s HP" % GameManager.format_number(damage),
 			global_position + Vector2(0, -radius - 16), Color(1.0, 0.35, 0.3), true)
 	if hp == 0:
-		var ratio := float(total_damage) / float(max_hp)
-		_next_max_hp = int(round(max_hp * hp_growth * ratio))
-		GameManager.boss_defeated({
+		GameManager.boss_defeated({ # GameManager adds "next_max_hp"
 			"max_hp": max_hp,
 			"total_damage": total_damage,
-			"ratio": ratio,
-			"next_max_hp": _next_max_hp,
+			"ratio": float(total_damage) / float(max_hp),
 		})
 
 

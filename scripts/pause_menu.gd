@@ -1,7 +1,7 @@
 extends CanvasLayer
-## Esc pause menu: Resume, Settings (audio volume), Scoring legend, Restart
-## (with confirmation), Exit. Also owns the R restart key so it can confirm first.
-## Runs while the tree is paused (process_mode ALWAYS).
+## Esc pause menu: Resume, Settings, Scoring legend, High Scores, Restart and
+## Main Menu (both confirmed), Exit (desktop only). Also owns the R restart key
+## so it can confirm first. Runs while the tree is paused (process_mode ALWAYS).
 
 const BUTTON_SIZE := Vector2(260, 48)
 
@@ -10,19 +10,20 @@ var _main_page: VBoxContainer
 var _settings_page: VBoxContainer
 var _scoring_page: VBoxContainer
 var _highscores_page: VBoxContainer
-var _highscores_grid: GridContainer
-var _highscores_note: Label
 var _confirm_page: VBoxContainer
 var _resume_button: Button
 var _confirm_yes_button: Button
-var _master_slider: HSlider
-var _sfx_slider: HSlider
-var _music_slider: HSlider
+var _confirm_title: Label
+var _confirm_note: Label
+var _confirm_hint: Label
+var _settings: SettingsPanel
+var _leaderboard: LeaderboardPanel
 var _scoring_grid: GridContainer
 var _scoring_footer: Label
-var _popups_toggle: CheckButton
 ## True when R opened the menu straight to the confirmation (Esc / Cancel then closes it).
 var _opened_for_confirm: bool = false
+## What the confirmation page confirms: "restart" or "menu".
+var _confirm_mode: String = "restart"
 
 
 func _ready() -> void:
@@ -43,11 +44,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif not visible:
 			_set_open(true)
 			_opened_for_confirm = true
-			_show_page(_confirm_page)
-		elif _confirm_page.visible:
-			_do_restart() # R again = confirm
+			_ask_confirm("restart")
+		elif _confirm_page.visible and _confirm_mode == "restart":
+			_do_confirm() # R again = confirm
 		else:
-			_show_page(_confirm_page)
+			_ask_confirm("restart")
 	elif event.is_action_pressed("pause"):
 		get_viewport().set_input_as_handled()
 		if not visible:
@@ -72,17 +73,29 @@ func _show_page(page: VBoxContainer) -> void:
 	if page == _main_page:
 		_resume_button.grab_focus()
 	elif page == _settings_page:
-		_master_slider.set_value_no_signal(Sfx.master_volume)
-		_sfx_slider.set_value_no_signal(Sfx.sfx_volume)
-		_music_slider.set_value_no_signal(Sfx.music_volume)
-		_popups_toggle.set_pressed_no_signal(GameManager.show_score_popups)
-		_master_slider.grab_focus()
+		_settings.refresh()
+		_settings.focus_first()
 	elif page == _highscores_page:
-		_fill_highscores()
+		_leaderboard.refresh()
 	elif page == _scoring_page:
 		_fill_scoring()
 	elif page == _confirm_page:
 		_confirm_yes_button.grab_focus()
+
+
+func _ask_confirm(mode: String) -> void:
+	_confirm_mode = mode
+	if mode == "menu":
+		_confirm_title.text = "MAIN MENU?"
+		_confirm_note.text = "Your current run will be lost."
+		_confirm_yes_button.text = "Yes, leave"
+		_confirm_hint.text = "Esc = cancel"
+	else:
+		_confirm_title.text = "RESTART?"
+		_confirm_note.text = "Your current game will be lost."
+		_confirm_yes_button.text = "Yes, restart"
+		_confirm_hint.text = "R = confirm   ·   Esc = cancel"
+	_show_page(_confirm_page)
 
 
 ## Esc / Back / Cancel: sub-page -> main page; main page -> close.
@@ -95,10 +108,15 @@ func _back() -> void:
 		_show_page(_main_page)
 
 
-func _do_restart() -> void:
+func _do_confirm() -> void:
 	Sfx.play("click")
 	_set_open(false)
-	GameManager.restart()
+	if _confirm_mode == "menu":
+		var game := get_parent()
+		if game and game.has_method("go_to_main_menu"):
+			game.go_to_main_menu()
+	else:
+		GameManager.restart()
 
 
 func _on_button(action: Callable) -> Callable:
@@ -118,7 +136,8 @@ func _fill_scoring() -> void:
 		_grid_label(row["label"], 18, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 		_grid_label(row["note"], 14, Color(0.7, 0.75, 0.9), HORIZONTAL_ALIGNMENT_LEFT)
 		_grid_label(GameManager.format_number(row["points"]), 18, Color(1.0, 0.85, 0.3), HORIZONTAL_ALIGNMENT_RIGHT)
-	var boss := _find_boss(get_parent() if get_parent() else get_tree().current_scene)
+	var table := _table()
+	var boss := _find_boss(table)
 	if boss:
 		var how := "your current score" if boss.damage_mode == BossBumper.DamageMode.CURRENT_SCORE \
 				else "%s" % GameManager.format_number(boss.score_value)
@@ -126,11 +145,15 @@ func _fill_scoring() -> void:
 				% [GameManager.format_number(boss.hp), how]
 	else:
 		_scoring_footer.text = ""
-	var bank := _find_bank(get_parent() if get_parent() else get_tree().current_scene)
+	var bank := _find_bank(table)
 	if bank:
 		_scoring_footer.text += "\nButtons: light exactly the ones marked with a diamond\nfor +%d%% of your score.\nHit the gold button: it moves on. Clear all %d (%d left)\nfor score x%s.\n" \
 				% [int(round(bank.match_bonus_ratio * 100.0)), bank.button_count(), bank.chase_remaining(), String.num(bank.chase_multiplier, 2)]
 	_scoring_footer.text += "\nNothing scores while TILTed."
+
+
+func _table() -> Node:
+	return get_parent() if get_parent() else get_tree().current_scene
 
 
 func _find_bank(node: Node) -> ButtonBank:
@@ -141,44 +164,6 @@ func _find_bank(node: Node) -> ButtonBank:
 		if found:
 			return found
 	return null
-
-
-## Top 10 from the Leaderboard autoload (online board, or this device's scores).
-func _fill_highscores() -> void:
-	for child in _highscores_grid.get_children():
-		child.queue_free()
-	_highscores_note.text = "Loading..."
-	var res: Dictionary = await Leaderboard.fetch_top()
-	if not _highscores_page.visible:
-		return
-	for child in _highscores_grid.get_children():
-		child.queue_free()
-	var entries: Array = res["entries"]
-	for i in entries.size():
-		var e: Dictionary = entries[i]
-		var c := Color.WHITE if i < 3 else Color(0.75, 0.8, 0.95)
-		_hs_label("%d." % (i + 1), c, HORIZONTAL_ALIGNMENT_RIGHT)
-		_hs_label(str(e["name"]) + ("  *" if e["won"] else ""), c, HORIZONTAL_ALIGNMENT_LEFT)
-		_hs_label(GameManager.format_number(int(e["score"])), c, HORIZONTAL_ALIGNMENT_RIGHT)
-	var notes: Array[String] = []
-	if entries.is_empty():
-		notes.append("No scores yet.")
-	notes.append("All-time, all players." if res["online"] else "This device only.")
-	notes.append("* = defeated the boss")
-	if res["error"] != "":
-		notes.append(res["error"])
-	_highscores_note.text = "\n".join(notes)
-
-
-func _hs_label(text: String, color: Color, align: HorizontalAlignment) -> void:
-	var label := Label.new()
-	label.text = text
-	label.horizontal_alignment = align
-	label.add_theme_font_size_override("font_size", 18)
-	label.add_theme_color_override("font_color", color)
-	if align == HORIZONTAL_ALIGNMENT_LEFT:
-		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_highscores_grid.add_child(label)
 
 
 func _find_boss(node: Node) -> BossBumper:
@@ -194,8 +179,7 @@ func _find_boss(node: Node) -> BossBumper:
 func _legend_rows() -> Array:
 	var rows := {}
 	var groups := {}
-	var table := get_parent() if get_parent() else get_tree().current_scene
-	_collect(table, rows, groups)
+	_collect(_table(), rows, groups)
 	var out := []
 	for key in rows:
 		var r: Dictionary = rows[key]
@@ -285,44 +269,22 @@ func _build() -> void:
 	_make_button(_main_page, "Settings", _on_button(func() -> void: _show_page(_settings_page)))
 	_make_button(_main_page, "Scoring", _on_button(func() -> void: _show_page(_scoring_page)))
 	_make_button(_main_page, "High Scores", _on_button(func() -> void: _show_page(_highscores_page)))
-	_make_button(_main_page, "Restart", _on_button(func() -> void: _show_page(_confirm_page)))
-	if not OS.has_feature("web"): # a browser tab can't be closed by the game
+	_make_button(_main_page, "Restart", _on_button(func() -> void: _ask_confirm("restart")))
+	_make_button(_main_page, "Main Menu", _on_button(func() -> void: _ask_confirm("menu")))
+	if not OS.has_feature("web"): # a browser tab cannot be closed by the game
 		_make_button(_main_page, "Exit", func() -> void:
 			Sfx.quit_game())
 
 	# High scores page
 	_highscores_page = _make_page(holder, "HIGH SCORES")
-	_highscores_grid = GridContainer.new()
-	_highscores_grid.columns = 3
-	_highscores_grid.add_theme_constant_override("h_separation", 18)
-	_highscores_grid.add_theme_constant_override("v_separation", 4)
-	_highscores_grid.custom_minimum_size = Vector2(320, 0)
-	_highscores_page.add_child(_highscores_grid)
-	_highscores_note = Label.new()
-	_highscores_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_highscores_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_highscores_note.custom_minimum_size = Vector2(320, 0)
-	_highscores_note.add_theme_font_size_override("font_size", 14)
-	_highscores_note.add_theme_color_override("font_color", Color(0.7, 0.75, 0.9))
-	_highscores_page.add_child(_highscores_note)
+	_leaderboard = LeaderboardPanel.new()
+	_highscores_page.add_child(_leaderboard)
 	_make_button(_highscores_page, "Back", _on_button(_back))
 
 	# Settings page
 	_settings_page = _make_page(holder, "SETTINGS")
-	_master_slider = _make_slider(_settings_page, "Master volume", func(v: float) -> void:
-		Sfx.set_master_volume(v)
-		Sfx.play("bumper", 0.0, 1.0, 120))
-	_sfx_slider = _make_slider(_settings_page, "Effects volume", func(v: float) -> void:
-		Sfx.set_sfx_volume(v)
-		Sfx.play("bumper", 0.0, 1.0, 120))
-	_music_slider = _make_slider(_settings_page, "Music volume", func(v: float) -> void: Sfx.set_music_volume(v))
-	_popups_toggle = CheckButton.new()
-	_popups_toggle.text = "Score popups"
-	_popups_toggle.add_theme_font_size_override("font_size", 18)
-	_popups_toggle.toggled.connect(func(on: bool) -> void:
-		Sfx.play("click")
-		GameManager.set_show_score_popups(on))
-	_settings_page.add_child(_popups_toggle)
+	_settings = SettingsPanel.new()
+	_settings_page.add_child(_settings)
 	_make_button(_settings_page, "Back", _on_button(_back))
 
 	# Scoring page
@@ -340,12 +302,13 @@ func _build() -> void:
 	_scoring_page.add_child(_scoring_footer)
 	_make_button(_scoring_page, "Back", _on_button(_back))
 
-	# Restart confirmation page
+	# Confirmation page (restart or main menu)
 	_confirm_page = _make_page(holder, "RESTART?")
-	_make_note(_confirm_page, "Your current game will be lost.")
-	_confirm_yes_button = _make_button(_confirm_page, "Yes, restart", _do_restart)
+	_confirm_title = _confirm_page.get_child(0)
+	_confirm_note = _make_note(_confirm_page, "")
+	_confirm_yes_button = _make_button(_confirm_page, "Yes", _do_confirm)
 	_make_button(_confirm_page, "Cancel", _on_button(_back))
-	_make_note(_confirm_page, "R = confirm   ·   Esc = cancel")
+	_confirm_hint = _make_note(_confirm_page, "")
 
 
 func _make_page(holder: Control, title: String) -> VBoxContainer:
@@ -361,13 +324,14 @@ func _make_page(holder: Control, title: String) -> VBoxContainer:
 	return page
 
 
-func _make_note(parent: Control, text: String) -> void:
+func _make_note(parent: Control, text: String) -> Label:
 	var label := Label.new()
 	label.text = text
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.add_theme_font_size_override("font_size", 15)
 	label.add_theme_color_override("font_color", Color(0.7, 0.75, 0.9))
 	parent.add_child(label)
+	return label
 
 
 func _make_button(parent: Control, text: String, on_pressed: Callable) -> Button:
@@ -378,18 +342,3 @@ func _make_button(parent: Control, text: String, on_pressed: Callable) -> Button
 	button.pressed.connect(on_pressed)
 	parent.add_child(button)
 	return button
-
-
-func _make_slider(parent: Control, text: String, on_changed: Callable) -> HSlider:
-	var label := Label.new()
-	label.text = text
-	label.add_theme_font_size_override("font_size", 18)
-	parent.add_child(label)
-	var slider := HSlider.new()
-	slider.min_value = 0.0
-	slider.max_value = 1.0
-	slider.step = 0.01
-	slider.custom_minimum_size = Vector2(BUTTON_SIZE.x, 28)
-	slider.value_changed.connect(on_changed)
-	parent.add_child(slider)
-	return slider

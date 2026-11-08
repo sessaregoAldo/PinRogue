@@ -36,7 +36,27 @@ func _ready() -> void:
 	GameManager.game_over.connect(func(_s: int) -> void: _message.text = "")
 	GameManager.victory.connect(func(_s: int) -> void: _message.text = "")
 	GameManager.game_started.connect(func() -> void: _message.text = "")
+	_banner = _make_label(Vector2(0, 470), Vector2(600, 60), 30, HORIZONTAL_ALIGNMENT_CENTER)
+	_banner.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+	_banner.modulate.a = 0.0
 	_refresh()
+
+
+var _banner: Label
+var _banner_tween: Tween
+
+
+## Big centered announcement that fades in and out (e.g. "ROUND 2 · Crossfire").
+func show_banner(text: String, hold: float = 1.6) -> void:
+	_banner.text = text
+	if _banner_tween:
+		_banner_tween.kill()
+	_banner.modulate.a = 0.0
+	_banner.scale = Vector2.ONE
+	_banner_tween = create_tween()
+	_banner_tween.tween_property(_banner, "modulate:a", 1.0, 0.35)
+	_banner_tween.tween_interval(hold)
+	_banner_tween.tween_property(_banner, "modulate:a", 0.0, 0.6)
 
 # --- Tilt meter bar -----------------------------------------------------------
 # Fills with each nudge and drains over time. The gold tick marks WARNING;

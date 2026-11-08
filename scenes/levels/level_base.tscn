@@ -1,0 +1,110 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scripts/level.gd" id="1_level"]
+[ext_resource type="Script" path="res://scripts/wall.gd" id="2_wall"]
+[ext_resource type="PackedScene" uid="uid://dhxllf4qkv4rg" path="res://scenes/flipper.tscn" id="3_flipper"]
+[ext_resource type="PackedScene" path="res://scenes/slingshot.tscn" id="4_sling"]
+[ext_resource type="Script" path="res://scripts/rollover.gd" id="5_rollover"]
+[ext_resource type="Script" path="res://scripts/plunger.gd" id="6_plunger"]
+[ext_resource type="Script" path="res://scripts/drain.gd" id="7_drain"]
+
+[node name="LevelBase" type="Node2D"]
+script = ExtResource("1_level")
+level_name = "Base"
+
+[node name="Walls" type="Node2D" parent="."]
+
+[node name="OuterWall" type="StaticBody2D" parent="Walls"]
+script = ExtResource("2_wall")
+points = PackedVector2Array(20, 1120, 20, 230, 24.3, 194.4, 36.9, 159.9, 57.5, 127.5, 85.5, 98.2, 120, 73, 160, 52.5, 204.2, 37.4, 251.4, 28.1, 300, 25, 348.6, 28.1, 395.8, 37.4, 440, 52.5, 480, 73, 514.5, 98.2, 542.5, 127.5, 563.1, 159.9, 575.7, 194.4, 580, 230, 580, 1120)
+
+[node name="ShooterLaneWall" type="StaticBody2D" parent="Walls"]
+script = ExtResource("2_wall")
+points = PackedVector2Array(540, 1120, 540, 300)
+
+[node name="ShooterLaneFloor" type="StaticBody2D" parent="Walls"]
+script = ExtResource("2_wall")
+points = PackedVector2Array(540, 1040, 580, 1040)
+bounce = 0.0
+
+[node name="ShooterGate" type="StaticBody2D" parent="Walls"]
+script = ExtResource("2_wall")
+points = PackedVector2Array(544, 296, 576, 268)
+thickness = 6.0
+one_way = true
+
+[node name="LeftInlaneGuide" type="StaticBody2D" parent="Walls"]
+script = ExtResource("2_wall")
+points = PackedVector2Array(60, 813, 60, 893, 194, 970)
+
+[node name="RightInlaneGuide" type="StaticBody2D" parent="Walls"]
+script = ExtResource("2_wall")
+points = PackedVector2Array(500, 813, 500, 893, 366, 970)
+
+[node name="FunnelLeft" type="StaticBody2D" parent="Walls"]
+script = ExtResource("2_wall")
+points = PackedVector2Array(24, 1010, 150, 1050, 252, 1080)
+bounce = 0.1
+
+[node name="FunnelRight" type="StaticBody2D" parent="Walls"]
+script = ExtResource("2_wall")
+points = PackedVector2Array(536, 1010, 410, 1050, 308, 1080)
+bounce = 0.1
+
+[node name="SlingshotLeft" parent="." instance=ExtResource("4_sling")]
+corner_a = Vector2(100, 793)
+corner_b = Vector2(145, 908)
+corner_c = Vector2(100, 883)
+kick_strength = 620.0
+kick_tilt_deg = 10.0
+kick_angle_jitter_deg = 4.0
+kick_strength_jitter = 0.08
+keep_tangent = 0.7
+
+[node name="SlingshotRight" parent="." instance=ExtResource("4_sling")]
+corner_a = Vector2(460, 793)
+corner_b = Vector2(415, 908)
+corner_c = Vector2(460, 883)
+kick_strength = 620.0
+kick_tilt_deg = 10.0
+kick_angle_jitter_deg = 4.0
+kick_strength_jitter = 0.08
+keep_tangent = 0.7
+
+[node name="Rollovers" type="Node2D" parent="."]
+
+[node name="InlaneLeft" type="Area2D" parent="Rollovers"]
+position = Vector2(80, 855)
+script = ExtResource("5_rollover")
+group_name = &"inlanes"
+score_value = 100
+legend_name = "Inlane"
+group_bonus = 1000
+color = Color(1, 0.5, 0.2, 1)
+
+[node name="InlaneRight" type="Area2D" parent="Rollovers"]
+position = Vector2(480, 855)
+script = ExtResource("5_rollover")
+group_name = &"inlanes"
+score_value = 100
+legend_name = "Inlane"
+group_bonus = 1000
+color = Color(1, 0.5, 0.2, 1)
+
+[node name="FlipperLeft" parent="." instance=ExtResource("3_flipper")]
+position = Vector2(200, 982)
+
+[node name="FlipperRight" parent="." instance=ExtResource("3_flipper")]
+position = Vector2(360, 982)
+side = 1
+
+[node name="Plunger" type="Area2D" parent="."]
+position = Vector2(560, 1018)
+script = ExtResource("6_plunger")
+min_power = 650.0
+max_power = 2100.0
+
+[node name="Drain" type="Area2D" parent="."]
+position = Vector2(280, 1098)
+script = ExtResource("7_drain")
+size = Vector2(70, 24)

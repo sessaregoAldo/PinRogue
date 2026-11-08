@@ -1,0 +1,37 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://scripts/game.gd" id="1_game"]
+[ext_resource type="PackedScene" path="res://scenes/ball.tscn" id="2_ball"]
+[ext_resource type="Script" path="res://scripts/score_popups.gd" id="3_popups"]
+[ext_resource type="Script" path="res://scripts/powerups.gd" id="4_powerups"]
+[ext_resource type="PackedScene" path="res://scenes/hud.tscn" id="5_hud"]
+[ext_resource type="Script" path="res://scripts/boss_menu.gd" id="6_bossmenu"]
+[ext_resource type="Script" path="res://scripts/end_screen.gd" id="7_end"]
+[ext_resource type="PackedScene" path="res://scenes/pause_menu.tscn" id="8_pause"]
+
+[node name="Game" type="Node2D"]
+script = ExtResource("1_game")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(300, 560)
+
+[node name="LevelHolder" type="Node2D" parent="."]
+
+[node name="Ball" parent="." instance=ExtResource("2_ball")]
+position = Vector2(560, 1020)
+
+[node name="ScorePopups" type="Node2D" parent="."]
+script = ExtResource("3_popups")
+
+[node name="Powerups" type="Node2D" parent="."]
+script = ExtResource("4_powerups")
+
+[node name="HUD" parent="." instance=ExtResource("5_hud")]
+
+[node name="BossMenu" type="CanvasLayer" parent="."]
+script = ExtResource("6_bossmenu")
+
+[node name="EndScreen" type="CanvasLayer" parent="."]
+script = ExtResource("7_end")
+
+[node name="PauseMenu" parent="." instance=ExtResource("8_pause")]
