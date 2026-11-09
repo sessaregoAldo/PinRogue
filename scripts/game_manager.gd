@@ -75,6 +75,8 @@ var show_score_popups: bool = true
 var nudge_mode: String = "swipe"
 ## touch_controls: "auto" (shown on touch screens), "on" or "off".
 var touch_controls: String = "auto"
+## Game mode picked in the main menu. Only "endless" exists so far.
+var game_mode: String = "endless"
 
 # --- Run modifiers (set by power-ups, reset on restart) ---
 ## True while the high-score name entry is focused (blocks the pause menu / restart key).
