@@ -24,6 +24,8 @@ var _tab_parts: Button
 var _notes_corner: Button
 var _modes_page: VBoxContainer
 var _notes_page: VBoxContainer
+var _feedback_page: VBoxContainer
+var _feedback: FeedbackPanel
 var _notes_scroll: ScrollContainer
 var _pick_page: VBoxContainer
 var _pick_view: SubViewport
@@ -117,6 +119,8 @@ func _show_page(page: Control) -> void:
 		_show_tab(false)
 	elif page == _modes_page:
 		_endless_button.grab_focus()
+	elif page == _feedback_page:
+		_feedback.refresh()
 	elif page == _notes_page:
 		_notes_scroll.scroll_vertical = 0
 	elif page == _pick_page:
@@ -321,6 +325,7 @@ func _build_ui() -> void:
 	_start_button = _button(_main_page, "Start Run", func() -> void: _click_to(_modes_page))
 	_button(_main_page, "Options", func() -> void: _click_to(_options_page))
 	_button(_main_page, "Leaderboard", func() -> void: _click_to(_leaderboard_page))
+	_button(_main_page, "Feedback", func() -> void: _click_to(_feedback_page))
 	if LevelRegistry.count() > 2:
 		_button(_main_page, "Machines", func() -> void: _click_to(_machines_page))
 	if not OS.has_feature("web"): # a browser tab cannot be closed by the game
@@ -372,6 +377,14 @@ func _build_ui() -> void:
 	_parts_scroll.add_child(_build_spare_parts())
 	_machines_page.add_child(_parts_scroll)
 	_button(_machines_page, "Back", _back)
+
+	# Feedback (bug reports and suggestions)
+	_feedback_page = _page(holder)
+	_label(_feedback_page, "FEEDBACK", 40, GOLD)
+	_label(_feedback_page, "Found a bug or have an idea? Tell us!", 16, SOFT)
+	_feedback = FeedbackPanel.new()
+	_feedback_page.add_child(_feedback)
+	_button(_feedback_page, "Back", _back)
 
 	# Patch notes
 	_notes_page = _page(holder)

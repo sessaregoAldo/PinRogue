@@ -11,6 +11,8 @@ var _settings_page: VBoxContainer
 var _scoring_page: VBoxContainer
 var _highscores_page: VBoxContainer
 var _confirm_page: VBoxContainer
+var _feedback_page: VBoxContainer
+var _feedback: FeedbackPanel
 var _resume_button: Button
 var _confirm_yes_button: Button
 var _confirm_title: Label
@@ -75,6 +77,8 @@ func _show_page(page: VBoxContainer) -> void:
 	elif page == _settings_page:
 		_settings.refresh()
 		_settings.focus_first()
+	elif page == _feedback_page:
+		_feedback.refresh()
 	elif page == _highscores_page:
 		_leaderboard.refresh()
 	elif page == _scoring_page:
@@ -269,6 +273,7 @@ func _build() -> void:
 	_make_button(_main_page, "Settings", _on_button(func() -> void: _show_page(_settings_page)))
 	_make_button(_main_page, "Scoring", _on_button(func() -> void: _show_page(_scoring_page)))
 	_make_button(_main_page, "High Scores", _on_button(func() -> void: _show_page(_highscores_page)))
+	_make_button(_main_page, "Feedback", _on_button(func() -> void: _show_page(_feedback_page)))
 	_make_button(_main_page, "Restart", _on_button(func() -> void: _ask_confirm("restart")))
 	_make_button(_main_page, "Main Menu", _on_button(func() -> void: _ask_confirm("menu")))
 	if not OS.has_feature("web"): # a browser tab cannot be closed by the game
@@ -282,6 +287,11 @@ func _build() -> void:
 	_make_button(_highscores_page, "Back", _on_button(_back))
 
 	# Settings page
+	_feedback_page = _make_page(holder, "FEEDBACK")
+	_feedback = FeedbackPanel.new()
+	_feedback_page.add_child(_feedback)
+	_make_button(_feedback_page, "Back", _on_button(_back))
+
 	_settings_page = _make_page(holder, "SETTINGS")
 	_settings = SettingsPanel.new()
 	_settings_page.add_child(_settings)

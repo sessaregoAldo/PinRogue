@@ -5,6 +5,15 @@ extends RefCounted
 
 const NOTES: Array[Dictionary] = [
 	{
+		"version": "0.13.3",
+		"name": "Tell Us!",
+		"date": "Nov 9, 2026",
+		"notes": [
+			"New Feedback button in the main menu and the pause menu: report a bug or suggest an idea without leaving the game.",
+			"The online leaderboard now loads in browsers on phones (it showed \"network error 8\" before).",
+		],
+	},
+	{
 		"version": "0.13.1",
 		"name": "Quality of Life",
 		"date": "Nov 9, 2026",

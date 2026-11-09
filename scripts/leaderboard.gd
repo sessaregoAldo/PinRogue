@@ -128,12 +128,25 @@ func submit(player_name: String, score: float, won: bool) -> Dictionary:
 	return {"ok": true, "online": false, "error": ""}
 
 
+## Send a bug report or suggestion to the "feedback" table. `data` holds
+## kind, message, name, version, machine, boss_round, score, platform.
+## Returns {ok, error}. Nothing is kept on the device if it fails.
+func submit_feedback(data: Dictionary) -> Dictionary:
+	if not is_online():
+		return {"ok": false, "error": "online features aren't set up"}
+	var res := await _request(HTTPClient.METHOD_POST, "feedback", JSON.stringify(data), ["Prefer: return=minimal"])
+	return {"ok": res["ok"], "error": res["error"]}
+
+
 # --- HTTP -------------------------------------------------------------------------
 
 func _request(method: HTTPClient.Method, path: String, body: String = "",
 		extra_headers: Array = []) -> Dictionary:
 	var http := HTTPRequest.new()
 	http.timeout = TIMEOUT
+	# In a browser the response is already unpacked by the browser itself; letting
+	# Godot unpack it again fails with "network error 8" (BODY_DECOMPRESS_FAILED).
+	http.accept_gzip = not OS.has_feature("web")
 	add_child(http)
 	var headers := PackedStringArray(["apikey: " + key, "Content-Type: application/json", "Accept: application/json"])
 	if key.begins_with("eyJ"): # legacy JWT "anon" keys also go in Authorization
