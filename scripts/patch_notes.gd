@@ -12,6 +12,8 @@ const NOTES: Array[Dictionary] = [
 			"Classic rebuilt: each loop drops the ball onto a lift kicker that fires it into the top lanes, so the top is finally within reach.",
 			"Crossfire has four orbit lights instead of two, including one at the top of the arch.",
 			"Fortress has four gates into the boss's ring, each with a light.",
+			"Tougher bosses: each new boss's health now also grows with your score, so later bosses can't be beaten in a couple of hits. Fortress walls get tougher with your score too.",
+			"Fortress walls fade out smoothly when they break (the ball bounces off first) and fade back in. A faint timer shows when each one comes back.",
 			"Gauntlet: the bridge now drops onto a lift kicker that fires the ball back up the right side, plus two new lights beside the boss.",
 			"Boss and wall health are easier to read: numbers stay short, like 999K, 1.0M or 12.5B.",
 			"No more ceiling: scores and boss health keep growing in very long runs (past 1.0Q come Aa, Ab ... Az, Ba ...).",

@@ -12,9 +12,9 @@ extends Bumper
 ## The boss's max HP and color come from the run (GameManager.boss_max_hp /
 ## boss_color), so they carry over when Continue loads a different level. On
 ## Continue the next boss gets
-##     previous max HP x 5 x (total damage dealt / previous max HP)
-## (GameManager.BOSS_HP_GROWTH), e.g. 150,000 damage on a 100,000 HP boss gives
-## 750,000 HP, plus a new red-family color.
+##     previous max HP x 8 x (total damage dealt / previous max HP)
+##     + the player's score x 12
+## (GameManager.BOSS_HP_GROWTH / BOSS_HP_SCORE_FACTOR), plus a new red-family color.
 
 enum DamageMode {
 	CURRENT_SCORE, ## damage = player's total score at the moment of the hit

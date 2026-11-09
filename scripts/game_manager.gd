@@ -65,7 +65,12 @@ var boss_round: int = 1
 var bosses_defeated: int = 0
 ## Boss progression lives here so it carries across levels.
 const BOSS_BASE_HP := 100000
-const BOSS_HP_GROWTH := 5.0 # next max HP = max HP x growth x overkill ratio
+## Next boss's max HP = previous max HP x BOSS_HP_GROWTH x overkill ratio
+##                    + score when the boss fell x BOSS_HP_SCORE_FACTOR.
+## A boss hit deals the player's whole score, so the score part means the next
+## boss always takes about a dozen full-score hits, however fast the score grows.
+const BOSS_HP_GROWTH := 8.0
+const BOSS_HP_SCORE_FACTOR := 12.0
 ## Keeps the next boss's HP a finite number (floats overflow to "inf" past ~1.8e308).
 const BOSS_HP_CAP := 1.0e300
 var boss_max_hp: float = BOSS_BASE_HP
@@ -182,7 +187,8 @@ func boss_defeated(info: Dictionary) -> void:
 	if is_game_over:
 		return
 	bosses_defeated += 1
-	next_boss_hp = minf(roundf(float(info["max_hp"]) * BOSS_HP_GROWTH * float(info["ratio"])), BOSS_HP_CAP)
+	next_boss_hp = minf(roundf(float(info["max_hp"]) * BOSS_HP_GROWTH * float(info["ratio"]) \
+			+ score * BOSS_HP_SCORE_FACTOR), BOSS_HP_CAP)
 	info["next_max_hp"] = next_boss_hp
 	Sfx.play("victory")
 	boss_beaten.emit(info)
