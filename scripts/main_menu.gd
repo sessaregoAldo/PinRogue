@@ -304,7 +304,7 @@ func _build_ui() -> void:
 	ui.layer = 10
 	add_child(ui)
 	var dim := ColorRect.new()
-	dim.color = Color(0.02, 0.02, 0.06, 0.72)
+	dim.color = Color(0.01, 0.01, 0.04, 0.86)
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	ui.add_child(dim)
 	var center := CenterContainer.new()
@@ -459,13 +459,22 @@ func _build_ui() -> void:
 	# Small "Patch notes" button in the bottom-left corner, just above the version tag.
 	_notes_corner = Button.new()
 	_notes_corner.text = "Patch notes"
-	_notes_corner.flat = true
+	_notes_corner.flat = false
 	_notes_corner.position = Vector2(2, 1070)
 	_notes_corner.size = Vector2(96, 26)
 	_notes_corner.add_theme_font_size_override("font_size", 13)
 	_notes_corner.add_theme_color_override("font_color", Color(0.75, 0.8, 0.95, 0.8))
 	_notes_corner.add_theme_color_override("font_hover_color", GOLD)
 	_notes_corner.focus_mode = Control.FOCUS_NONE
+	# Faint outline so it reads as a button; brighter on hover.
+	for state in ["normal", "hover", "pressed"]:
+		var outline := StyleBoxFlat.new()
+		outline.bg_color = Color(1, 1, 1, 0.0 if state == "normal" else 0.06)
+		outline.border_color = Color(0.75, 0.8, 0.95, 0.3) if state == "normal" else Color(GOLD, 0.6)
+		outline.set_border_width_all(1)
+		outline.set_corner_radius_all(5)
+		outline.set_content_margin_all(2)
+		_notes_corner.add_theme_stylebox_override(state, outline)
 	_notes_corner.pressed.connect(func() -> void: _click_to(_notes_page))
 	ui.add_child(_notes_corner)
 
