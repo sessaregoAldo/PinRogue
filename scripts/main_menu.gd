@@ -4,7 +4,7 @@ extends Node2D
 ## the background.
 ##
 ## Start Run -> pick a game mode (Endless; the others are greyed out until they
-## exist) -> a controls summary for this device (PC or touch screen) -> any key,
+## exist) -> pick the starting machine (or Random) -> a controls summary for this device (PC or touch screen) -> any key,
 ## click or tap fades to black and opens the game, which fades in on round 1.
 
 const GAME_SCENE := "res://scenes/game.tscn"
@@ -18,6 +18,17 @@ var _options_page: VBoxContainer
 var _leaderboard_page: VBoxContainer
 var _machines_page: VBoxContainer
 var _modes_page: VBoxContainer
+var _pick_page: VBoxContainer
+var _pick_view: SubViewport
+var _pick_name: Label
+var _pick_desc: Label
+var _pick_count: Label
+var _pick_mystery: Label
+var _pick_play: Button
+## Starting machine choice: -1 = Random, otherwise a LevelRegistry index.
+var _pick_index: int = 0
+var _pick_cycle_time: float = 0.0
+var _pick_cycle_level: int = 0
 var _controls_page: VBoxContainer
 var _endless_button: Button
 var _controls_title: Label
@@ -56,6 +67,13 @@ func _input(event: InputEvent) -> void:
 		_touch_used = true
 	elif event is InputEventKey and event.pressed:
 		_touch_used = false
+	if _pick_page.visible and not (event is InputEventKey and event.echo):
+		if event.is_action_pressed("ui_left") or event.is_action_pressed("flipper_left"):
+			get_viewport().set_input_as_handled()
+			_click_pick(_pick_index - 1)
+		elif event.is_action_pressed("ui_right") or event.is_action_pressed("flipper_right"):
+			get_viewport().set_input_as_handled()
+			_click_pick(_pick_index + 1)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -90,6 +108,9 @@ func _show_page(page: Control) -> void:
 		_show_machine(_machine_index)
 	elif page == _modes_page:
 		_endless_button.grab_focus()
+	elif page == _pick_page:
+		_show_pick(_pick_index)
+		_pick_play.grab_focus()
 	elif page == _controls_page:
 		_fill_controls()
 		_controls_ready_at = Time.get_ticks_msec() / 1000.0 + 0.35
@@ -99,11 +120,54 @@ func _back() -> void:
 	if _options_page.visible:
 		Sfx.save_settings()
 	Sfx.play("click")
-	_show_page(_modes_page if _controls_page.visible else _main_page)
+	if _controls_page.visible:
+		_show_page(_pick_page)
+	elif _pick_page.visible:
+		_show_page(_modes_page)
+	else:
+		_show_page(_main_page)
 
 
 func _pick_mode(mode: String) -> void:
 	GameManager.game_mode = mode
+	_click_to(_pick_page)
+
+
+# --- Starting machine -------------------------------------------------------------
+
+func _process(delta: float) -> void:
+	# "Random" flips through the machines in its preview.
+	if _pick_page.visible and _pick_index < 0:
+		_pick_cycle_time -= delta
+		if _pick_cycle_time <= 0.0:
+			_pick_cycle_time = 0.5
+			_pick_cycle_level = (_pick_cycle_level + 1) % LevelRegistry.count()
+			_put_level(_pick_view, _pick_cycle_level)
+
+
+## Entries run Random, machine 1, machine 2, ... and wrap around.
+func _show_pick(index: int) -> void:
+	_pick_index = posmod(index + 1, LevelRegistry.count() + 1) - 1
+	_pick_count.text = "%d / %d" % [_pick_index + 2, LevelRegistry.count() + 1]
+	_pick_mystery.visible = _pick_index < 0
+	if _pick_index < 0:
+		_pick_name.text = "Random"
+		_pick_desc.text = "A surprise machine every run."
+		_pick_cycle_time = 0.0
+	else:
+		var level := _put_level(_pick_view, _pick_index)
+		_pick_name.text = level.level_name
+		_pick_desc.text = level.description
+
+
+func _click_pick(index: int) -> void:
+	Sfx.play("click")
+	_show_pick(index)
+
+
+func _confirm_pick() -> void:
+	GameManager.start_random = _pick_index < 0
+	GameManager.start_level = maxi(0, _pick_index)
 	_click_to(_controls_page)
 
 
@@ -165,7 +229,6 @@ func _start_run() -> void:
 		return
 	_starting = true
 	Sfx.play("click")
-	GameManager.start_level = 0
 	var tween := create_tween()
 	tween.tween_property(_fade, "modulate:a", 1.0, 0.45).set_trans(Tween.TRANS_SINE)
 	tween.tween_callback(func() -> void: get_tree().change_scene_to_file(GAME_SCENE))
@@ -175,16 +238,43 @@ func _start_run() -> void:
 
 func _show_machine(index: int) -> void:
 	_machine_index = posmod(index, LevelRegistry.count())
-	for child in _machine_view.get_children():
-		if child is Level:
-			_machine_view.remove_child(child)
-			child.queue_free()
-	var level := LevelRegistry.instantiate(_machine_index)
-	level.process_mode = Node.PROCESS_MODE_DISABLED # just a picture
-	_machine_view.add_child(level)
+	var level := _put_level(_machine_view, _machine_index)
 	_machine_name.text = level.level_name
 	_machine_desc.text = level.description
 	_machine_count.text = "%d / %d" % [_machine_index + 1, LevelRegistry.count()]
+
+
+## Show a machine (still, as a picture) in a preview viewport.
+func _put_level(view: SubViewport, index: int) -> Level:
+	for child in view.get_children():
+		if child is Level:
+			view.remove_child(child)
+			child.queue_free()
+	var level := LevelRegistry.instantiate(index)
+	level.process_mode = Node.PROCESS_MODE_DISABLED # just a picture
+	view.add_child(level)
+	return level
+
+
+## A framed preview of a table at 45% size, centered in `parent`.
+func _build_preview(parent: Control) -> SubViewport:
+	var stack := MarginContainer.new() # stacks the preview and any overlay
+	var frame := SubViewportContainer.new()
+	frame.stretch = true
+	frame.custom_minimum_size = Vector2(270, 504)
+	var view := SubViewport.new()
+	view.size = Vector2i(270, 504)
+	view.transparent_bg = false
+	var cam := Camera2D.new()
+	cam.position = Vector2(300, 560)
+	cam.zoom = Vector2(0.45, 0.45)
+	view.add_child(cam)
+	frame.add_child(view)
+	stack.add_child(frame)
+	var row := CenterContainer.new()
+	row.add_child(stack)
+	parent.add_child(row)
+	return view
 
 
 # --- Building -------------------------------------------------------------------
@@ -242,20 +332,7 @@ func _build_ui() -> void:
 	# Machines (table layouts)
 	_machines_page = _page(holder)
 	_label(_machines_page, "MACHINES", 40, GOLD)
-	var frame := SubViewportContainer.new()
-	frame.stretch = true
-	frame.custom_minimum_size = Vector2(270, 504) # the table at 45% size
-	_machine_view = SubViewport.new()
-	_machine_view.size = Vector2i(270, 504)
-	_machine_view.transparent_bg = false
-	var cam := Camera2D.new()
-	cam.position = Vector2(300, 560)
-	cam.zoom = Vector2(0.45, 0.45)
-	_machine_view.add_child(cam)
-	frame.add_child(_machine_view)
-	var frame_row := CenterContainer.new()
-	frame_row.add_child(frame)
-	_machines_page.add_child(frame_row)
+	_machine_view = _build_preview(_machines_page)
 	_machine_name = _label(_machines_page, "", 24, Color.WHITE)
 	_machine_desc = _label(_machines_page, "", 14, SOFT)
 	_machine_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -283,6 +360,34 @@ func _build_ui() -> void:
 	_mode(_modes_page, "Boss Rush", "Coming soon", Callable())
 	_spacer(_modes_page, 8)
 	_button(_modes_page, "Back", _back)
+
+	# Starting machine (Endless)
+	_pick_page = _page(holder)
+	_label(_pick_page, "STARTING MACHINE", 36, GOLD)
+	_pick_view = _build_preview(_pick_page)
+	var mystery_dim := ColorRect.new() # Random: the flipping preview is dimmed under a big "?"
+	mystery_dim.color = Color(0, 0, 0, 0.45)
+	_pick_mystery = _label(_pick_page, "?", 160, GOLD)
+	_pick_view.get_parent().get_parent().add_child(mystery_dim)
+	_pick_page.remove_child(_pick_mystery)
+	_pick_view.get_parent().get_parent().add_child(_pick_mystery)
+	_pick_mystery.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_pick_mystery.visibility_changed.connect(func() -> void: mystery_dim.visible = _pick_mystery.visible)
+	_pick_name = _label(_pick_page, "", 24, Color.WHITE)
+	_pick_desc = _label(_pick_page, "", 14, SOFT)
+	_pick_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_pick_desc.custom_minimum_size = Vector2(380, 0)
+	var pick_nav := HBoxContainer.new()
+	pick_nav.alignment = BoxContainer.ALIGNMENT_CENTER
+	pick_nav.add_theme_constant_override("separation", 12)
+	_pick_page.add_child(pick_nav)
+	_small_button(pick_nav, "<", func() -> void: _click_pick(_pick_index - 1)).focus_mode = Control.FOCUS_NONE
+	_pick_count = Label.new()
+	_pick_count.add_theme_font_size_override("font_size", 18)
+	pick_nav.add_child(_pick_count)
+	_small_button(pick_nav, ">", func() -> void: _click_pick(_pick_index + 1)).focus_mode = Control.FOCUS_NONE
+	_pick_play = _button(_pick_page, "Play", _confirm_pick)
+	_button(_pick_page, "Back", _back)
 
 	# Controls summary (shown before the first ball)
 	_controls_page = _page(holder)

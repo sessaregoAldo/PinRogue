@@ -65,6 +65,8 @@ var boss_color: Color = Palette.BOSS_START
 var next_boss_hp: int = BOSS_BASE_HP
 ## Level the run starts on, and the level being played (indexes into LevelRegistry).
 var start_level: int = 0
+## True when the player picked "Random": each new run starts on a random machine.
+var start_random: bool = false
 var current_level: int = 0
 ## Incremented on every restart so delayed callbacks from an old game can bail out.
 var round_id: int = 0
@@ -255,6 +257,8 @@ func restart() -> void:
 	boss_max_hp = BOSS_BASE_HP
 	boss_color = Palette.BOSS_START
 	next_boss_hp = BOSS_BASE_HP
+	if start_random:
+		start_level = randi() % LevelRegistry.count()
 	current_level = start_level
 	choosing = false
 	entering_name = false
