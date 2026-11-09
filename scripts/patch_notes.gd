@@ -11,6 +11,7 @@ const NOTES: Array[Dictionary] = [
 		"notes": [
 			"New Feedback button in the main menu and the pause menu: report a bug or suggest an idea without leaving the game.",
 			"The online leaderboard now loads in browsers on phones (it showed \"network error 8\" before).",
+			"Cleaner touch controls: the big button boxes are gone, so nothing covers the flippers or the launch lane. The touch areas are just as big as before.",
 		],
 	},
 	{

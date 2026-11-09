@@ -46,9 +46,26 @@ func _ready() -> void:
 	add_child(_canvas)
 	_pause_button = Button.new()
 	_pause_button.text = "II"
+	# Small and see-through; the touch area is a bit bigger than what's drawn.
 	_pause_button.position = Vector2(274, 2)
 	_pause_button.size = Vector2(52, 40)
-	_pause_button.add_theme_font_size_override("font_size", 20)
+	_pause_button.add_theme_font_size_override("font_size", 15)
+	_pause_button.add_theme_color_override("font_color", Color(1, 1, 1, 0.55))
+	_pause_button.add_theme_color_override("font_pressed_color", Color(1, 0.85, 0.3))
+	_pause_button.add_theme_color_override("font_hover_color", Color(1, 1, 1, 0.8))
+	for state in ["normal", "hover", "pressed"]:
+		var round_box := StyleBoxFlat.new()
+		round_box.bg_color = Color(0, 0, 0, 0.18 if state == "normal" else 0.35)
+		round_box.border_color = Color(1, 1, 1, 0.22)
+		round_box.set_border_width_all(1)
+		round_box.set_corner_radius_all(16)
+		round_box.content_margin_left = 0
+		round_box.content_margin_right = 0
+		round_box.expand_margin_left = -8 # drawn 36 x 32, touch area 52 x 40
+		round_box.expand_margin_right = -8
+		round_box.expand_margin_top = -4
+		round_box.expand_margin_bottom = -4
+		_pause_button.add_theme_stylebox_override(state, round_box)
 	_pause_button.focus_mode = Control.FOCUS_NONE
 	_pause_button.pressed.connect(_on_pause_pressed)
 	add_child(_pause_button)
@@ -271,26 +288,21 @@ func _on_pause_pressed() -> void:
 
 # --- Drawing --------------------------------------------------------------------
 
+## Minimal drawing: the touch areas stay large, but only small markers are shown
+## so nothing covers the flippers, the drain or the launch lane.
 func _draw_controls() -> void:
 	var font := ThemeDB.fallback_font
 	var view := _canvas.get_viewport_rect().size
 	var loaded := _launcher_ready()
 	var right_end := PLUNGER_X if loaded else view.x
-	_draw_button(Rect2(0, FLIP_TOP, SPLIT_X, view.y - FLIP_TOP), _role_held("flip_l"), -1.0)
-	_draw_button(Rect2(SPLIT_X, FLIP_TOP, right_end - SPLIT_X, view.y - FLIP_TOP), _role_held("flip_r"), 1.0)
-	# Launcher: a pull-down hint while a ball waits in it.
-	var pulling := _role_held("plunger")
+	var teach := clampf(_hint_time / 1.5, 0.0, 1.0) # first seconds of a run
+	_draw_flip_zone(Rect2(0, FLIP_TOP, SPLIT_X, view.y - FLIP_TOP), _role_held("flip_l"), teach)
+	_draw_flip_zone(Rect2(SPLIT_X, FLIP_TOP, right_end - SPLIT_X, view.y - FLIP_TOP), _role_held("flip_r"), teach)
 	if loaded:
-		var zone := PLUNGER_ZONE
-		var a := 0.25 + 0.15 * sin(_pulse * 4.0) if not pulling else 0.45
-		_canvas.draw_rect(zone, Color(1, 1, 1, a * 0.25))
-		_canvas.draw_rect(zone, Color(1, 1, 1, a), false, 2.0)
-		var cx := zone.position.x + zone.size.x * 0.5
-		if pulling:
-			_draw_pull_meter(cx, font)
+		if _role_held("plunger"):
+			_draw_pull_meter(PLUNGER_ZONE.position.x + PLUNGER_ZONE.size.x * 0.5, font)
 		else:
-			_draw_pull_hint(zone, cx, a, font)
-
+			_draw_pull_hint(teach, font)
 	# Nudge hint for a few seconds at the start of a run.
 	if _hint_time > 0.0:
 		var text := "Swipe < ^ > to nudge" if GameManager.nudge_mode == "swipe" else "Jolt the phone to nudge"
@@ -298,15 +310,39 @@ func _draw_controls() -> void:
 		_canvas.draw_string(font, Vector2(0, 735), text, HORIZONTAL_ALIGNMENT_CENTER, 600, 18, Color(1, 1, 1, minf(1.0, _hint_time) * 0.85))
 
 
-func _draw_pull_hint(zone: Rect2, cx: float, a: float, font: Font) -> void:
-	_canvas.draw_string(font, zone.position + Vector2(0, 30), "PULL", HORIZONTAL_ALIGNMENT_CENTER, zone.size.x, 15, Color(1, 1, 1, a + 0.3))
-	for k in 5:
-		var y := zone.position.y + 60.0 + k * 34.0 + fmod(_pulse * 40.0, 34.0)
-		_canvas.draw_polyline(PackedVector2Array([Vector2(cx - 12, y), Vector2(cx, y + 10), Vector2(cx + 12, y)]), Color(1, 1, 1, a + 0.2), 3.0, true)
+## A flipper half: a thin pill at the bottom edge (brighter + a soft glow while
+## held). During the first seconds of a run the whole half is faintly outlined.
+func _draw_flip_zone(rect: Rect2, held: bool, teach: float) -> void:
+	if teach > 0.0:
+		var r := rect.grow(-4.0)
+		_canvas.draw_rect(r, Color(1, 1, 1, 0.05 * teach))
+		_canvas.draw_rect(r, Color(1, 1, 1, 0.22 * teach), false, 1.5)
+	var cx := rect.get_center().x
+	var bottom := rect.end.y - 7.0
+	if held:
+		for k in 4: # soft glow rising from the bottom edge
+			var h := 12.0 + k * 12.0
+			_canvas.draw_rect(Rect2(rect.position.x, rect.end.y - h, rect.size.x, h), Color(Palette.FLIPPER, 0.035))
+	var pill := Color(1, 1, 1, 0.55 if held else 0.2)
+	_canvas.draw_line(Vector2(cx - 36, bottom), Vector2(cx + 36, bottom), pill, 4.0, true)
 
 
-## While pulling: a track from where the finger started to the full-power point,
-## filled as far as the plunger is drawn back, with the launch power in percent.
+## A ball waits in the launcher: small arrows pulsing down the lane (plus a
+## faint outline of the drag area while the run's hints are showing).
+func _draw_pull_hint(teach: float, font: Font) -> void:
+	var zone := PLUNGER_ZONE
+	if teach > 0.0:
+		_canvas.draw_rect(zone.grow(-2.0), Color(1, 1, 1, 0.2 * teach), false, 1.5)
+		_canvas.draw_string(font, zone.position + Vector2(0, 26), "PULL", HORIZONTAL_ALIGNMENT_CENTER, zone.size.x, 14, Color(1, 1, 1, 0.5 * teach))
+	var cx := 560.0
+	var a := 0.25 + 0.15 * sin(_pulse * 4.0)
+	for k in 3:
+		var y := 880.0 + k * 18.0 + fmod(_pulse * 24.0, 18.0)
+		_canvas.draw_polyline(PackedVector2Array([Vector2(cx - 8, y), Vector2(cx, y + 7), Vector2(cx + 8, y)]), Color(1, 1, 1, a), 2.0, true)
+
+
+## While pulling: a slim track from where the finger started to the full-power
+## point, filled as far as the plunger is drawn back, with the power in percent.
 func _draw_pull_meter(cx: float, font: Font) -> void:
 	var t: Dictionary = {}
 	for touch in _touches.values():
@@ -319,24 +355,10 @@ func _draw_pull_meter(cx: float, font: Font) -> void:
 	var bottom: float = top + float(t["full"])
 	var charge := plunger.charge
 	var power := Color(0.35, 1.0, 0.45).lerp(Color(1.0, 0.85, 0.2), minf(1.0, charge * 2.0)) 			.lerp(Color(1.0, 0.3, 0.2), maxf(0.0, charge * 2.0 - 1.0))
-	_canvas.draw_line(Vector2(cx, top), Vector2(cx, bottom), Color(1, 1, 1, 0.25), 14.0)
-	_canvas.draw_line(Vector2(cx, top), Vector2(cx, lerpf(top, bottom, charge)), power, 14.0)
-	_canvas.draw_line(Vector2(cx - 16, bottom), Vector2(cx + 16, bottom), Color(1, 1, 1, 0.7), 3.0)
+	_canvas.draw_line(Vector2(cx, top), Vector2(cx, bottom), Color(1, 1, 1, 0.15), 6.0)
+	_canvas.draw_line(Vector2(cx, top), Vector2(cx, lerpf(top, bottom, charge)), Color(power, 0.85), 6.0)
+	_canvas.draw_line(Vector2(cx - 10, bottom), Vector2(cx + 10, bottom), Color(1, 1, 1, 0.5), 2.0)
 	var label := "%d%%" % int(round(charge * 100.0))
-	var at := Vector2(PLUNGER_ZONE.position.x - 6.0, top - 12.0)
-	_canvas.draw_string_outline(font, at, label, HORIZONTAL_ALIGNMENT_CENTER, PLUNGER_ZONE.size.x + 12.0, 20, 5, Color.BLACK)
-	_canvas.draw_string(font, at, label, HORIZONTAL_ALIGNMENT_CENTER, PLUNGER_ZONE.size.x + 12.0, 20, power)
-
-
-func _draw_button(rect: Rect2, held: bool, side: float) -> void:
-	rect = rect.grow(-4.0)
-	var fill := Color(1, 1, 1, 0.18 if held else 0.05)
-	_canvas.draw_rect(rect, fill)
-	_canvas.draw_rect(rect, Color(1, 1, 1, 0.4 if held else 0.2), false, 2.0)
-	# Flipper-shaped icon in the lower part (clear of the real flippers),
-	# pointing toward the middle of the table.
-	var c := Vector2(rect.get_center().x, rect.end.y - 40.0)
-	var pivot := c + Vector2(-34.0 * side, 4.0)
-	var tip := c + Vector2(34.0 * side, -10.0 if held else 14.0)
-	_canvas.draw_line(pivot, tip, Color(Palette.FLIPPER, 0.75 if held else 0.5), 14.0, true)
-	_canvas.draw_circle(pivot, 9.0, Color(Palette.FLIPPER, 0.75 if held else 0.5))
+	var at := Vector2(PLUNGER_ZONE.position.x - 6.0, top - 10.0)
+	_canvas.draw_string_outline(font, at, label, HORIZONTAL_ALIGNMENT_CENTER, PLUNGER_ZONE.size.x + 12.0, 16, 4, Color.BLACK)
+	_canvas.draw_string(font, at, label, HORIZONTAL_ALIGNMENT_CENTER, PLUNGER_ZONE.size.x + 12.0, 16, power)
