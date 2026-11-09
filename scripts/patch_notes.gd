@@ -6,7 +6,7 @@ extends RefCounted
 const NOTES: Array[Dictionary] = [
 	{
 		"version": "0.13.1",
-		"name": "Spare Parts",
+		"name": "Quality of Life",
 		"date": "Nov 9, 2026",
 		"notes": [
 			"Classic rebuilt: each loop drops the ball onto a lift kicker that fires it into the top lanes, so the top is finally within reach.",
