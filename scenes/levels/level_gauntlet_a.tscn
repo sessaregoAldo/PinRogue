@@ -1,0 +1,152 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/levels/level_base.tscn" id="1_base"]
+[ext_resource type="Script" path="res://scripts/wall.gd" id="2_wall"]
+[ext_resource type="PackedScene" path="res://scenes/bumper.tscn" id="3_bumper"]
+[ext_resource type="PackedScene" path="res://scenes/boss_bumper.tscn" id="4_boss"]
+[ext_resource type="PackedScene" path="res://scenes/slingshot.tscn" id="5_sling"]
+[ext_resource type="Script" path="res://scripts/rollover.gd" id="6_rollover"]
+[ext_resource type="Script" path="res://scripts/button_bank.gd" id="7_bank"]
+[ext_resource type="Script" path="res://scripts/target_button.gd" id="8_button"]
+[ext_resource type="PackedScene" path="res://scenes/tunnel.tscn" id="9_tunnel"]
+
+[node name="LevelGauntletA" instance=ExtResource("1_base")]
+level_name = "Gauntlet A"
+description = "Test layout. Right Sky Ramp: a new ramp climbs the right side and drops the ball beside the boss. A wall kicker fills the right wall."
+art_rings = PackedVector3Array(280, 180, 72)
+
+[node name="CenterPost" type="StaticBody2D" parent="Walls"]
+script = ExtResource("2_wall")
+points = PackedVector2Array(280, 720, 280, 720)
+thickness = 12.0
+bounce = 0.6
+color = Color(0.55, 0.52, 1, 1)
+
+[node name="AlleyLeft" type="StaticBody2D" parent="Walls"]
+script = ExtResource("2_wall")
+points = PackedVector2Array(230, 290, 230, 420)
+bounce = 0.35
+color = Color(0.62, 0.55, 0.95, 1)
+
+[node name="AlleyRight" type="StaticBody2D" parent="Walls"]
+script = ExtResource("2_wall")
+points = PackedVector2Array(330, 290, 330, 420)
+bounce = 0.35
+color = Color(0.62, 0.55, 0.95, 1)
+
+[node name="AlleyA" type="Area2D" parent="Rollovers"]
+position = Vector2(262, 355)
+script = ExtResource("6_rollover")
+group_name = &"alley"
+legend_name = "Alley"
+score_value = 150
+group_bonus = 2500
+color = Color(0.75, 0.6, 1, 1)
+
+[node name="AlleyB" type="Area2D" parent="Rollovers"]
+position = Vector2(298, 355)
+script = ExtResource("6_rollover")
+group_name = &"alley"
+legend_name = "Alley"
+score_value = 150
+group_bonus = 2500
+color = Color(0.75, 0.6, 1, 1)
+
+[node name="Bumpers" type="Node2D" parent="."]
+
+[node name="BossBumper" parent="Bumpers" instance=ExtResource("4_boss")]
+position = Vector2(280, 180)
+radius = 36.0
+kick_strength = 800.0
+legend_name = "Boss bumper"
+color = Color(0.9, 0.16, 0.22, 1)
+hit_pitch = 0.7
+
+[node name="BumperLeft" parent="Bumpers" instance=ExtResource("3_bumper")]
+position = Vector2(150, 235)
+
+[node name="BumperRight" parent="Bumpers" instance=ExtResource("3_bumper")]
+position = Vector2(410, 235)
+
+[node name="MiniBumperLeft" parent="Bumpers" instance=ExtResource("3_bumper")]
+position = Vector2(200, 600)
+radius = 16.0
+kick_strength = 600.0
+score_value = 50
+legend_name = "Mini bumper"
+color = Color(0.25, 0.95, 0.8, 1)
+
+[node name="MiniBumperRight" parent="Bumpers" instance=ExtResource("3_bumper")]
+position = Vector2(360, 600)
+radius = 16.0
+kick_strength = 600.0
+score_value = 50
+legend_name = "Mini bumper"
+color = Color(0.25, 0.95, 0.8, 1)
+
+[node name="Buttons" type="Node2D" parent="."]
+script = ExtResource("7_bank")
+
+[node name="ButtonL1" type="StaticBody2D" parent="Buttons"]
+script = ExtResource("8_button")
+point_a = Vector2(26, 300)
+point_b = Vector2(50.7, 318.8)
+
+[node name="ButtonL2" type="StaticBody2D" parent="Buttons"]
+script = ExtResource("8_button")
+point_a = Vector2(59.4, 325.5)
+point_b = Vector2(84.1, 344.2)
+
+[node name="ButtonL3" type="StaticBody2D" parent="Buttons"]
+script = ExtResource("8_button")
+point_a = Vector2(92.9, 350.9)
+point_b = Vector2(117.5, 369.7)
+
+[node name="ButtonR1" type="StaticBody2D" parent="Buttons"]
+script = ExtResource("8_button")
+point_a = Vector2(534, 330)
+point_b = Vector2(509.3, 348.8)
+
+[node name="ButtonR2" type="StaticBody2D" parent="Buttons"]
+script = ExtResource("8_button")
+point_a = Vector2(500.6, 355.5)
+point_b = Vector2(475.9, 374.2)
+
+[node name="ButtonR3" type="StaticBody2D" parent="Buttons"]
+script = ExtResource("8_button")
+point_a = Vector2(467.1, 380.9)
+point_b = Vector2(442.5, 399.7)
+
+[node name="Bridge" parent="." instance=ExtResource("9_tunnel")]
+z_index = 5
+path = PackedVector2Array(115, 655, 92, 605, 88, 550, 108, 505, 160, 478, 230, 468, 330, 468, 400, 482, 442, 520, 452, 575)
+width = 50.0
+entrance_posts = false
+min_entry_speed = 250.0
+entry_angle_deg = 65.0
+booster_from = 0.35
+exit_max_speed = 400.0
+score_value = 1000
+color = Color(1, 0.6, 0.3, 1)
+legend_name = "Bridge"
+
+[node name="KickerRight" parent="." instance=ExtResource("5_sling")]
+corner_a = Vector2(536, 440)
+corner_b = Vector2(486, 505)
+corner_c = Vector2(536, 525)
+kick_strength = 700.0
+legend_name = "Wall kicker"
+color = Color(1, 0.8, 0.3, 1)
+
+[node name="SkyRamp" parent="." instance=ExtResource("9_tunnel")]
+z_index = 7
+path = PackedVector2Array(465, 650, 484, 600, 492, 540, 490, 470, 482, 400, 474, 330, 466, 262, 452, 200, 425, 150, 395, 130)
+width = 50.0
+rail_layer = 5
+entrance_posts = false
+min_entry_speed = 250.0
+entry_angle_deg = 65.0
+exit_max_speed = 350.0
+score_value = 1000
+color = Color(0.4, 0.75, 1, 1)
+legend_name = "Sky ramp"

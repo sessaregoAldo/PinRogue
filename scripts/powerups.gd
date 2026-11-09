@@ -6,40 +6,60 @@ extends Node2D
 ## pauses and offers 3 random power-ups. The pick lasts for the rest of the run
 ## and stacks with earlier picks. Everything resets on restart.
 ##
+## Two kinds ("tier"):
+## - minor: earned from the inlane lights behind the bottom slingshots.
+##   All three cards are minor.
+## - major: earned from the machine's lights near the boss. At least two cards
+##   are major; if fewer major ones are available, minor ones fill the rest.
+##
 ## To add a power-up: add an entry to POWERUPS, handle its id in _apply(),
-## and (optionally) in _is_available() and _status_lines().
+## and (optionally) in _is_available() and _status_lines(). The main menu's
+## Spare Parts list reads POWERUPS too.
 
 const POWERUPS := [
-	{"id": "extra_ball", "title": "Extra Ball", "icon": "+1",
+	# --- Major (lights near the boss) ---
+	{"id": "extra_ball", "tier": "major", "title": "Extra Ball", "icon": "+1",
 		"desc": "One more ball for this run.", "color": Color(0.4, 1.0, 0.5), "weight": 0.8},
-	{"id": "multiplier", "title": "Score Multiplier", "icon": "x1.25",
-		"desc": "Place on a bumper or wall kicker: hitting it multiplies your score by 1.25. Pick again to upgrade a part to x1.5, then x2. 20 s cooldown.",
-		"color": Color(0.45, 1.0, 0.9), "weight": 1.2},
-	{"id": "ball_saver", "title": "Ball Saver", "icon": "<3",
-		"desc": "For 10 s after each launch, a drained ball comes back. Each stack adds 10 s.",
-		"color": Color(0.5, 1.0, 0.6), "weight": 0.9},
-	{"id": "turbo_ramps", "title": "Turbo Ramps", "icon": ">>",
+	{"id": "mega_multiplier", "tier": "major", "title": "Mega Multiplier", "icon": "x2",
+		"desc": "Put a x2 score multiplier on a bumper or wall kicker, or max out one you placed. 20 s cooldown.",
+		"color": Color(0.3, 1.0, 0.95), "weight": 0.9},
+	{"id": "boss_crusher", "tier": "major", "title": "Boss Crusher", "icon": "!!",
+		"desc": "Boss hits deal +50% damage. Stacks.", "color": Color(1.0, 0.4, 0.5), "weight": 1.0},
+	{"id": "boss_magnet", "tier": "major", "title": "Boss Magnet", "icon": "(o)",
+		"desc": "The boss gently pulls nearby balls toward it for more boss hits. Stacks up to 3 times.",
+		"color": Color(1.0, 0.45, 0.45), "weight": 0.9},
+	{"id": "turbo_ramps", "tier": "major", "title": "Turbo Ramps", "icon": ">>",
 		"desc": "Ramp boosters fire from the entrance, so any ramp you get into completes. Ramps score +100% per stack.",
 		"color": Color(1.0, 0.7, 0.35), "weight": 0.9},
-	{"id": "boss_magnet", "title": "Boss Magnet", "icon": "(o)",
-		"desc": "The boss gently pulls nearby balls toward it for more boss hits. Stacks up to 3 times.",
-		"color": Color(1.0, 0.45, 0.45), "weight": 0.8},
-	{"id": "combo_master", "title": "Combo Master", "icon": "+%",
-		"desc": "Button combinations add +5% more of your score (10% -> 15%). Stacks.",
-		"color": Color(0.75, 0.55, 1.0), "weight": 0.8},
-	{"id": "gap_guard", "title": "Gap Guard", "icon": "==",
+	# --- Minor (inlane lights) ---
+	{"id": "multiplier", "tier": "minor", "title": "Score Multiplier", "icon": "x1.25",
+		"desc": "Place on a bumper or wall kicker: hitting it multiplies your score by 1.25. Pick again to upgrade a part to x1.5. 20 s cooldown.",
+		"color": Color(0.45, 1.0, 0.9), "weight": 1.2},
+	{"id": "bouncy_ball", "tier": "minor", "title": "Bouncy Ball", "icon": "o^",
+		"desc": "The ball bounces 0.1x harder off everything. Stacks up to x1.5.",
+		"color": Color(0.55, 0.85, 1.0), "weight": 1.0},
+	{"id": "gap_guard", "tier": "minor", "title": "Gap Guard", "icon": "==",
 		"desc": "A barrier below the flipper gap pops the ball back up. Breaks after 2 saves.",
 		"color": Color(0.4, 0.8, 1.0), "weight": 1.0},
-	{"id": "outlane_guards", "title": "Outlane Guards", "icon": "| |",
+	{"id": "outlane_guards", "tier": "minor", "title": "Outlane Guards", "icon": "| |",
 		"desc": "Barriers across both outlanes. Each one saves the ball once.",
 		"color": Color(0.6, 0.7, 1.0), "weight": 1.0},
-	{"id": "steady_hands", "title": "Steady Hands", "icon": "~",
+	{"id": "ball_saver", "tier": "minor", "title": "Ball Saver", "icon": "<3",
+		"desc": "For 10 s after each launch, a drained ball comes back. Each stack adds 10 s.",
+		"color": Color(0.5, 1.0, 0.6), "weight": 0.9},
+	{"id": "steady_hands", "tier": "minor", "title": "Steady Hands", "icon": "~",
 		"desc": "One more nudge allowed before TILT.", "color": Color(1.0, 0.85, 0.4), "weight": 0.7},
-	{"id": "boss_crusher", "title": "Boss Crusher", "icon": "!!",
-		"desc": "Boss hits deal +50% damage.", "color": Color(1.0, 0.4, 0.5), "weight": 0.8},
+	{"id": "combo_master", "tier": "minor", "title": "Combo Master", "icon": "+%",
+		"desc": "Button combinations add +5% more of your score (10% -> 15%). Stacks.",
+		"color": Color(0.75, 0.55, 1.0), "weight": 0.8},
 ]
 
-## Score multiplier tiers: first pick on a part = x1.25, upgrades go x1.5, x2.
+const TIER_COLORS := {"major": Color(1.0, 0.75, 0.25), "minor": Color(0.55, 0.8, 1.0)}
+## Bouncy Ball: +0.1x per stack, up to this.
+const BOUNCE_MAX := 1.5
+## Score multiplier tiers. Minor picks place x1.25 and upgrade to x1.5;
+## Mega Multiplier jumps a part straight to x2.
+
 const MULT_TIERS: Array[float] = [1.25, 1.5, 2.0]
 
 @export_group("Multiplier")
@@ -60,7 +80,10 @@ const MULT_TIERS: Array[float] = [1.25, 1.5, 2.0]
 var _multipliers: Dictionary = {} # part (Node2D) -> {"mult": float, "ready_at": float}
 var _clock: float = 0.0 # game time; doesn't advance while paused
 var _pulse: float = 0.0
-var _pending_choices: int = 0
+var _pending_choices: Array[String] = [] # tiers of the picks waiting to be offered
+var _offer_tier: String = "major"
+var _place_mega: bool = false
+var _choice_title: Label
 var _gap_guard: Guard
 var _left_guard: Guard
 var _right_guard: Guard
@@ -92,7 +115,7 @@ func _ready() -> void:
 	GameManager.level_changed.connect(_on_level_changed)
 	# A lane set completed while the boss menu was open is offered after Continue.
 	GameManager.round_continued.connect(func(_r: int) -> void:
-		if _pending_choices > 0 and not GameManager.choosing:
+		if not _pending_choices.is_empty() and not GameManager.choosing:
 			_open_choice.call_deferred())
 	_update_status()
 
@@ -117,8 +140,9 @@ func _reset_run() -> void:
 	_right_guard = null
 	_steady_stacks = 0
 	_crusher_stacks = 0
-	_pending_choices = 0
+	_pending_choices.clear()
 	_placing = false
+	_apply_bounce()
 	_choice_root.visible = false
 	_banner.visible = false
 	if get_tree().paused and not _pause_menu_open():
@@ -134,19 +158,19 @@ func _pause_menu_open() -> bool:
 
 # --- Picking ------------------------------------------------------------------
 
-func _on_choice_requested() -> void:
+func _on_choice_requested(tier: String = "major") -> void:
 	if GameManager.is_game_over:
 		return
-	_pending_choices += 1
+	_pending_choices.append(tier)
 	if not GameManager.choosing:
 		call_deferred("_open_choice") # not from inside a physics callback
 
 
 func _open_choice() -> void:
-	if _pending_choices <= 0 or GameManager.is_game_over:
+	if _pending_choices.is_empty() or GameManager.is_game_over:
 		return
-	_pending_choices -= 1
-	_offer = _roll_offer(3)
+	_offer_tier = _pending_choices.pop_front()
+	_offer = _roll_offer(3, _offer_tier)
 	if _offer.is_empty():
 		return
 	GameManager.choosing = true
@@ -156,8 +180,20 @@ func _open_choice() -> void:
 	Sfx.play("powerup")
 
 
-func _roll_offer(count: int) -> Array:
-	var pool := POWERUPS.filter(func(p: Dictionary) -> bool: return _is_available(p["id"]))
+## Minor picks: all minor. Major picks: major cards first, minor ones only fill
+## in when there aren't enough majors available.
+func _roll_offer(count: int, tier: String) -> Array:
+	var picked := _weighted_pick(_available_of(tier), count)
+	if picked.size() < count and tier == "major":
+		picked.append_array(_weighted_pick(_available_of("minor"), count - picked.size()))
+	return picked
+
+
+func _available_of(tier: String) -> Array:
+	return POWERUPS.filter(func(p: Dictionary) -> bool: return p["tier"] == tier and _is_available(p["id"]))
+
+
+func _weighted_pick(pool: Array, count: int) -> Array:
 	var picked := []
 	while picked.size() < count and not pool.is_empty():
 		var total := 0.0
@@ -176,7 +212,11 @@ func _roll_offer(count: int) -> Array:
 func _is_available(id: String) -> bool:
 	match id:
 		"multiplier":
-			return not _placeable_targets().is_empty()
+			return not _placeable_targets(false).is_empty()
+		"mega_multiplier":
+			return not _placeable_targets(true).is_empty()
+		"bouncy_ball":
+			return GameManager.ball_bounce_mult < BOUNCE_MAX - 0.001
 		"boss_magnet":
 			return GameManager.boss_magnet < BossBumper.MAGNET_MAX_STACKS
 		"gap_guard":
@@ -200,8 +240,14 @@ func _apply(id: String) -> void:
 		"extra_ball":
 			GameManager.add_extra_ball()
 		"multiplier":
-			_start_placement()
+			_start_placement(false)
 			return # finishes after the player places it
+		"mega_multiplier":
+			_start_placement(true)
+			return
+		"bouncy_ball":
+			GameManager.ball_bounce_mult = minf(BOUNCE_MAX, GameManager.ball_bounce_mult + 0.1)
+			_apply_bounce()
 		"gap_guard":
 			_gap_guard = _grow_guard(_gap_guard, _guard_pos("gap_guard", 0, gap_guard_a), _guard_pos("gap_guard", 1, gap_guard_b), Vector2.UP, 450.0, 8.0, 16.0, gap_guard_saves, gap_guard_max)
 		"outlane_guards":
@@ -229,7 +275,7 @@ func _finish_choice() -> void:
 	_banner.visible = false
 	_update_status()
 	queue_redraw()
-	if _pending_choices > 0 and not GameManager.is_game_over:
+	if not _pending_choices.is_empty() and not GameManager.is_game_over:
 		_open_choice() # another lane set was completed meanwhile
 		return
 	GameManager.choosing = false
@@ -313,15 +359,25 @@ func _free_targets() -> Array[Node2D]:
 
 
 ## Parts a multiplier pick can go on: free parts, plus parts whose multiplier
-## can still be upgraded.
-func _placeable_targets() -> Array[Node2D]:
+## can still be upgraded (minor picks stop at x1.5; Mega goes to x2).
+func _placeable_targets(mega: bool) -> Array[Node2D]:
 	var all: Array[Node2D] = []
 	_collect_targets(get_parent(), all)
+	var top_tier := MULT_TIERS.size() - 1 if mega else 1
 	var out: Array[Node2D] = []
 	for n in all:
-		if not _multipliers.has(n) or int(_multipliers[n].get("tier", 0)) < MULT_TIERS.size() - 1:
+		if not _multipliers.has(n) or int(_multipliers[n].get("tier", 0)) < top_tier:
 			out.append(n)
 	return out
+
+
+## The tier a pick would give `target`.
+func _next_tier(target: Node2D) -> int:
+	if _place_mega:
+		return MULT_TIERS.size() - 1
+	if _multipliers.has(target):
+		return mini(int(_multipliers[target]["tier"]) + 1, 1)
+	return 0
 
 
 ## Bumpers (including the boss) and wall kickers. The bottom slingshots are
@@ -339,13 +395,13 @@ func _mult_text(mult: float) -> String:
 
 ## What placing on `target` would give: "x1.25" for a free part, or the next tier.
 func _placement_label(target: Node2D) -> String:
-	if _multipliers.has(target):
-		return "%s (upgrade)" % _mult_text(MULT_TIERS[int(_multipliers[target]["tier"]) + 1])
-	return _mult_text(MULT_TIERS[0]) + " here"
+	var text := _mult_text(MULT_TIERS[_next_tier(target)])
+	return "%s (upgrade)" % text if _multipliers.has(target) else text + " here"
 
 
-func _start_placement() -> void:
-	_place_targets = _placeable_targets()
+func _start_placement(mega: bool) -> void:
+	_place_mega = mega
+	_place_targets = _placeable_targets(mega)
 	if _place_targets.is_empty():
 		_finish_choice()
 		return
@@ -360,19 +416,19 @@ func _start_placement() -> void:
 			best = d
 			_place_index = i
 	_placing = true
-	_banner.text = "Place a x1.25 multiplier, or upgrade one you placed\n<- / -> or point to choose   ·   Enter / Space or click to place"
+	_banner.text = ("Place a x2 multiplier, or max out one you placed" if mega else "Place a x1.25 multiplier, or upgrade one you placed") \
+			+ "\n<- / -> or point to choose   ·   Enter / Space or click to place"
 	_banner.visible = true
 
 
 func _confirm_placement() -> void:
 	var target := _place_targets[_place_index]
-	var tier := 0
+	var tier := _next_tier(target)
 	if _multipliers.has(target):
-		tier = mini(int(_multipliers[target]["tier"]) + 1, MULT_TIERS.size() - 1)
 		_multipliers[target]["tier"] = tier
 		_multipliers[target]["mult"] = MULT_TIERS[tier]
 	else:
-		_multipliers[target] = {"mult": MULT_TIERS[0], "tier": 0, "ready_at": 0.0, "legend": _legend_of(target)}
+		_multipliers[target] = {"mult": MULT_TIERS[tier], "tier": tier, "ready_at": 0.0, "legend": _legend_of(target)}
 	Sfx.play("multiplier")
 	GameManager.popup(_mult_text(MULT_TIERS[tier]) + (" placed" if tier == 0 else "!"), _target_center(target), Color(0.45, 1.0, 0.9), true)
 	_finish_choice()
@@ -524,7 +580,15 @@ func _status_lines() -> Array[String]:
 		lines.append("Boss Magnet x%d" % GameManager.boss_magnet)
 	if GameManager.combo_bonus_extra > 0.0:
 		lines.append("Combo Master +%d%%" % int(round(GameManager.combo_bonus_extra * 100.0)))
+	if GameManager.ball_bounce_mult > 1.001:
+		lines.append("Bouncy Ball x%s" % String.num(GameManager.ball_bounce_mult, 1))
 	return lines
+
+
+func _apply_bounce() -> void:
+	var ball := get_parent().get_node_or_null("Ball")
+	if ball and ball.has_method("set_bounce_mult"):
+		ball.set_bounce_mult(GameManager.ball_bounce_mult)
 
 
 # --- UI construction ----------------------------------------------------------
@@ -573,6 +637,7 @@ func _build_ui() -> void:
 	column.add_theme_constant_override("separation", 16)
 	center.add_child(column)
 	var title := Label.new()
+	_choice_title = title
 	title.text = "CHOOSE A POWER-UP"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 30)
@@ -591,6 +656,8 @@ func _build_ui() -> void:
 
 
 func _fill_cards() -> void:
+	_choice_title.text = "MAJOR POWER-UP" if _offer_tier == "major" else "MINOR POWER-UP"
+	_choice_title.add_theme_color_override("font_color", TIER_COLORS[_offer_tier])
 	for child in _cards_box.get_children():
 		child.queue_free()
 	var first: Button = null
@@ -616,7 +683,7 @@ func _fill_cards() -> void:
 		box.add_theme_constant_override("separation", 10)
 		box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		card.add_child(box)
-		_card_label(box, "[%d]" % (i + 1), 13, Color(0.6, 0.65, 0.8))
+		_card_label(box, "[%d]  %s" % [i + 1, str(p["tier"]).to_upper()], 13, TIER_COLORS[p["tier"]])
 		_card_label(box, p["icon"], 34, p["color"])
 		_card_label(box, p["title"], 19, Color.WHITE)
 		var desc := _card_label(box, p["desc"], 13, Color(0.8, 0.85, 0.95))

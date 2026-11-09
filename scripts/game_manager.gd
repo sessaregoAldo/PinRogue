@@ -20,7 +20,8 @@ signal round_continued(round_number: int)
 @warning_ignore("unused_signal")
 signal part_hit(part: Node)
 ## A lane set was completed: offer the player a power-up pick.
-signal powerup_choice_requested
+## tier: "minor" (inlane lights) or "major" (the machine's lights near the boss).
+signal powerup_choice_requested(tier: String)
 ## A new table layout was loaded (game.gd). Power-ups move their multipliers onto it.
 @warning_ignore("unused_signal")
 signal level_changed(level: Node)
@@ -101,6 +102,8 @@ var ramp_turbo: int = 0
 var boss_magnet: int = 0
 ## Combo Master: extra share of the score added by a button combination.
 var combo_bonus_extra: float = 0.0
+## Bouncy Ball: how bouncy the ball is (1.0 = normal, +0.1 per stack).
+var ball_bounce_mult: float = 1.0
 var _save_timer: float = 0.0
 
 const SETTINGS_PATH := "user://settings.cfg"
@@ -164,9 +167,9 @@ func add_extra_ball() -> void:
 
 
 ## Ask for a power-up pick (ignored once the game is over).
-func request_powerup_choice() -> void:
+func request_powerup_choice(tier: String = "major") -> void:
 	if not is_game_over:
-		powerup_choice_requested.emit()
+		powerup_choice_requested.emit(tier)
 
 
 ## The boss is down: count it and let the player choose what happens next.
@@ -272,6 +275,7 @@ func restart() -> void:
 	ramp_turbo = 0
 	boss_magnet = 0
 	combo_bonus_extra = 0.0
+	ball_bounce_mult = 1.0
 	_save_timer = 0.0
 	score_changed.emit(score)
 	balls_changed.emit(balls_left)

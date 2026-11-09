@@ -17,6 +17,11 @@ var _main_page: VBoxContainer
 var _options_page: VBoxContainer
 var _leaderboard_page: VBoxContainer
 var _machines_page: VBoxContainer
+var _machines_box: VBoxContainer
+var _parts_scroll: ScrollContainer
+var _tab_machines: Button
+var _tab_parts: Button
+var _notes_corner: Button
 var _modes_page: VBoxContainer
 var _notes_page: VBoxContainer
 var _notes_scroll: ScrollContainer
@@ -99,6 +104,7 @@ func _is_any_press(event: InputEvent) -> bool:
 func _show_page(page: Control) -> void:
 	for p in _pages:
 		p.visible = p == page
+	_notes_corner.visible = page == _main_page
 	if page == _main_page:
 		_start_button.grab_focus()
 	elif page == _options_page:
@@ -108,6 +114,7 @@ func _show_page(page: Control) -> void:
 		_leaderboard.refresh()
 	elif page == _machines_page:
 		_show_machine(_machine_index)
+		_show_tab(false)
 	elif page == _modes_page:
 		_endless_button.grab_focus()
 	elif page == _notes_page:
@@ -314,7 +321,6 @@ func _build_ui() -> void:
 	_start_button = _button(_main_page, "Start Run", func() -> void: _click_to(_modes_page))
 	_button(_main_page, "Options", func() -> void: _click_to(_options_page))
 	_button(_main_page, "Leaderboard", func() -> void: _click_to(_leaderboard_page))
-	_button(_main_page, "Patch Notes", func() -> void: _click_to(_notes_page))
 	if LevelRegistry.count() > 2:
 		_button(_main_page, "Machines", func() -> void: _click_to(_machines_page))
 	if not OS.has_feature("web"): # a browser tab cannot be closed by the game
@@ -337,20 +343,34 @@ func _build_ui() -> void:
 	# Machines (table layouts)
 	_machines_page = _page(holder)
 	_label(_machines_page, "MACHINES", 40, GOLD)
-	_machine_view = _build_preview(_machines_page)
-	_machine_name = _label(_machines_page, "", 24, Color.WHITE)
-	_machine_desc = _label(_machines_page, "", 14, SOFT)
+	var tabs := HBoxContainer.new()
+	tabs.alignment = BoxContainer.ALIGNMENT_CENTER
+	tabs.add_theme_constant_override("separation", 8)
+	_machines_page.add_child(tabs)
+	_tab_machines = _tab_button(tabs, "Tables", func() -> void: _click_tab(false))
+	_tab_parts = _tab_button(tabs, "Spare Parts", func() -> void: _click_tab(true))
+	_machines_box = VBoxContainer.new()
+	_machines_box.add_theme_constant_override("separation", 12)
+	_machines_page.add_child(_machines_box)
+	_machine_view = _build_preview(_machines_box)
+	_machine_name = _label(_machines_box, "", 24, Color.WHITE)
+	_machine_desc = _label(_machines_box, "", 14, SOFT)
 	_machine_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_machine_desc.custom_minimum_size = Vector2(380, 0)
 	var nav := HBoxContainer.new()
 	nav.alignment = BoxContainer.ALIGNMENT_CENTER
 	nav.add_theme_constant_override("separation", 12)
-	_machines_page.add_child(nav)
+	_machines_box.add_child(nav)
 	_small_button(nav, "<", func() -> void: _click_show(_machine_index - 1))
 	_machine_count = Label.new()
 	_machine_count.add_theme_font_size_override("font_size", 18)
 	nav.add_child(_machine_count)
 	_small_button(nav, ">", func() -> void: _click_show(_machine_index + 1))
+	_parts_scroll = ScrollContainer.new()
+	_parts_scroll.custom_minimum_size = Vector2(480, 640)
+	_parts_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_parts_scroll.add_child(_build_spare_parts())
+	_machines_page.add_child(_parts_scroll)
 	_button(_machines_page, "Back", _back)
 
 	# Patch notes
@@ -436,6 +456,19 @@ func _build_ui() -> void:
 	var back := _button(_controls_page, "Back", _back)
 	back.focus_mode = Control.FOCUS_NONE # Space / Enter should start, not go back
 
+	# Small "Patch notes" button in the bottom-left corner, just above the version tag.
+	_notes_corner = Button.new()
+	_notes_corner.text = "Patch notes"
+	_notes_corner.flat = true
+	_notes_corner.position = Vector2(2, 1070)
+	_notes_corner.size = Vector2(96, 26)
+	_notes_corner.add_theme_font_size_override("font_size", 13)
+	_notes_corner.add_theme_color_override("font_color", Color(0.75, 0.8, 0.95, 0.8))
+	_notes_corner.add_theme_color_override("font_hover_color", GOLD)
+	_notes_corner.focus_mode = Control.FOCUS_NONE
+	_notes_corner.pressed.connect(func() -> void: _click_to(_notes_page))
+	ui.add_child(_notes_corner)
+
 	# Fade overlay for transitions.
 	var fade_layer := CanvasLayer.new()
 	fade_layer.layer = 90
@@ -494,6 +527,102 @@ func _button(parent: Control, text: String, on_pressed: Callable) -> Button:
 	row.add_child(b)
 	parent.add_child(row)
 	return b
+
+
+# --- Spare parts (power-up list on the Machines page) ------------------------------
+
+func _click_tab(parts: bool) -> void:
+	Sfx.play("click")
+	_show_tab(parts)
+
+
+func _show_tab(parts: bool) -> void:
+	_machines_box.visible = not parts
+	_parts_scroll.visible = parts
+	_tab_machines.button_pressed = not parts
+	_tab_parts.button_pressed = parts
+	if parts:
+		_parts_scroll.scroll_vertical = 0
+
+
+func _tab_button(parent: Control, text: String, on_pressed: Callable) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.toggle_mode = true
+	b.custom_minimum_size = Vector2(150, 40)
+	b.add_theme_font_size_override("font_size", 18)
+	b.add_theme_color_override("font_pressed_color", GOLD)
+	b.pressed.connect(on_pressed)
+	parent.add_child(b)
+	return b
+
+
+func _build_spare_parts() -> VBoxContainer:
+	var list := VBoxContainer.new()
+	list.add_theme_constant_override("separation", 10)
+	list.custom_minimum_size = Vector2(462, 0)
+	var sections := [
+		["major", "MAJOR PARTS", "Earned by lighting the machine's lights near the boss."],
+		["minor", "MINOR PARTS", "Earned by lighting both inlane lights behind the bottom slingshots."],
+	]
+	for sec: Array in sections:
+		if sec[0] == "minor":
+			_spacer(list, 10)
+		var head := Label.new()
+		head.text = sec[1]
+		head.add_theme_font_size_override("font_size", 22)
+		head.add_theme_color_override("font_color", PowerupManager.TIER_COLORS[sec[0]])
+		list.add_child(head)
+		var note := Label.new()
+		note.text = sec[2]
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		note.custom_minimum_size = Vector2(450, 0)
+		note.add_theme_font_size_override("font_size", 13)
+		note.add_theme_color_override("font_color", Color(0.6, 0.65, 0.8))
+		list.add_child(note)
+		for part: Dictionary in PowerupManager.POWERUPS:
+			if part["tier"] == sec[0]:
+				list.add_child(_part_row(part))
+	return list
+
+
+## One power-up: its icon in a colored badge, the name and a short description.
+func _part_row(part: Dictionary) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	var badge := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.1, 0.11, 0.2, 0.95)
+	style.border_color = part["color"]
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(8)
+	badge.add_theme_stylebox_override("panel", style)
+	badge.custom_minimum_size = Vector2(66, 48)
+	badge.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	var icon := Label.new()
+	icon.text = part["icon"]
+	icon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	icon.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	icon.add_theme_font_size_override("font_size", 20 if str(part["icon"]).length() <= 3 else 15)
+	icon.add_theme_color_override("font_color", part["color"])
+	badge.add_child(icon)
+	row.add_child(badge)
+	var text := VBoxContainer.new()
+	text.add_theme_constant_override("separation", 2)
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var title := Label.new()
+	title.text = part["title"]
+	title.add_theme_font_size_override("font_size", 17)
+	text.add_child(title)
+	var desc := Label.new()
+	desc.text = part["desc"]
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc.custom_minimum_size = Vector2(370, 0)
+	desc.add_theme_font_size_override("font_size", 13)
+	desc.add_theme_color_override("font_color", Color(0.8, 0.85, 0.95))
+	text.add_child(desc)
+	row.add_child(text)
+	return row
 
 
 func _build_patch_notes() -> VBoxContainer:

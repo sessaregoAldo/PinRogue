@@ -1,0 +1,163 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/levels/level_base.tscn" id="1_base"]
+[ext_resource type="Script" path="res://scripts/wall.gd" id="2_wall"]
+[ext_resource type="PackedScene" path="res://scenes/bumper.tscn" id="3_bumper"]
+[ext_resource type="PackedScene" path="res://scenes/boss_bumper.tscn" id="4_boss"]
+[ext_resource type="PackedScene" path="res://scenes/slingshot.tscn" id="5_sling"]
+[ext_resource type="Script" path="res://scripts/rollover.gd" id="6_rollover"]
+[ext_resource type="Script" path="res://scripts/button_bank.gd" id="7_bank"]
+[ext_resource type="Script" path="res://scripts/target_button.gd" id="8_button"]
+[ext_resource type="PackedScene" path="res://scenes/tunnel.tscn" id="9_tunnel"]
+
+[node name="LevelClassicB" instance=ExtResource("1_base")]
+level_name = "Classic B"
+description = "Test layout. Lift Loops: each loop drops the ball onto a lift kicker that fires it straight up into the top lanes. The pop bumpers moved beside the boss to open those lanes, and the center pin and mini bumpers are gone."
+art_rings = PackedVector3Array(280, 385, 135)
+
+[node name="TopLaneGuide1" type="StaticBody2D" parent="Walls"]
+script = ExtResource("2_wall")
+points = PackedVector2Array(212, 162, 212, 195)
+thickness = 6.0
+bounce = 0.4
+
+[node name="TopLaneGuide2" type="StaticBody2D" parent="Walls"]
+script = ExtResource("2_wall")
+points = PackedVector2Array(257, 150, 257, 195)
+thickness = 6.0
+bounce = 0.4
+
+[node name="TopLaneGuide3" type="StaticBody2D" parent="Walls"]
+script = ExtResource("2_wall")
+points = PackedVector2Array(302, 150, 302, 195)
+thickness = 6.0
+bounce = 0.4
+
+[node name="TopLaneGuide4" type="StaticBody2D" parent="Walls"]
+script = ExtResource("2_wall")
+points = PackedVector2Array(347, 162, 347, 195)
+thickness = 6.0
+bounce = 0.4
+
+[node name="TopLaneA" type="Area2D" parent="Rollovers"]
+position = Vector2(234.5, 172)
+script = ExtResource("6_rollover")
+legend_name = "Top lane"
+
+[node name="TopLaneB" type="Area2D" parent="Rollovers"]
+position = Vector2(279.5, 172)
+script = ExtResource("6_rollover")
+legend_name = "Top lane"
+
+[node name="TopLaneC" type="Area2D" parent="Rollovers"]
+position = Vector2(324.5, 172)
+script = ExtResource("6_rollover")
+legend_name = "Top lane"
+
+[node name="Bumpers" type="Node2D" parent="."]
+
+[node name="BumperLeft" parent="Bumpers" instance=ExtResource("3_bumper")]
+position = Vector2(160, 385)
+
+[node name="BumperRight" parent="Bumpers" instance=ExtResource("3_bumper")]
+position = Vector2(395, 400)
+
+[node name="BossBumper" parent="Bumpers" instance=ExtResource("4_boss")]
+position = Vector2(280, 400)
+radius = 36.0
+kick_strength = 800.0
+legend_name = "Boss bumper"
+color = Color(0.9, 0.16, 0.22, 1)
+hit_pitch = 0.7
+
+[node name="LiftKickerLeft" parent="." instance=ExtResource("5_sling")]
+corner_a = Vector2(184, 640)
+corner_b = Vector2(230, 637)
+corner_c = Vector2(207, 668)
+kick_strength = 1150.0
+keep_tangent = 0.1
+score_value = 50
+legend_name = "Lift kicker"
+color = Color(0.45, 1, 0.85, 1)
+
+[node name="LiftKickerRight" parent="." instance=ExtResource("5_sling")]
+corner_a = Vector2(376, 640)
+corner_b = Vector2(330, 637)
+corner_c = Vector2(353, 668)
+kick_strength = 1150.0
+keep_tangent = 0.1
+score_value = 50
+legend_name = "Lift kicker"
+color = Color(0.45, 1, 0.85, 1)
+
+[node name="KickerLeft" parent="." instance=ExtResource("5_sling")]
+corner_a = Vector2(26, 370)
+corner_b = Vector2(80, 430)
+corner_c = Vector2(26, 450)
+kick_strength = 550.0
+legend_name = "Wall kicker"
+color = Color(1, 0.8, 0.3, 1)
+
+[node name="KickerRight" parent="." instance=ExtResource("5_sling")]
+corner_a = Vector2(536, 370)
+corner_b = Vector2(482, 430)
+corner_c = Vector2(536, 450)
+kick_strength = 550.0
+legend_name = "Wall kicker"
+color = Color(1, 0.8, 0.3, 1)
+
+[node name="Buttons" type="Node2D" parent="."]
+script = ExtResource("7_bank")
+
+[node name="ButtonL1" type="StaticBody2D" parent="Buttons"]
+script = ExtResource("8_button")
+point_a = Vector2(26, 236)
+point_b = Vector2(51.6, 258.3)
+
+[node name="ButtonL2" type="StaticBody2D" parent="Buttons"]
+script = ExtResource("8_button")
+point_a = Vector2(59.9, 265.6)
+point_b = Vector2(85.6, 287.9)
+
+[node name="ButtonL3" type="StaticBody2D" parent="Buttons"]
+script = ExtResource("8_button")
+point_a = Vector2(93.9, 295.1)
+point_b = Vector2(119.5, 317.5)
+
+[node name="ButtonR1" type="StaticBody2D" parent="Buttons"]
+script = ExtResource("8_button")
+point_a = Vector2(534, 300)
+point_b = Vector2(508.4, 322.3)
+
+[node name="ButtonR2" type="StaticBody2D" parent="Buttons"]
+script = ExtResource("8_button")
+point_a = Vector2(500.1, 329.6)
+point_b = Vector2(474.4, 351.9)
+
+[node name="ButtonR3" type="StaticBody2D" parent="Buttons"]
+script = ExtResource("8_button")
+point_a = Vector2(466.2, 359.1)
+point_b = Vector2(440.5, 381.5)
+
+[node name="TunnelLeft" parent="." instance=ExtResource("9_tunnel")]
+z_index = 5
+path = PackedVector2Array(95, 640, 76, 598, 68, 555, 72, 515, 90, 484, 120, 466, 155, 465, 185, 480, 203, 510, 208, 548, 206, 590)
+width = 52.0
+entrance_posts = false
+min_entry_speed = 250.0
+entry_angle_deg = 65.0
+exit_max_speed = 350.0
+legend_name = "Left loop"
+
+[node name="TunnelRight" parent="." instance=ExtResource("9_tunnel")]
+z_index = 7
+path = PackedVector2Array(465, 630, 484, 590, 492, 548, 488, 510, 470, 480, 440, 463, 405, 462, 375, 478, 356, 508, 352, 548, 354, 588)
+width = 52.0
+rail_layer = 5
+entrance_posts = false
+min_entry_speed = 250.0
+entry_angle_deg = 65.0
+exit_max_speed = 350.0
+score_value = 750
+color = Color(1, 0.6, 0.3, 1)
+legend_name = "Right loop"

@@ -81,6 +81,7 @@ script = ExtResource("5_rollover")
 group_name = &"inlanes"
 score_value = 100
 legend_name = "Inlane"
+powerup_tier = "minor"
 group_bonus = 1000
 color = Color(1, 0.5, 0.2, 1)
 
@@ -90,6 +91,7 @@ script = ExtResource("5_rollover")
 group_name = &"inlanes"
 score_value = 100
 legend_name = "Inlane"
+powerup_tier = "minor"
 group_bonus = 1000
 color = Color(1, 0.5, 0.2, 1)
 

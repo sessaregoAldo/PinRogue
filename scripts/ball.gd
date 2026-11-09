@@ -12,6 +12,8 @@ const LAYER_BALL_RAISED := 4 # physics layer 3: ball riding a tunnel
 @export var radius: float = 10.0
 @export var max_speed: float = 2200.0
 @export var bounce: float = 0.2 # added to the surface's bounce on contact
+## Bounce of a typical wall, used to scale the combined bounce (Bouncy Ball).
+const TYPICAL_SURFACE_BOUNCE := 0.25
 @export var friction: float = 0.15
 @export var color: Color = Color(0.85, 0.87, 0.92)
 
@@ -54,6 +56,8 @@ func _ready() -> void:
 	mat.bounce = bounce
 	mat.friction = friction
 	physics_material_override = mat
+	if not Engine.is_editor_hint():
+		set_bounce_mult(GameManager.ball_bounce_mult)
 
 	var shape := CircleShape2D.new()
 	shape.radius = radius
@@ -243,3 +247,13 @@ func _apply_layers() -> void:
 	else:
 		collision_layer = LAYER_BALL
 		collision_mask = LAYER_TABLE | LAYER_BALL
+
+
+## Bouncy Ball power-up: scale how hard the ball rebounds. Godot adds the ball's
+## bounce to the surface's, so the ball's share is set to make a typical wall
+## bounce `mult` times as much as normal.
+func set_bounce_mult(mult: float) -> void:
+	var mat := physics_material_override
+	if mat == null:
+		return
+	mat.bounce = clampf((TYPICAL_SURFACE_BOUNCE + bounce) * mult - TYPICAL_SURFACE_BOUNCE, 0.0, 0.9)

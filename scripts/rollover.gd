@@ -14,6 +14,9 @@ extends Area2D
 @export var color: Color = Color(1.0, 0.85, 0.2)
 ## Completing this rollover's group offers a power-up pick.
 @export var grants_powerup: bool = true
+## Which kind of pick: "minor" (the inlane lights behind the bottom slingshots)
+## or "major" (the machine's own lights near the boss).
+@export_enum("major", "minor") var powerup_tier: String = "major"
 
 var lit: bool = false
 var _flash: float = 0.0
@@ -59,7 +62,7 @@ func _on_body_entered(body: Node) -> void:
 	GameManager.add_score(group_bonus, global_position + Vector2(0, -26))
 	Sfx.play("ramp_complete")
 	if grants_powerup:
-		GameManager.request_powerup_choice()
+		GameManager.request_powerup_choice(powerup_tier)
 	for node in get_tree().get_nodes_in_group(group_name):
 		var other := node as Rollover
 		if other:

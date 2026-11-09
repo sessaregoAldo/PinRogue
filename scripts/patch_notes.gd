@@ -5,6 +5,18 @@ extends RefCounted
 
 const NOTES: Array[Dictionary] = [
 	{
+		"version": "0.13.1",
+		"name": "Spare Parts",
+		"date": "Nov 9, 2026",
+		"notes": [
+			"Power-ups now come in two kinds. Light the inlanes behind the bottom slingshots for a minor power-up, or the lights near the boss for a major one.",
+			"New major power-up: Mega Multiplier puts a x2 score multiplier straight on a part.",
+			"New minor power-up: Bouncy Ball makes the ball bounce harder. It stacks.",
+			"The Machines page has a new Spare Parts tab listing every power-up.",
+			"Patch Notes moved to a small button in the corner of the main menu.",
+		],
+	},
+	{
 		"version": "0.13",
 		"name": "Hall of Fame",
 		"date": "Nov 9, 2026",

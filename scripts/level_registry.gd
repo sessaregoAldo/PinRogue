@@ -9,6 +9,17 @@ const PATHS: Array[String] = [
 	"res://scenes/levels/level_fortress.tscn",
 	"res://scenes/levels/level_pinwheel.tscn",
 	"res://scenes/levels/level_gauntlet.tscn",
+	# --- Test layouts (local playtest only; keep the winners, delete the rest) ---
+	"res://scenes/levels/level_classic_a.tscn",
+	"res://scenes/levels/level_classic_b.tscn",
+	"res://scenes/levels/level_classic_c.tscn",
+	"res://scenes/levels/level_crossfire_a.tscn",
+	"res://scenes/levels/level_crossfire_b.tscn",
+	"res://scenes/levels/level_fortress_a.tscn",
+	"res://scenes/levels/level_fortress_b.tscn",
+	"res://scenes/levels/level_gauntlet_a.tscn",
+	"res://scenes/levels/level_gauntlet_b.tscn",
+	"res://scenes/levels/level_gauntlet_c.tscn",
 ]
 
 
