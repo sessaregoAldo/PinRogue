@@ -15,13 +15,14 @@ extends CanvasLayer
 const FLIP_TOP := 975.0 # flipper buttons start here (level with the flippers, never above)
 const SPLIT_X := 300.0 # left / right flipper boundary
 const PLUNGER_X := 522.0 # while a ball waits, touches right of this drive the launcher
-const PLUNGER_DRAG_FULL := 150.0 # px of downward drag for a full-power launch
+const PLUNGER_DRAG_FULL := 300.0 # px of downward drag for a full-power launch...
+const PLUNGER_DRAG_MIN := 110.0 # ...shortened to the room left below the finger (never below this)
 const SWIPE_MIN := 40.0 # px the finger must travel...
 const SWIPE_WINDOW := 0.35 # ...within this many seconds (measured over a sliding window)
 const SWIPE_SIDE_RATIO := 0.75 # sideways wins unless the swipe is clearly vertical
 const TILT_THRESHOLD := 6.5 # m/s² of sudden change (gravity filtered out)
 const TILT_COOLDOWN := 0.45
-const PLUNGER_ZONE := Rect2(526, 860, 70, 250)
+const PLUNGER_ZONE := Rect2(524, 640, 72, 470)
 
 var enabled: bool = false
 
@@ -106,7 +107,7 @@ func _on_press(index: int, pos: Vector2) -> void:
 		role = "plunger"
 	elif pos.y >= FLIP_TOP:
 		role = "flip_l" if pos.x < SPLIT_X else "flip_r"
-	_touches[index] = {"role": role, "start": pos, "samples": [[pos, _now()]]}
+	_touches[index] = {"role": role, "start": pos, "samples": [[pos, _now()]], "full": _pull_length(pos)}
 	match role:
 		"flip_l":
 			Input.action_press("flipper_left")
@@ -125,7 +126,7 @@ func _on_drag(index: int, pos: Vector2) -> void:
 	if t["role"] == "plunger":
 		var plunger := _plunger()
 		if plunger:
-			plunger.touch_set_charge((pos.y - (t["start"] as Vector2).y) / PLUNGER_DRAG_FULL)
+			plunger.touch_set_charge((pos.y - (t["start"] as Vector2).y) / float(t["full"]))
 	else:
 		_track_swipe(t, pos)
 
@@ -168,6 +169,14 @@ func _release_flipper(role: String) -> void:
 
 func _now() -> float:
 	return Time.get_ticks_msec() / 1000.0
+
+
+## Drag distance for full power from a touch at `start`: the full length if it
+## fits above the bottom of the screen, otherwise whatever room is left, so the
+## pull stays proportional wherever the finger lands.
+func _pull_length(start: Vector2) -> float:
+	var bottom := _canvas.get_viewport_rect().size.y - 12.0
+	return clampf(bottom - start.y, PLUNGER_DRAG_MIN, PLUNGER_DRAG_FULL)
 
 
 ## True while a ball rests in the launcher (or a finger is pulling it back).
@@ -277,15 +286,46 @@ func _draw_controls() -> void:
 		_canvas.draw_rect(zone, Color(1, 1, 1, a * 0.25))
 		_canvas.draw_rect(zone, Color(1, 1, 1, a), false, 2.0)
 		var cx := zone.position.x + zone.size.x * 0.5
-		for k in 3:
-			var y := zone.position.y + 60.0 + k * 22.0 + (fmod(_pulse * 30.0, 22.0) if not pulling else 0.0)
-			_canvas.draw_polyline(PackedVector2Array([Vector2(cx - 12, y), Vector2(cx, y + 10), Vector2(cx + 12, y)]), Color(1, 1, 1, a + 0.2), 3.0, true)
-		_canvas.draw_string(font, zone.position + Vector2(0, 30), "PULL", HORIZONTAL_ALIGNMENT_CENTER, zone.size.x, 15, Color(1, 1, 1, a + 0.3))
+		if pulling:
+			_draw_pull_meter(cx, font)
+		else:
+			_draw_pull_hint(zone, cx, a, font)
+
 	# Nudge hint for a few seconds at the start of a run.
 	if _hint_time > 0.0:
 		var text := "Swipe < ^ > to nudge" if GameManager.nudge_mode == "swipe" else "Jolt the phone to nudge"
 		_canvas.draw_string_outline(font, Vector2(0, 735), text, HORIZONTAL_ALIGNMENT_CENTER, 600, 18, 5, Color(0, 0, 0, minf(1.0, _hint_time)))
 		_canvas.draw_string(font, Vector2(0, 735), text, HORIZONTAL_ALIGNMENT_CENTER, 600, 18, Color(1, 1, 1, minf(1.0, _hint_time) * 0.85))
+
+
+func _draw_pull_hint(zone: Rect2, cx: float, a: float, font: Font) -> void:
+	_canvas.draw_string(font, zone.position + Vector2(0, 30), "PULL", HORIZONTAL_ALIGNMENT_CENTER, zone.size.x, 15, Color(1, 1, 1, a + 0.3))
+	for k in 5:
+		var y := zone.position.y + 60.0 + k * 34.0 + fmod(_pulse * 40.0, 34.0)
+		_canvas.draw_polyline(PackedVector2Array([Vector2(cx - 12, y), Vector2(cx, y + 10), Vector2(cx + 12, y)]), Color(1, 1, 1, a + 0.2), 3.0, true)
+
+
+## While pulling: a track from where the finger started to the full-power point,
+## filled as far as the plunger is drawn back, with the launch power in percent.
+func _draw_pull_meter(cx: float, font: Font) -> void:
+	var t: Dictionary = {}
+	for touch in _touches.values():
+		if touch["role"] == "plunger":
+			t = touch
+	var plunger := _plunger()
+	if t.is_empty() or plunger == null:
+		return
+	var top: float = (t["start"] as Vector2).y
+	var bottom: float = top + float(t["full"])
+	var charge := plunger.charge
+	var power := Color(0.35, 1.0, 0.45).lerp(Color(1.0, 0.85, 0.2), minf(1.0, charge * 2.0)) 			.lerp(Color(1.0, 0.3, 0.2), maxf(0.0, charge * 2.0 - 1.0))
+	_canvas.draw_line(Vector2(cx, top), Vector2(cx, bottom), Color(1, 1, 1, 0.25), 14.0)
+	_canvas.draw_line(Vector2(cx, top), Vector2(cx, lerpf(top, bottom, charge)), power, 14.0)
+	_canvas.draw_line(Vector2(cx - 16, bottom), Vector2(cx + 16, bottom), Color(1, 1, 1, 0.7), 3.0)
+	var label := "%d%%" % int(round(charge * 100.0))
+	var at := Vector2(PLUNGER_ZONE.position.x - 6.0, top - 12.0)
+	_canvas.draw_string_outline(font, at, label, HORIZONTAL_ALIGNMENT_CENTER, PLUNGER_ZONE.size.x + 12.0, 20, 5, Color.BLACK)
+	_canvas.draw_string(font, at, label, HORIZONTAL_ALIGNMENT_CENTER, PLUNGER_ZONE.size.x + 12.0, 20, power)
 
 
 func _draw_button(rect: Rect2, held: bool, side: float) -> void:
