@@ -5,7 +5,7 @@ extends CanvasLayer
 const GOLD := Color(1.0, 0.85, 0.3)
 const SOFT := Color(0.75, 0.8, 0.95)
 
-var _final_score: int = 0
+var _final_score: float = 0.0
 var _won: bool = false
 var _submitted_name: String = ""
 
@@ -27,12 +27,12 @@ func _ready() -> void:
 	layer = 18 # above HUD and power-ups, below the pause menu
 	_build()
 	_root.visible = false
-	GameManager.game_over.connect(func(score: int) -> void: _open(score, false))
-	GameManager.victory.connect(func(score: int) -> void: _open(score, true))
+	GameManager.game_over.connect(func(score: float) -> void: _open(score, false))
+	GameManager.victory.connect(func(score: float) -> void: _open(score, true))
 	GameManager.game_started.connect(_close)
 
 
-func _open(score: int, won: bool) -> void:
+func _open(score: float, won: bool) -> void:
 	_final_score = score
 	_won = won # star: the run ended by choosing End Run after a boss; skull: out of balls
 	_submitted_name = ""
@@ -162,13 +162,13 @@ func _load_board(rank: int) -> void:
 	var highlighted := false
 	for i in entries.size():
 		var e: Dictionary = entries[i]
-		var mine: bool = not highlighted and _submitted_name != "" and e["name"] == _submitted_name and int(e["score"]) == _final_score
+		var mine: bool = not highlighted and _submitted_name != "" and e["name"] == _submitted_name and Leaderboard.same_score(float(e["score"]), _final_score)
 		if mine:
 			highlighted = true
 		var c := GOLD if mine else (Color.WHITE if i < 3 else SOFT)
 		_cell("%d." % (i + 1), c, HORIZONTAL_ALIGNMENT_RIGHT)
 		_board.add_child(RunIcon.name_cell(str(e["name"]), bool(e["won"]), c, 18))
-		_cell(GameManager.format_number(int(e["score"])), c, HORIZONTAL_ALIGNMENT_RIGHT)
+		_cell(GameManager.format_number(float(e["score"])), c, HORIZONTAL_ALIGNMENT_RIGHT)
 	if res["error"] != "" and _status.text == "":
 		_status.text = res["error"]
 		_status.modulate = GOLD

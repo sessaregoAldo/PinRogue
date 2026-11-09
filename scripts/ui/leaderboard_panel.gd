@@ -38,7 +38,7 @@ func refresh() -> void:
 		var c := Color.WHITE if i < 3 else Color(0.75, 0.8, 0.95)
 		_cell("%d." % (i + 1), c, HORIZONTAL_ALIGNMENT_RIGHT)
 		_grid.add_child(RunIcon.name_cell(str(e["name"]), bool(e["won"]), c, 18))
-		_cell(GameManager.format_number(int(e["score"])), c, HORIZONTAL_ALIGNMENT_RIGHT)
+		_cell(GameManager.format_number(float(e["score"])), c, HORIZONTAL_ALIGNMENT_RIGHT)
 	var notes: Array[String] = []
 	if entries.is_empty():
 		notes.append("No scores yet.")

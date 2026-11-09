@@ -14,6 +14,7 @@ const NOTES: Array[Dictionary] = [
 			"Fortress has four gates into the boss's ring, each with a light.",
 			"Gauntlet: the bridge now drops onto a lift kicker that fires the ball back up the right side, plus two new lights beside the boss.",
 			"Boss and wall health are easier to read: numbers stay short, like 999K, 1.0M or 12.5B.",
+			"No more ceiling: scores and boss health keep growing in very long runs (past 1.0Q come Aa, Ab ... Az, Ba ...).",
 			"Power-ups now come in two kinds. Light the inlanes behind the bottom slingshots for a minor power-up, or the lights near the boss for a major one.",
 			"New major power-up: Mega Multiplier puts a x2 score multiplier straight on a part.",
 			"New minor power-up: Bouncy Ball makes the ball bounce harder. It stacks.",

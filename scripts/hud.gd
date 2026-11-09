@@ -35,7 +35,7 @@ func _ready() -> void:
 	add_child(_charge_bar)
 	_build_nudge_meter()
 
-	GameManager.score_changed.connect(func(_s: int) -> void: _refresh())
+	GameManager.score_changed.connect(func(_s: float) -> void: _refresh())
 	GameManager.balls_changed.connect(func(_b: int) -> void: _refresh())
 	GameManager.round_continued.connect(func(_r: int) -> void: _refresh())
 	GameManager.game_started.connect(_refresh)
@@ -43,8 +43,8 @@ func _ready() -> void:
 	GameManager.tilt_warning.connect(_on_tilt_warning)
 	GameManager.tilted_changed.connect(_on_tilted_changed)
 	# Game over / victory are shown by end_screen.gd (with the high-score entry).
-	GameManager.game_over.connect(func(_s: int) -> void: _message.text = "")
-	GameManager.victory.connect(func(_s: int) -> void: _message.text = "")
+	GameManager.game_over.connect(func(_s: float) -> void: _message.text = "")
+	GameManager.victory.connect(func(_s: float) -> void: _message.text = "")
 	GameManager.game_started.connect(func() -> void: _message.text = "")
 	_banner = _make_label(Vector2(0, 470), Vector2(600, 60), 30, HORIZONTAL_ALIGNMENT_CENTER)
 	_banner.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
@@ -138,7 +138,9 @@ func _make_label(pos: Vector2, size: Vector2, font_size: int, align: HorizontalA
 
 
 func _refresh() -> void:
-	_score_label.text = "SCORE %d" % GameManager.score
+	# Full digits up to 999,999,999, then the short form (1.25B) so it fits.
+	var s := GameManager.score
+	_score_label.text = "SCORE " + (str(int(s)) if s < 1.0e9 else GameManager.format_short(s))
 	# Spare balls: the ball on the table doesn't count once it's launched.
 	var spare := GameManager.spare_balls()
 	var count := str(spare) if spare > 0 else "[color=#ff3b3b]0[/color]"

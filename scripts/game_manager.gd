@@ -1,17 +1,17 @@
 extends Node
 ## Global game state (autoload "GameManager"): score, balls, tilt, and input setup.
 
-signal score_changed(score: int)
+signal score_changed(score: float)
 signal balls_changed(balls: int)
 signal ball_lost
-signal game_over(final_score: int)
+signal game_over(final_score: float)
 signal game_started
 signal tilt_warning(level: float)
 signal tilted_changed(is_tilted: bool)
 signal plunger_charge_changed(charge: float)
 ## A floating text should appear at `world_pos` (see score_popups.gd).
 signal popup_requested(text: String, world_pos: Vector2, color: Color, big: bool)
-signal victory(final_score: int)
+signal victory(final_score: float)
 ## The boss reached 0 HP: the player picks Continue or End Run (boss_menu.gd).
 signal boss_beaten(info: Dictionary)
 ## The player chose Continue: a new round starts with all progress kept.
@@ -48,7 +48,10 @@ const DEFAULT_INPUT := {
 	"pause": [KEY_ESCAPE],
 }
 
-var score: int = 0
+## Score and boss HP are floats (64-bit), not ints: an int tops out at about
+## 9.2 quintillion, a float at about 1.8e308. Above ~1e15 small additions stop
+## registering, which doesn't matter at that size (labels show 3 digits).
+var score: float = 0.0
 var balls_left: int = STARTING_BALLS
 ## True once the current ball has been fired from the launcher (until it drains).
 var ball_launched: bool = false
@@ -63,10 +66,11 @@ var bosses_defeated: int = 0
 ## Boss progression lives here so it carries across levels.
 const BOSS_BASE_HP := 100000
 const BOSS_HP_GROWTH := 5.0 # next max HP = max HP x growth x overkill ratio
-const BOSS_HP_CAP := 9.0e18
-var boss_max_hp: int = BOSS_BASE_HP
+## Keeps the next boss's HP a finite number (floats overflow to "inf" past ~1.8e308).
+const BOSS_HP_CAP := 1.0e300
+var boss_max_hp: float = BOSS_BASE_HP
 var boss_color: Color = Palette.BOSS_START
-var next_boss_hp: int = BOSS_BASE_HP
+var next_boss_hp: float = BOSS_BASE_HP
 ## Level the run starts on, and the level being played (indexes into LevelRegistry).
 var start_level: int = 0
 ## True when the player picked "Random": each new run starts on a random machine.
@@ -136,10 +140,10 @@ func _process(delta: float) -> void:
 
 
 ## Award points. Pass `at` (a world position) to show a "+points" popup there.
-func add_score(points: int, at: Variant = null) -> void:
+func add_score(points: float, at: Variant = null) -> void:
 	if tilted or is_game_over:
 		return
-	score += points
+	score = minf(score + points, BOSS_HP_CAP)
 	score_changed.emit(score)
 	if at is Vector2:
 		popup("+" + format_number(points), at, Color(1.0, 0.9, 0.4), points >= 1000)
@@ -155,7 +159,7 @@ func popup(text: String, at: Vector2, color: Color = Color.WHITE, big: bool = fa
 func multiply_score(mult: float, at: Variant = null) -> void:
 	if tilted or is_game_over:
 		return
-	score = int(round(score * mult))
+	score = minf(roundf(score * mult), BOSS_HP_CAP)
 	score_changed.emit(score)
 	if at is Vector2:
 		var label := ("x%d" % int(mult)) if is_equal_approx(mult, roundf(mult)) else ("x" + String.num(mult, 2))
@@ -178,8 +182,7 @@ func boss_defeated(info: Dictionary) -> void:
 	if is_game_over:
 		return
 	bosses_defeated += 1
-	# Capped below the largest whole number Godot can store (~9.2 quintillion).
-	next_boss_hp = int(minf(round(float(info["max_hp"]) * BOSS_HP_GROWTH * float(info["ratio"])), BOSS_HP_CAP))
+	next_boss_hp = minf(roundf(float(info["max_hp"]) * BOSS_HP_GROWTH * float(info["ratio"])), BOSS_HP_CAP)
 	info["next_max_hp"] = next_boss_hp
 	Sfx.play("victory")
 	boss_beaten.emit(info)
@@ -202,14 +205,17 @@ func declare_victory() -> void:
 	victory.emit(score)
 
 
-## 123456 -> "123,456"
-func format_number(n: int) -> String:
-	var digits := str(absi(n))
+## 123456 -> "123,456". Beyond what a float stores exactly (~1e15) it switches
+## to the short form ("1.25Q"), since the extra digits would be noise anyway.
+func format_number(n: float) -> String:
+	if absf(n) >= 1.0e15:
+		return format_short(n)
+	var digits := str(absi(int(n)))
 	var out := ""
 	while digits.length() > 3:
 		out = "," + digits.substr(digits.length() - 3) + out
 		digits = digits.substr(0, digits.length() - 3)
-	return ("-" if n < 0 else "") + digits + out
+	return ("-" if n < 0.0 else "") + digits + out
 
 
 func add_tilt(amount: float) -> void:
@@ -254,7 +260,7 @@ func set_plunger_charge(charge: float) -> void:
 
 func restart() -> void:
 	round_id += 1
-	score = 0
+	score = 0.0
 	balls_left = STARTING_BALLS
 	ball_launched = false
 	tilt_meter = 0.0
@@ -263,9 +269,9 @@ func restart() -> void:
 	won = false
 	boss_round = 1
 	bosses_defeated = 0
-	boss_max_hp = BOSS_BASE_HP
+	boss_max_hp = float(BOSS_BASE_HP)
 	boss_color = Palette.BOSS_START
-	next_boss_hp = BOSS_BASE_HP
+	next_boss_hp = float(BOSS_BASE_HP)
 	if start_random:
 		start_level = randi() % LevelRegistry.count()
 	current_level = start_level

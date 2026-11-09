@@ -14,8 +14,8 @@ extends Wall
 ## Name shown in the pause menu's scoring legend.
 @export var legend_name: String = "Fortress wall"
 
-var max_hp: int = 1
-var hp: int = 1
+var max_hp: float = 1.0
+var hp: float = 1.0
 var broken: bool = false
 
 var _respawn_left: float = 0.0
@@ -33,7 +33,7 @@ func _ready() -> void:
 
 
 func _reset_hp() -> void:
-	max_hp = maxi(1, int(round(GameManager.boss_max_hp * hp_fraction)))
+	max_hp = maxf(1.0, roundf(GameManager.boss_max_hp * hp_fraction))
 	hp = max_hp
 
 
@@ -67,10 +67,10 @@ func _on_body_entered(body: Node) -> void:
 	_last_hit_ms = now
 	var center := to_global(points[int(points.size() / 2.0)])
 	GameManager.add_score(score_value, center)
-	var damage := maxi(1, int(round(GameManager.score * GameManager.boss_damage_mult)))
-	hp = maxi(0, hp - damage)
+	var damage := maxf(1.0, roundf(GameManager.score * GameManager.boss_damage_mult))
+	hp = maxf(0.0, hp - damage)
 	_flash = 1.0
-	if hp == 0:
+	if hp <= 0.0:
 		_break(center)
 	else:
 		Sfx.play("guard_hit", -4.0)
@@ -130,7 +130,7 @@ func _draw() -> void:
 		for i in range(points.size() - 1):
 			draw_dashed_line(points[i], points[i + 1], Color(color, 0.15 + 0.35 * progress), 2.0, 6.0)
 		return
-	var ratio := clampf(float(hp) / float(max_hp), 0.0, 1.0) if not Engine.is_editor_hint() else 1.0
+	var ratio := clampf(hp / max_hp, 0.0, 1.0) if not Engine.is_editor_hint() else 1.0
 
 	# Casing: the section's full size, always drawn, so the bar keeps its place.
 	var border := Color(color.lightened(0.2), 0.75)

@@ -21,14 +21,14 @@ enum DamageMode {
 	HIT_POINTS, ## damage = this bumper's score_value
 }
 
-@export var max_hp: int = 100000
+@export var max_hp: float = 100000.0
 @export var damage_mode: DamageMode = DamageMode.CURRENT_SCORE
 ## Size of the health dial as a fraction of the bumper radius.
 @export_range(0.3, 0.95) var dial_ratio: float = 0.68
 ## Show the remaining HP as a number in the middle of the dial.
 @export var show_hp_number: bool = true
 
-var hp: int = 0
+var hp: float = 0.0
 var _shown_hp: float = 0.0 # animated value the dial draws
 var _hurt: float = 0.0 # white flash on the dial when damaged
 
@@ -45,14 +45,14 @@ func _ready() -> void:
 func _after_hit(_ball: Ball) -> void:
 	if hp <= 0:
 		return
-	var damage := GameManager.score if damage_mode == DamageMode.CURRENT_SCORE else score_value
-	damage = maxi(int(round(damage * GameManager.boss_damage_mult)), 1)
+	var damage: float = GameManager.score if damage_mode == DamageMode.CURRENT_SCORE else float(score_value)
+	damage = maxf(roundf(damage * GameManager.boss_damage_mult), 1.0)
 	var total_damage := (max_hp - hp) + damage # includes the overkill of this hit
-	hp = maxi(0, hp - damage)
+	hp = maxf(0.0, hp - damage)
 	_hurt = 1.0
 	GameManager.popup("-%s HP" % GameManager.format_short(damage),
 			global_position + Vector2(0, -radius - 16), Color(1.0, 0.35, 0.3), true)
-	if hp == 0:
+	if hp <= 0.0:
 		GameManager.boss_defeated({ # GameManager adds "next_max_hp"
 			"max_hp": max_hp,
 			"total_damage": total_damage,
@@ -62,9 +62,9 @@ func _after_hit(_ball: Ball) -> void:
 
 func _process(delta: float) -> void:
 	super(delta)
-	if absf(_shown_hp - hp) > 0.5 or _hurt > 0.0:
-		_shown_hp = lerpf(_shown_hp, float(hp), 1.0 - exp(-8.0 * delta))
-		if absf(_shown_hp - hp) <= 0.5:
+	if absf(_shown_hp - hp) > maxf(0.5, max_hp * 1e-6) or _hurt > 0.0:
+		_shown_hp = lerpf(_shown_hp, hp, 1.0 - exp(-8.0 * delta))
+		if absf(_shown_hp - hp) <= maxf(0.5, max_hp * 1e-6):
 			_shown_hp = hp
 		_hurt = maxf(0.0, _hurt - delta * 3.0)
 		queue_redraw()
@@ -102,7 +102,7 @@ func _draw() -> void:
 
 
 ## 100000 -> "100K", 69900 -> "69.9K"
-func _short_number(n: int) -> String:
+func _short_number(n: float) -> String:
 	if n >= 1000:
 		var k := n / 1000.0
 		return ("%dK" % int(k)) if is_equal_approx(k, roundf(k)) or k >= 100.0 else ("%.1fK" % k)

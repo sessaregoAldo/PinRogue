@@ -3,7 +3,7 @@
 create table if not exists public.scores (
   id         bigint generated always as identity primary key,
   name       text        not null,
-  score      bigint      not null check (score >= 0 and score < 1000000000000),
+  score      double precision not null,
   won        boolean     not null default false,                      -- defeated the boss
   created_at timestamptz not null default now()
 );
@@ -11,6 +11,13 @@ create table if not exists public.scores (
 -- Player names: 2 to 5 letters, A-Z only (matches the game).
 alter table public.scores drop constraint if exists scores_name_check;
 alter table public.scores add constraint scores_name_check check (name ~ '^[A-Z]{2,5}$');
+
+-- Scores: any non-negative finite number. Stored as double precision (up to
+-- ~1.8e308) so long runs can't overflow. These two lines also upgrade an older
+-- table that used bigint with a 1 trillion limit.
+alter table public.scores drop constraint if exists scores_score_check;
+alter table public.scores alter column score type double precision;
+alter table public.scores add constraint scores_score_check check (score >= 0 and score < 'Infinity'::double precision);
 
 create index if not exists scores_score_idx on public.scores (score desc, created_at asc);
 

@@ -42,7 +42,7 @@ func _ready() -> void:
 	GameManager.ball_saved.connect(_on_ball_saved)
 	GameManager.game_started.connect(_on_game_started)
 	GameManager.round_continued.connect(_on_round_continued)
-	GameManager.victory.connect(func(_score: int) -> void: ball.remove_from_play())
+	GameManager.victory.connect(func(_score: float) -> void: ball.remove_from_play())
 	GameManager.restart() # every visit to this scene starts a fresh run
 	fade_in()
 

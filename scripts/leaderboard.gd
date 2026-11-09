@@ -56,6 +56,20 @@ func name_rule() -> String:
 	return "Names must be %d-%d letters (A-Z)." % [NAME_MIN, NAME_MAX]
 
 
+## A score as plain text for the database: whole digits while a float stores
+## it exactly (so older integer columns still accept it), scientific notation
+## ("1.25e+20") above that.
+func _score_text(score: float) -> String:
+	if absf(score) < 1.0e15:
+		return str(int(roundf(score)))
+	return String.num_scientific(score)
+
+
+## Scores from the database come back as floats; treat tiny differences as equal.
+func same_score(a: float, b: float) -> bool:
+	return absf(a - b) <= maxf(0.5, absf(b) * 1e-12)
+
+
 func is_valid_name(player_name: String) -> bool:
 	return _name_regex.search(player_name) != null
 
@@ -78,10 +92,10 @@ func fetch_top() -> Dictionary:
 
 
 ## All-time position a score would have (1 = best). Returns -1 if unknown.
-func fetch_rank(score: int) -> int:
+func fetch_rank(score: float) -> int:
 	if is_online():
 		var res := await _request(HTTPClient.METHOD_GET,
-				"%s?select=id&score=gt.%d&limit=1" % [table, score], "", ["Prefer: count=exact"])
+				"%s?select=id&score=gt.%s&limit=1" % [table, _score_text(score).uri_encode()], "", ["Prefer: count=exact"])
 		if res["ok"]:
 			# Content-Range: 0-0/123  (or */0 when nothing is higher)
 			for header: String in res["headers"]:
@@ -92,18 +106,18 @@ func fetch_rank(score: int) -> int:
 		return -1
 	var better := 0
 	for e in _local_entries():
-		if int(e["score"]) > score:
+		if float(e["score"]) > score:
 			better += 1
 	return better + 1
 
 
 ## Returns {ok, online, error}. Falls back to saving on this device.
-func submit(player_name: String, score: int, won: bool) -> Dictionary:
+func submit(player_name: String, score: float, won: bool) -> Dictionary:
 	if not is_valid_name(player_name):
 		return {"ok": false, "online": false, "error": name_rule()}
 	_remember_name(player_name)
 	if is_online():
-		var body := JSON.stringify({"name": player_name, "score": score, "won": won})
+		var body := '{"name": %s, "score": %s, "won": %s}' % [JSON.stringify(player_name), _score_text(score), "true" if won else "false"]
 		var res := await _request(HTTPClient.METHOD_POST, table, body, ["Prefer: return=minimal"])
 		if res["ok"]:
 			return {"ok": true, "online": true, "error": ""}
@@ -146,7 +160,7 @@ func _normalize(rows: Array) -> Array:
 	var out := []
 	for row in rows:
 		if row is Dictionary:
-			out.append({"name": str(row.get("name", "?????")), "score": int(row.get("score", 0)), "won": bool(row.get("won", false))})
+			out.append({"name": str(row.get("name", "?????")), "score": float(row.get("score", 0)), "won": bool(row.get("won", false))})
 	return out
 
 
@@ -160,7 +174,7 @@ func _local_entries() -> Array:
 	return _normalize(entries)
 
 
-func _save_local(player_name: String, score: int, won: bool) -> void:
+func _save_local(player_name: String, score: float, won: bool) -> void:
 	var entries := _local_entries()
 	entries.append({"name": player_name, "score": score, "won": won})
 	entries.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a["score"] > b["score"])

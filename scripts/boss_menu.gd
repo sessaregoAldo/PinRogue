@@ -27,10 +27,10 @@ func _open(info: Dictionary) -> void:
 	var defeated := GameManager.bosses_defeated
 	_title.text = "BOSS DEFEATED!" if defeated == 1 else "BOSS #%d DEFEATED!" % defeated
 	_details.text = "Damage dealt  %s / %s HP  (x%.2f)\n\nContinue: keep your score, balls and power-ups.\nThe next boss has  %s HP.\n\nEnd Run: finish now and post your score." % [
-		GameManager.format_number(int(info["total_damage"])),
-		GameManager.format_number(int(info["max_hp"])),
+		GameManager.format_number(float(info["total_damage"])),
+		GameManager.format_number(float(info["max_hp"])),
 		float(info["ratio"]),
-		GameManager.format_number(int(info["next_max_hp"])),
+		GameManager.format_number(float(info["next_max_hp"])),
 	]
 	_root.visible = true
 	_root.modulate.a = 0.0
