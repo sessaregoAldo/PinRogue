@@ -1,31 +1,31 @@
 extends CanvasLayer
 ## On-screen controls for phones and tablets (multi-touch).
 ##
-## - Bottom-left / bottom-right buttons: hold to raise the left / right flipper.
-##   The whole lower band of each side counts, so you don't have to hit exactly.
-## - Launcher (bottom-right lane): touch it, drag down to pull the plunger back,
-##   release to fire. The further you pull, the stronger the launch.
+## - Bottom band (below the flippers): hold the left / right half to raise the
+##   left / right flipper. It spans the whole width once the ball is launched.
+## - Launcher (bottom-right lane, while a ball waits in it): touch it, drag down
+##   to pull the plunger back, release to fire. The further you pull, the stronger.
 ## - Nudge, set in Options > Controls:
-##     "swipe": a quick swipe left / right / up in the upper part of the screen.
+##     "swipe": a quick swipe left / right / up anywhere on the screen. A swipe
+##              that starts on a flipper button still nudges (and lets go of it).
 ##     "tilt":  jolt the phone left / right, or push it away from you for an up nudge.
 ## - "II" button (top middle): pause menu (phones have no Esc key).
 ## Shown automatically on touch screens; Options > Controls can force it on or off.
 
-const FLIP_TOP := 760.0 # touches below this line are flipper / launcher touches
+const FLIP_TOP := 975.0 # flipper buttons start here (level with the flippers, never above)
 const SPLIT_X := 300.0 # left / right flipper boundary
-const PLUNGER_X := 522.0 # touches right of this (in the lower band) drive the launcher
+const PLUNGER_X := 522.0 # while a ball waits, touches right of this drive the launcher
 const PLUNGER_DRAG_FULL := 150.0 # px of downward drag for a full-power launch
-const SWIPE_MIN := 60.0
-const SWIPE_MAX_TIME := 0.4
+const SWIPE_MIN := 40.0 # px the finger must travel...
+const SWIPE_WINDOW := 0.35 # ...within this many seconds (measured over a sliding window)
+const SWIPE_SIDE_RATIO := 0.75 # sideways wins unless the swipe is clearly vertical
 const TILT_THRESHOLD := 6.5 # m/s² of sudden change (gravity filtered out)
 const TILT_COOLDOWN := 0.45
-const LEFT_BUTTON := Rect2(14, 1004, 170, 98)
-const RIGHT_BUTTON := Rect2(336, 1004, 170, 98)
 const PLUNGER_ZONE := Rect2(526, 860, 70, 250)
 
 var enabled: bool = false
 
-var _touches: Dictionary = {} # finger index -> {"role", "start", "time"}
+var _touches: Dictionary = {} # finger index -> {"role", "start", "samples"}
 var _seen_touch: bool = false
 var _canvas: Control
 var _pause_button: Button
@@ -102,14 +102,11 @@ func _on_press(index: int, pos: Vector2) -> void:
 	if _blocked():
 		return
 	var role := "swipe"
-	if pos.y >= FLIP_TOP:
-		if PLUNGER_ZONE.has_point(pos) or pos.x >= PLUNGER_X:
-			role = "plunger"
-		elif pos.x < SPLIT_X:
-			role = "flip_l"
-		else:
-			role = "flip_r"
-	_touches[index] = {"role": role, "start": pos, "time": Time.get_ticks_msec() / 1000.0}
+	if _launcher_ready() and (PLUNGER_ZONE.has_point(pos) or (pos.y >= FLIP_TOP and pos.x >= PLUNGER_X)):
+		role = "plunger"
+	elif pos.y >= FLIP_TOP:
+		role = "flip_l" if pos.x < SPLIT_X else "flip_r"
+	_touches[index] = {"role": role, "start": pos, "samples": [[pos, _now()]]}
 	match role:
 		"flip_l":
 			Input.action_press("flipper_left")
@@ -129,33 +126,72 @@ func _on_drag(index: int, pos: Vector2) -> void:
 		var plunger := _plunger()
 		if plunger:
 			plunger.touch_set_charge((pos.y - (t["start"] as Vector2).y) / PLUNGER_DRAG_FULL)
+	else:
+		_track_swipe(t, pos)
+
+
+## Swipes win over flippers: any non-launcher finger that moves far enough, fast
+## enough, nudges. The check uses a sliding time window, so a slow start or a
+## curved path still counts, and one long swipe can nudge again after a pause.
+func _track_swipe(t: Dictionary, pos: Vector2) -> void:
+	if GameManager.nudge_mode != "swipe" or _blocked():
+		return
+	var now := _now()
+	var samples: Array = t["samples"]
+	samples.append([pos, now])
+	while samples.size() > 1 and now - float(samples[0][1]) > SWIPE_WINDOW:
+		samples.pop_front()
+	var d: Vector2 = pos - (samples[0][0] as Vector2)
+	if d.length() < SWIPE_MIN:
+		return
+	var dir := Vector2.ZERO
+	if absf(d.x) >= absf(d.y) * SWIPE_SIDE_RATIO:
+		dir = Vector2(signf(d.x), 0.0)
+	elif d.y < 0.0:
+		dir = Vector2.UP
+	else:
+		return # swiping down does nothing
+	_nudge(dir)
+	samples.clear()
+	samples.append([pos, now])
+	var role: String = t["role"]
+	if role == "flip_l" or role == "flip_r":
+		t["role"] = "swipe" # this finger was nudging, not flipping
+		_release_flipper(role)
+
+
+func _release_flipper(role: String) -> void:
+	if _role_held(role):
+		return # another finger still holds it
+	Input.action_release("flipper_left" if role == "flip_l" else "flipper_right")
+
+
+func _now() -> float:
+	return Time.get_ticks_msec() / 1000.0
+
+
+## True while a ball rests in the launcher (or a finger is pulling it back).
+func _launcher_ready() -> bool:
+	if _role_held("plunger"):
+		return true
+	var plunger := _plunger()
+	return plunger != null and plunger.has_ball()
 
 
 func _on_release(index: int, pos: Vector2) -> void:
 	if not _touches.has(index):
 		return
 	var t: Dictionary = _touches[index]
+	if t["role"] != "plunger":
+		_track_swipe(t, pos) # a flick may end before the last drag event arrives
 	_touches.erase(index)
 	match t["role"]:
-		"flip_l":
-			if not _role_held("flip_l"):
-				Input.action_release("flipper_left")
-		"flip_r":
-			if not _role_held("flip_r"):
-				Input.action_release("flipper_right")
+		"flip_l", "flip_r":
+			_release_flipper(t["role"])
 		"plunger":
 			var plunger := _plunger()
 			if plunger:
 				plunger.touch_release()
-		"swipe":
-			if GameManager.nudge_mode == "swipe" and not _blocked():
-				var d: Vector2 = pos - (t["start"] as Vector2)
-				var dt: float = Time.get_ticks_msec() / 1000.0 - float(t["time"])
-				if d.length() >= SWIPE_MIN and dt <= SWIPE_MAX_TIME:
-					if absf(d.x) > absf(d.y):
-						_nudge(Vector2(signf(d.x), 0.0))
-					elif d.y < 0.0:
-						_nudge(Vector2.UP)
 
 
 func _role_held(role: String) -> bool:
@@ -228,12 +264,14 @@ func _on_pause_pressed() -> void:
 
 func _draw_controls() -> void:
 	var font := ThemeDB.fallback_font
-	_draw_button(LEFT_BUTTON, _role_held("flip_l"), -1.0)
-	_draw_button(RIGHT_BUTTON, _role_held("flip_r"), 1.0)
+	var view := _canvas.get_viewport_rect().size
+	var loaded := _launcher_ready()
+	var right_end := PLUNGER_X if loaded else view.x
+	_draw_button(Rect2(0, FLIP_TOP, SPLIT_X, view.y - FLIP_TOP), _role_held("flip_l"), -1.0)
+	_draw_button(Rect2(SPLIT_X, FLIP_TOP, right_end - SPLIT_X, view.y - FLIP_TOP), _role_held("flip_r"), 1.0)
 	# Launcher: a pull-down hint while a ball waits in it.
-	var plunger := _plunger()
 	var pulling := _role_held("plunger")
-	if plunger and (plunger.has_ball() or pulling):
+	if loaded:
 		var zone := PLUNGER_ZONE
 		var a := 0.25 + 0.15 * sin(_pulse * 4.0) if not pulling else 0.45
 		_canvas.draw_rect(zone, Color(1, 1, 1, a * 0.25))
@@ -251,11 +289,13 @@ func _draw_controls() -> void:
 
 
 func _draw_button(rect: Rect2, held: bool, side: float) -> void:
-	var fill := Color(1, 1, 1, 0.22 if held else 0.08)
+	rect = rect.grow(-4.0)
+	var fill := Color(1, 1, 1, 0.18 if held else 0.05)
 	_canvas.draw_rect(rect, fill)
-	_canvas.draw_rect(rect, Color(1, 1, 1, 0.45 if held else 0.28), false, 2.0)
-	# Flipper-shaped icon pointing toward the middle of the table.
-	var c := rect.get_center()
+	_canvas.draw_rect(rect, Color(1, 1, 1, 0.4 if held else 0.2), false, 2.0)
+	# Flipper-shaped icon in the lower part (clear of the real flippers),
+	# pointing toward the middle of the table.
+	var c := Vector2(rect.get_center().x, rect.end.y - 40.0)
 	var pivot := c + Vector2(-34.0 * side, 4.0)
 	var tip := c + Vector2(34.0 * side, -10.0 if held else 14.0)
 	_canvas.draw_line(pivot, tip, Color(Palette.FLIPPER, 0.75 if held else 0.5), 14.0, true)
