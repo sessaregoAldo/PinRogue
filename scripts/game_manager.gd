@@ -63,6 +63,7 @@ var bosses_defeated: int = 0
 ## Boss progression lives here so it carries across levels.
 const BOSS_BASE_HP := 100000
 const BOSS_HP_GROWTH := 5.0 # next max HP = max HP x growth x overkill ratio
+const BOSS_HP_CAP := 9.0e18
 var boss_max_hp: int = BOSS_BASE_HP
 var boss_color: Color = Palette.BOSS_START
 var next_boss_hp: int = BOSS_BASE_HP
@@ -177,7 +178,8 @@ func boss_defeated(info: Dictionary) -> void:
 	if is_game_over:
 		return
 	bosses_defeated += 1
-	next_boss_hp = int(round(float(info["max_hp"]) * BOSS_HP_GROWTH * float(info["ratio"])))
+	# Capped below the largest whole number Godot can store (~9.2 quintillion).
+	next_boss_hp = int(minf(round(float(info["max_hp"]) * BOSS_HP_GROWTH * float(info["ratio"])), BOSS_HP_CAP))
 	info["next_max_hp"] = next_boss_hp
 	Sfx.play("victory")
 	boss_beaten.emit(info)
@@ -321,23 +323,40 @@ func ball_save_remaining() -> float:
 	return _save_timer
 
 
-## Compact number for small labels: 950 -> "950", 69900 -> "69.9K", 1250000 -> "1.25M".
-func format_short(n: int) -> String:
-	var a := absi(n)
-	var prefix := "-" if n < 0 else ""
-	if a >= 1000000000:
-		return prefix + _trim_decimals(a / 1000000000.0) + "B"
-	if a >= 1000000:
-		return prefix + _trim_decimals(a / 1000000.0) + "M"
-	if a >= 1000:
-		return prefix + _trim_decimals(a / 1000.0) + "K"
-	return str(n)
+## Compact number for small labels, never more than 3 digits:
+## 950 -> "950", 1000 -> "1.0K", 69900 -> "69.9K", 999499 -> "999K",
+## 999999 -> "1.0M", 1250000 -> "1.25M", 12500000 -> "12.5M", then B, T, Q,
+## then letter pairs: Aa, Ab ... Az, Ba ... (each one 1000x the last).
+func format_short(n: float) -> String:
+	var prefix := "-" if n < 0.0 else ""
+	var v := absf(n)
+	if v < 1000.0:
+		return prefix + str(int(v))
+	var u := 0
+	v /= 1000.0
+	while v >= 999.5: # would round to 1000: move up a unit (999.6K -> 1.0M)
+		v /= 1000.0
+		u += 1
+	return prefix + _three_digits(v) + _unit_name(u)
 
 
-func _trim_decimals(v: float) -> String:
-	if v >= 100.0:
-		return str(int(v))
-	return String.num(v, 1 if v >= 10.0 else 2)
+## 0 = K, 1 = M, 2 = B, 3 = T, 4 = Q, then 5 = Aa, 6 = Ab ... 30 = Az, 31 = Ba ...
+func _unit_name(index: int) -> String:
+	const NAMED := ["K", "M", "B", "T", "Q"]
+	if index < NAMED.size():
+		return NAMED[index]
+	var i := index - NAMED.size()
+	return char(65 + (i / 26) % 26) + char(97 + i % 26)
+
+
+## 1.0 -> "1.0", 1.25 -> "1.25", 12.5 -> "12.5", 999.4 -> "999".
+func _three_digits(v: float) -> String:
+	if v >= 99.95:
+		return str(int(round(v)))
+	if v >= 9.995:
+		return "%.1f" % v
+	var text := "%.2f" % v
+	return text.trim_suffix("0") if text.ends_with("0") else text
 
 
 func set_nudge_mode(mode: String) -> void:

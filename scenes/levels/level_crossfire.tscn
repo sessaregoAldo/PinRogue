@@ -12,7 +12,7 @@
 
 [node name="LevelCrossfire" instance=ExtResource("1_base")]
 level_name = "Crossfire"
-description = "Two ramps cross in an X. The left ramp flings the ball at the boss in the top-right corner; the right ramp feeds the bumper cluster. Orbit rollovers on both sides and a button bar under the arch."
+description = "Two ramps cross in an X. The left ramp flings the ball at the boss in the top-right corner; the right ramp feeds the bumper cluster. Four orbit lights: both sides, the top of the arch, and the Crossroads between the bumpers and the boss."
 art_rings = PackedVector3Array(185, 250, 95, 390, 250, 62)
 
 [node name="CenterPost" type="StaticBody2D" parent="Walls"]
@@ -37,6 +37,24 @@ script = ExtResource("6_rollover")
 group_name = &"orbits"
 score_value = 150
 legend_name = "Orbit"
+group_bonus = 1500
+color = Color(0.4, 0.85, 1, 1)
+
+[node name="OrbitTop" type="Area2D" parent="Rollovers"]
+position = Vector2(300, 41)
+script = ExtResource("6_rollover")
+group_name = &"orbits"
+score_value = 150
+legend_name = "Orbit"
+group_bonus = 1500
+color = Color(0.4, 0.85, 1, 1)
+
+[node name="OrbitCross" type="Area2D" parent="Rollovers"]
+position = Vector2(300, 192)
+script = ExtResource("6_rollover")
+group_name = &"orbits"
+score_value = 150
+legend_name = "Crossroads"
 group_bonus = 1500
 color = Color(0.4, 0.85, 1, 1)
 

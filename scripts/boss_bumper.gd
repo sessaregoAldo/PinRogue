@@ -50,7 +50,7 @@ func _after_hit(_ball: Ball) -> void:
 	var total_damage := (max_hp - hp) + damage # includes the overkill of this hit
 	hp = maxi(0, hp - damage)
 	_hurt = 1.0
-	GameManager.popup("-%s HP" % GameManager.format_number(damage),
+	GameManager.popup("-%s HP" % GameManager.format_short(damage),
 			global_position + Vector2(0, -radius - 16), Color(1.0, 0.35, 0.3), true)
 	if hp == 0:
 		GameManager.boss_defeated({ # GameManager adds "next_max_hp"

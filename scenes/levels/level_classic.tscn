@@ -12,8 +12,8 @@
 
 [node name="LevelClassic" instance=ExtResource("1_base")]
 level_name = "Classic"
-description = "The original machine. Two loops by the walls, top lanes, button banks in the corners and the boss in the middle of the bumper ring."
-art_rings = PackedVector3Array(280, 345, 112)
+description = "The original machine, rebuilt. Each loop drops the ball onto a lift kicker that fires it straight up into the top lanes. The boss sits in the middle of the bumper ring, with button banks in the corners."
+art_rings = PackedVector3Array(280, 345, 135)
 
 [node name="TopLaneGuide1" type="StaticBody2D" parent="Walls"]
 script = ExtResource("2_wall")
@@ -39,13 +39,6 @@ points = PackedVector2Array(347, 162, 347, 195)
 thickness = 6.0
 bounce = 0.4
 
-[node name="CenterPost" type="StaticBody2D" parent="Walls"]
-script = ExtResource("2_wall")
-points = PackedVector2Array(280, 720, 280, 720)
-thickness = 12.0
-bounce = 0.6
-color = Color(0.55, 0.52, 1, 1)
-
 [node name="TopLaneA" type="Area2D" parent="Rollovers"]
 position = Vector2(234.5, 172)
 script = ExtResource("6_rollover")
@@ -64,10 +57,10 @@ legend_name = "Top lane"
 [node name="Bumpers" type="Node2D" parent="."]
 
 [node name="BumperLeft" parent="Bumpers" instance=ExtResource("3_bumper")]
-position = Vector2(205, 300)
+position = Vector2(165, 290)
 
 [node name="BumperRight" parent="Bumpers" instance=ExtResource("3_bumper")]
-position = Vector2(355, 300)
+position = Vector2(395, 305)
 
 [node name="BossBumper" parent="Bumpers" instance=ExtResource("4_boss")]
 position = Vector2(280, 400)
@@ -77,21 +70,25 @@ legend_name = "Boss bumper"
 color = Color(0.9, 0.16, 0.22, 1)
 hit_pitch = 0.7
 
-[node name="MiniBumperLeft" parent="Bumpers" instance=ExtResource("3_bumper")]
-position = Vector2(250, 628)
-radius = 16.0
-kick_strength = 600.0
+[node name="LiftKickerLeft" parent="." instance=ExtResource("5_sling")]
+corner_a = Vector2(184, 636)
+corner_b = Vector2(230, 638)
+corner_c = Vector2(207, 668)
+kick_strength = 1150.0
+keep_tangent = 0.1
 score_value = 50
-legend_name = "Mini bumper"
-color = Color(0.25, 0.95, 0.8, 1)
+legend_name = "Lift kicker"
+color = Color(0.45, 1, 0.85, 1)
 
-[node name="MiniBumperRight" parent="Bumpers" instance=ExtResource("3_bumper")]
-position = Vector2(310, 628)
-radius = 16.0
-kick_strength = 600.0
+[node name="LiftKickerRight" parent="." instance=ExtResource("5_sling")]
+corner_a = Vector2(376, 636)
+corner_b = Vector2(330, 638)
+corner_c = Vector2(353, 668)
+kick_strength = 1150.0
+keep_tangent = 0.1
 score_value = 50
-legend_name = "Mini bumper"
-color = Color(0.25, 0.95, 0.8, 1)
+legend_name = "Lift kicker"
+color = Color(0.45, 1, 0.85, 1)
 
 [node name="KickerLeft" parent="." instance=ExtResource("5_sling")]
 corner_a = Vector2(26, 370)

@@ -1,9 +1,10 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/levels/level_base.tscn" id="1_base"]
 [ext_resource type="Script" path="res://scripts/wall.gd" id="2_wall"]
 [ext_resource type="PackedScene" path="res://scenes/bumper.tscn" id="3_bumper"]
 [ext_resource type="PackedScene" path="res://scenes/boss_bumper.tscn" id="4_boss"]
+[ext_resource type="PackedScene" path="res://scenes/slingshot.tscn" id="5_sling"]
 [ext_resource type="Script" path="res://scripts/rollover.gd" id="6_rollover"]
 [ext_resource type="Script" path="res://scripts/button_bank.gd" id="7_bank"]
 [ext_resource type="Script" path="res://scripts/target_button.gd" id="8_button"]
@@ -11,7 +12,7 @@
 
 [node name="LevelGauntlet" instance=ExtResource("1_base")]
 level_name = "Gauntlet"
-description = "A walled alley runs straight up the middle to the boss, guarded by two pop bumpers. Light both alley rollovers on the way up. The bridge ramp crosses over the alley entrance from left to right."
+description = "A walled alley runs straight up the middle to the boss, guarded by two pop bumpers. Light both alley rollovers and the two lights beside the boss. The bridge ramp crosses from left to right and drops the ball onto a lift kicker that fires it back up the right side."
 art_rings = PackedVector3Array(280, 180, 72)
 
 [node name="CenterPost" type="StaticBody2D" parent="Walls"]
@@ -48,6 +49,24 @@ script = ExtResource("6_rollover")
 group_name = &"alley"
 legend_name = "Alley"
 score_value = 150
+group_bonus = 2500
+color = Color(0.75, 0.6, 1, 1)
+
+[node name="BossLightLeft" type="Area2D" parent="Rollovers"]
+position = Vector2(215, 200)
+script = ExtResource("6_rollover")
+group_name = &"alley"
+legend_name = "Boss light"
+score_value = 300
+group_bonus = 2500
+color = Color(0.75, 0.6, 1, 1)
+
+[node name="BossLightRight" type="Area2D" parent="Rollovers"]
+position = Vector2(345, 200)
+script = ExtResource("6_rollover")
+group_name = &"alley"
+legend_name = "Boss light"
+score_value = 300
 group_bonus = 2500
 color = Color(0.75, 0.6, 1, 1)
 
@@ -128,3 +147,29 @@ exit_max_speed = 400.0
 score_value = 1000
 color = Color(1, 0.6, 0.3, 1)
 legend_name = "Bridge"
+
+[node name="KickerRight" parent="." instance=ExtResource("5_sling")]
+corner_a = Vector2(536, 440)
+corner_b = Vector2(486, 505)
+corner_c = Vector2(536, 525)
+kick_strength = 700.0
+legend_name = "Wall kicker"
+color = Color(1, 0.8, 0.3, 1)
+
+[node name="LiftKicker" parent="." instance=ExtResource("5_sling")]
+corner_a = Vector2(440, 636)
+corner_b = Vector2(490, 625)
+corner_c = Vector2(465, 660)
+kick_strength = 1150.0
+keep_tangent = 0.1
+score_value = 50
+legend_name = "Lift kicker"
+color = Color(0.45, 1, 0.85, 1)
+
+[node name="MiniBumperFar" parent="Bumpers" instance=ExtResource("3_bumper")]
+position = Vector2(425, 720)
+radius = 16.0
+kick_strength = 600.0
+score_value = 50
+legend_name = "Mini bumper"
+color = Color(0.25, 0.95, 0.8, 1)
