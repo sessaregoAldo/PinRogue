@@ -18,6 +18,8 @@ var _options_page: VBoxContainer
 var _leaderboard_page: VBoxContainer
 var _machines_page: VBoxContainer
 var _modes_page: VBoxContainer
+var _notes_page: VBoxContainer
+var _notes_scroll: ScrollContainer
 var _pick_page: VBoxContainer
 var _pick_view: SubViewport
 var _pick_name: Label
@@ -108,6 +110,8 @@ func _show_page(page: Control) -> void:
 		_show_machine(_machine_index)
 	elif page == _modes_page:
 		_endless_button.grab_focus()
+	elif page == _notes_page:
+		_notes_scroll.scroll_vertical = 0
 	elif page == _pick_page:
 		_show_pick(_pick_index)
 		_pick_play.grab_focus()
@@ -310,6 +314,7 @@ func _build_ui() -> void:
 	_start_button = _button(_main_page, "Start Run", func() -> void: _click_to(_modes_page))
 	_button(_main_page, "Options", func() -> void: _click_to(_options_page))
 	_button(_main_page, "Leaderboard", func() -> void: _click_to(_leaderboard_page))
+	_button(_main_page, "Patch Notes", func() -> void: _click_to(_notes_page))
 	if LevelRegistry.count() > 2:
 		_button(_main_page, "Machines", func() -> void: _click_to(_machines_page))
 	if not OS.has_feature("web"): # a browser tab cannot be closed by the game
@@ -347,6 +352,16 @@ func _build_ui() -> void:
 	nav.add_child(_machine_count)
 	_small_button(nav, ">", func() -> void: _click_show(_machine_index + 1))
 	_button(_machines_page, "Back", _back)
+
+	# Patch notes
+	_notes_page = _page(holder)
+	_label(_notes_page, "PATCH NOTES", 40, GOLD)
+	_notes_scroll = ScrollContainer.new()
+	_notes_scroll.custom_minimum_size = Vector2(480, 700)
+	_notes_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_notes_page.add_child(_notes_scroll)
+	_notes_scroll.add_child(_build_patch_notes())
+	_button(_notes_page, "Back", _back)
 
 	# Game modes
 	_modes_page = _page(holder)
@@ -479,6 +494,37 @@ func _button(parent: Control, text: String, on_pressed: Callable) -> Button:
 	row.add_child(b)
 	parent.add_child(row)
 	return b
+
+
+func _build_patch_notes() -> VBoxContainer:
+	var list := VBoxContainer.new()
+	list.add_theme_constant_override("separation", 6)
+	list.custom_minimum_size = Vector2(462, 0)
+	for i in PatchNotes.NOTES.size():
+		var entry: Dictionary = PatchNotes.NOTES[i]
+		if i > 0:
+			_spacer(list, 14)
+		var head := Label.new()
+		head.text = "v%s  ·  %s" % [entry["version"], entry["name"]]
+		head.add_theme_font_size_override("font_size", 24 if i == 0 else 21)
+		head.add_theme_color_override("font_color", GOLD)
+		head.add_theme_constant_override("outline_size", 5)
+		head.add_theme_color_override("font_outline_color", Color.BLACK)
+		list.add_child(head)
+		var date := Label.new()
+		date.text = str(entry["date"]) + ("   ·   LATEST" if i == 0 else "")
+		date.add_theme_font_size_override("font_size", 13)
+		date.add_theme_color_override("font_color", Color(0.55, 0.6, 0.75))
+		list.add_child(date)
+		for line: String in entry["notes"]:
+			var item := Label.new()
+			item.text = "•  " + line
+			item.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			item.custom_minimum_size = Vector2(450, 0)
+			item.add_theme_font_size_override("font_size", 16)
+			item.add_theme_color_override("font_color", Color(0.88, 0.9, 0.97))
+			list.add_child(item)
+	return list
 
 
 ## A game mode: a big button with a short description under it. No callback

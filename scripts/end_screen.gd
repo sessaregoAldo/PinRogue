@@ -34,7 +34,7 @@ func _ready() -> void:
 
 func _open(score: int, won: bool) -> void:
 	_final_score = score
-	_won = won or GameManager.bosses_defeated > 0 # star on the board for any boss beaten
+	_won = won # star: the run ended by choosing End Run after a boss; skull: out of balls
 	_submitted_name = ""
 	_title.text = "VICTORY!" if won else "GAME OVER"
 	_title.add_theme_color_override("font_color", GOLD if won else Color.WHITE)
@@ -77,12 +77,21 @@ func _on_name_changed(text: String) -> void:
 	_update_submit_state()
 
 
+## Phones type through the browser's on-screen keyboard, which can change the
+## text without a text_changed signal (and leave it lower-case). So the button
+## state is also polled, and the name is cleaned again on submit.
 func _update_submit_state() -> void:
-	_submit_button.disabled = not Leaderboard.is_valid_name(_name_edit.text) or not _name_edit.editable
+	_submit_button.disabled = not Leaderboard.is_valid_name(Leaderboard.clean_name(_name_edit.text)) \
+			or not _name_edit.editable
+
+
+func _process(_delta: float) -> void:
+	if _root.visible and _entry_row.visible:
+		_update_submit_state()
 
 
 func _on_submit(_text: String = "") -> void:
-	var player_name := _name_edit.text
+	var player_name := Leaderboard.clean_name(_name_edit.text)
 	if not Leaderboard.is_valid_name(player_name) or not _name_edit.editable:
 		_status.text = Leaderboard.name_rule()
 		_status.modulate = GOLD
@@ -158,7 +167,7 @@ func _load_board(rank: int) -> void:
 			highlighted = true
 		var c := GOLD if mine else (Color.WHITE if i < 3 else SOFT)
 		_cell("%d." % (i + 1), c, HORIZONTAL_ALIGNMENT_RIGHT)
-		_cell(str(e["name"]) + ("  *" if e["won"] else ""), c, HORIZONTAL_ALIGNMENT_LEFT)
+		_board.add_child(RunIcon.name_cell(str(e["name"]), bool(e["won"]), c, 18))
 		_cell(GameManager.format_number(int(e["score"])), c, HORIZONTAL_ALIGNMENT_RIGHT)
 	if res["error"] != "" and _status.text == "":
 		_status.text = res["error"]
@@ -236,6 +245,8 @@ func _build() -> void:
 	_board.add_theme_constant_override("h_separation", 18)
 	_board.add_theme_constant_override("v_separation", 4)
 	col.add_child(_board)
+
+	col.add_child(RunIcon.legend())
 
 	var again_row := HBoxContainer.new()
 	again_row.alignment = BoxContainer.ALIGNMENT_CENTER

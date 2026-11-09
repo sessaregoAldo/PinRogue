@@ -360,7 +360,7 @@ func _start_placement() -> void:
 			best = d
 			_place_index = i
 	_placing = true
-	_banner.text = "Place a x1.25 multiplier, or upgrade one you placed\n<- / -> choose   ·   Enter / Space place   ·   or click a part"
+	_banner.text = "Place a x1.25 multiplier, or upgrade one you placed\n<- / -> or point to choose   ·   Enter / Space or click to place"
 	_banner.visible = true
 
 
@@ -428,21 +428,33 @@ func _unhandled_input(event: InputEvent) -> void:
 		Sfx.play("click")
 	elif event.is_action_pressed("ui_accept") or event.is_action_pressed("launch"):
 		_confirm_placement()
+	elif event is InputEventMouseMotion:
+		var hovered := _target_at_mouse()
+		if hovered >= 0 and hovered != _place_index:
+			_place_index = hovered # same highlight as choosing with the arrows
+			Sfx.play("click", -8.0)
+		return
 	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		var mouse := get_global_mouse_position()
-		var best := -1
-		var best_d := 60.0
-		for i in _place_targets.size():
-			var d := _target_center(_place_targets[i]).distance_to(mouse) - _target_radius(_place_targets[i])
-			if d < best_d:
-				best_d = d
-				best = i
+		var best := _target_at_mouse()
 		if best >= 0:
 			_place_index = best
 			_confirm_placement()
 	else:
 		return
 	get_viewport().set_input_as_handled()
+
+
+## Index of the placeable part under (or within 60 px of) the mouse, or -1.
+func _target_at_mouse() -> int:
+	var mouse := get_global_mouse_position()
+	var best := -1
+	var best_d := 60.0
+	for i in _place_targets.size():
+		var d := _target_center(_place_targets[i]).distance_to(mouse) - _target_radius(_place_targets[i])
+		if d < best_d:
+			best_d = d
+			best = i
+	return best
 
 
 # --- World drawing (multiplier rings, placement cursor) -----------------------

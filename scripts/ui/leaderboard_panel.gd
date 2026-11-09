@@ -21,6 +21,7 @@ func _init() -> void:
 	_note.custom_minimum_size = Vector2(320, 0)
 	_note.add_theme_font_size_override("font_size", 14)
 	_note.add_theme_color_override("font_color", Color(0.7, 0.75, 0.9))
+	add_child(RunIcon.legend())
 	add_child(_note)
 
 
@@ -36,13 +37,12 @@ func refresh() -> void:
 		var e: Dictionary = entries[i]
 		var c := Color.WHITE if i < 3 else Color(0.75, 0.8, 0.95)
 		_cell("%d." % (i + 1), c, HORIZONTAL_ALIGNMENT_RIGHT)
-		_cell(str(e["name"]) + ("  *" if e["won"] else ""), c, HORIZONTAL_ALIGNMENT_LEFT)
+		_grid.add_child(RunIcon.name_cell(str(e["name"]), bool(e["won"]), c, 18))
 		_cell(GameManager.format_number(int(e["score"])), c, HORIZONTAL_ALIGNMENT_RIGHT)
 	var notes: Array[String] = []
 	if entries.is_empty():
 		notes.append("No scores yet.")
 	notes.append("All-time, all players." if res["online"] else "This device only.")
-	notes.append("* = defeated a boss")
 	if res["error"] != "":
 		notes.append(res["error"])
 	_note.text = "\n".join(notes)

@@ -2,7 +2,7 @@ extends CanvasLayer
 ## Score, balls, plunger charge, tilt warnings and game-over text.
 
 var _score_label: Label
-var _balls_label: Label
+var _balls_label: RichTextLabel
 var _message: Label
 var _charge_bar: ProgressBar
 var _warning_tween: Tween
@@ -11,7 +11,17 @@ var _warning_tween: Tween
 func _ready() -> void:
 	layer = 10
 	_score_label = _make_label(Vector2(8, 4), Vector2(200, 30), 22, HORIZONTAL_ALIGNMENT_LEFT)
-	_balls_label = _make_label(Vector2(292, 4), Vector2(300, 30), 22, HORIZONTAL_ALIGNMENT_RIGHT)
+	_balls_label = RichTextLabel.new()
+	_balls_label.bbcode_enabled = true
+	_balls_label.scroll_active = false
+	_balls_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_balls_label.position = Vector2(292, 4)
+	_balls_label.size = Vector2(300, 32)
+	_balls_label.add_theme_font_size_override("normal_font_size", 22)
+	_balls_label.add_theme_constant_override("outline_size", 6)
+	_balls_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	_balls_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_balls_label)
 	_message = _make_label(Vector2(0, 620), Vector2(600, 160), 44, HORIZONTAL_ALIGNMENT_CENTER)
 	_message.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 
@@ -129,7 +139,10 @@ func _make_label(pos: Vector2, size: Vector2, font_size: int, align: HorizontalA
 
 func _refresh() -> void:
 	_score_label.text = "SCORE %d" % GameManager.score
-	_balls_label.text = "ROUND %d   BALL %d" % [GameManager.boss_round, maxi(GameManager.balls_left, 0)]
+	# Spare balls: the ball on the table doesn't count once it's launched.
+	var spare := GameManager.spare_balls()
+	var count := str(spare) if spare > 0 else "[color=#ff3b3b]0[/color]"
+	_balls_label.text = "[right]ROUND %d   BALLS %s[/right]" % [GameManager.boss_round, count]
 
 
 func _on_tilt_warning(_level: float) -> void:

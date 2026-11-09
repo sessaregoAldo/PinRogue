@@ -49,6 +49,8 @@ const DEFAULT_INPUT := {
 
 var score: int = 0
 var balls_left: int = STARTING_BALLS
+## True once the current ball has been fired from the launcher (until it drains).
+var ball_launched: bool = false
 var tilted: bool = false
 var tilt_meter: float = 0.0
 var is_game_over: bool = false
@@ -221,6 +223,7 @@ func add_tilt(amount: float) -> void:
 func ball_drained() -> void:
 	if is_game_over:
 		return
+	ball_launched = false
 	if _save_timer > 0.0: # Ball Saver: this ball comes back
 		_save_timer = 0.0
 		Sfx.play("ramp_complete")
@@ -248,6 +251,7 @@ func restart() -> void:
 	round_id += 1
 	score = 0
 	balls_left = STARTING_BALLS
+	ball_launched = false
 	tilt_meter = 0.0
 	tilted = false
 	is_game_over = false
@@ -290,6 +294,22 @@ func _setup_input() -> void:
 ## Called when the plunger fires: starts the Ball Saver window (if owned).
 func mark_launch() -> void:
 	_save_timer = ball_save_seconds
+	if not ball_launched:
+		ball_launched = true
+		balls_changed.emit(balls_left)
+
+
+## Balls left to come after the one on the table: the HUD counter. A ball
+## waiting in the launcher still counts; it stops counting once it is fired.
+func spare_balls() -> int:
+	return maxi(0, balls_left - (1 if ball_launched else 0))
+
+
+## A fresh ball was put in the launcher (new run, new machine, ball saved).
+func ball_reset_to_launcher() -> void:
+	if ball_launched:
+		ball_launched = false
+		balls_changed.emit(balls_left)
 
 
 ## Seconds left on the Ball Saver for the current ball (0 = not protected).

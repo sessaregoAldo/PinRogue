@@ -106,6 +106,7 @@ func _on_round_continued(_round_number: int) -> void:
 
 func _spawn_ball() -> void:
 	ball.place(level.spawn_point)
+	GameManager.ball_reset_to_launcher()
 
 
 func _on_ball_saved() -> void:
