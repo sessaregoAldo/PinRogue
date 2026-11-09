@@ -9,6 +9,7 @@ const NOTES: Array[Dictionary] = [
 		"name": "Hall of Fame",
 		"date": "Nov 9, 2026",
 		"notes": [
+			"The leaderboard is now global: your best runs go up against every player's.",
 			"New Patch Notes page (you're reading it!).",
 			"The leaderboard shows how each run ended: a star if the player walked away after beating a boss, a skull if they ran out of balls.",
 			"Saving your name to the leaderboard now works on phones.",
