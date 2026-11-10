@@ -5,6 +5,14 @@ extends RefCounted
 
 const NOTES: Array[Dictionary] = [
 	{
+		"version": "0.13.5",
+		"name": "Mixtape",
+		"date": "Nov 9, 2026",
+		"notes": [
+			"Three new, more upbeat tracks join the lo-fi tune: Sunny Tilt, Multiball Groove and Bumper Bounce. The music now shuffles between them with smooth crossfades.",
+		],
+	},
+	{
 		"version": "0.13.4",
 		"name": "Meet Sal",
 		"date": "Nov 9, 2026",

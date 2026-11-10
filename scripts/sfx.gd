@@ -2,8 +2,9 @@ extends Node
 ## Sound effects and background music (autoload "Sfx").
 ## Sound effects are synthesized at startup (no audio files needed). To use real
 ## samples, put an AudioStream into `_streams` under the same name.
-## Music: res://assets/music/lofi_loop.wav, an original loop made by
-## tools/make_lofi.py. Re-run that script to regenerate or tweak it.
+## Music: a rotation of original tracks (shuffled, each played twice, with a
+## crossfade): lofi_loop.wav from tools/make_lofi.py and the upbeat tracks from
+## tools/make_music.py. All synthesized from scratch: free to use, no credits.
 ## Also owns the audio volume settings (saved to user://settings.cfg).
 
 const MIX_RATE := 22050
@@ -11,7 +12,14 @@ const VOICES := 12
 const SETTINGS_PATH := "user://settings.cfg"
 const SFX_BUS := "SFX"
 const MUSIC_BUS := "Music"
-const MUSIC_PATH := "res://assets/music/lofi_loop.wav"
+const MUSIC_TRACKS: Array[String] = [
+	"res://assets/music/lofi_loop.wav",
+	"res://assets/music/sunny_tilt.wav",
+	"res://assets/music/multiball_groove.wav",
+	"res://assets/music/bumper_bounce.wav",
+]
+const PLAYS_PER_TRACK := 2
+const CROSSFADE := 2.0
 
 var master_volume: float = 0.8
 var sfx_volume: float = 0.8
@@ -23,7 +31,13 @@ var _next_voice: int = 0
 var _last_play_ms: Dictionary = {}
 var _sfx_bus_index: int = -1
 var _music_bus_index: int = -1
-var _music: AudioStreamPlayer
+var _music: AudioStreamPlayer # the track playing now
+var _music_next: AudioStreamPlayer # fades in during a crossfade
+var _music_queue: Array[String] = []
+var _music_last: String = ""
+var _track_started_ms: int = 0
+var _track_length: float = 0.0
+var _fade_started_ms: int = -1
 
 
 func _ready() -> void:
@@ -51,15 +65,71 @@ func _ensure_bus(bus_name: String) -> int:
 	return index
 
 
-## Looping background music (the loop points come from the WAV import settings).
+## Background music rotation. Each track loops (WAV import settings) and plays
+## PLAYS_PER_TRACK times, then crossfades into the next one in a shuffled order.
+## Timing uses real time, so pauses and the tutorial's slow motion don't matter.
 func _start_music() -> void:
-	if not ResourceLoader.exists(MUSIC_PATH):
-		return
 	_music = AudioStreamPlayer.new()
-	_music.stream = load(MUSIC_PATH)
 	_music.bus = MUSIC_BUS
 	add_child(_music)
-	_music.play()
+	_music_next = AudioStreamPlayer.new()
+	_music_next.bus = MUSIC_BUS
+	add_child(_music_next)
+	if _start_track(_music, _pick_track()):
+		_music.volume_db = 0.0
+
+
+## Next track from the shuffled queue (never the same one twice in a row).
+func _pick_track() -> String:
+	if _music_queue.is_empty():
+		for path in MUSIC_TRACKS:
+			if ResourceLoader.exists(path):
+				_music_queue.append(path)
+		_music_queue.shuffle()
+		if _music_queue.size() > 1 and _music_queue[0] == _music_last:
+			_music_queue.append(_music_queue.pop_front())
+	if _music_queue.is_empty():
+		return ""
+	_music_last = _music_queue.pop_front()
+	return _music_last
+
+
+func _start_track(player: AudioStreamPlayer, path: String) -> bool:
+	if path == "":
+		return false
+	var stream: AudioStream = load(path)
+	player.stream = stream
+	player.play()
+	_track_length = stream.get_length()
+	_track_started_ms = Time.get_ticks_msec()
+	return true
+
+
+func _process(_delta: float) -> void:
+	if _music == null or not _music.playing or _track_length <= 0.0 or MUSIC_TRACKS.size() < 2:
+		return
+	var now := Time.get_ticks_msec()
+	if _fade_started_ms < 0:
+		var played := (now - _track_started_ms) / 1000.0
+		if played >= _track_length * PLAYS_PER_TRACK - CROSSFADE:
+			_music_next.volume_db = -80.0
+			if _start_track(_music_next, _pick_track()):
+				_fade_started_ms = now
+		return
+	var k := clampf((now - _fade_started_ms) / 1000.0 / CROSSFADE, 0.0, 1.0)
+	_music.volume_db = linear_to_db(maxf(1.0 - k, 0.0001))
+	_music_next.volume_db = linear_to_db(maxf(k, 0.0001))
+	if k >= 1.0:
+		_music.stop()
+		var old := _music
+		_music = _music_next
+		_music_next = old
+		_fade_started_ms = -1
+
+
+## Name of the track playing now (for tests / a future "now playing").
+func current_track() -> String:
+	return _music_last
 
 
 ## Quit cleanly: stop the music and give the audio engine a moment to release it
@@ -67,6 +137,8 @@ func _start_music() -> void:
 func quit_game() -> void:
 	if _music:
 		_music.stop()
+	if _music_next:
+		_music_next.stop()
 	save_settings()
 	await get_tree().create_timer(0.1, true, false, true).timeout
 	get_tree().quit()
