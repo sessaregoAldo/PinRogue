@@ -145,6 +145,12 @@ func _back() -> void:
 
 func _pick_mode(mode: String) -> void:
 	GameManager.game_mode = mode
+	if mode == "tutorial":
+		# Always the Classic machine; Sal explains the controls, so no summary page.
+		GameManager.start_random = false
+		GameManager.start_level = 0
+		_start_run()
+		return
 	_click_to(_pick_page)
 
 
@@ -400,6 +406,9 @@ func _build_ui() -> void:
 	_modes_page = _page(holder)
 	_label(_modes_page, "GAME MODE", 40, GOLD)
 	_spacer(_modes_page, 8)
+	_mode(_modes_page, "Tutorial",
+			"New here? Sal, the machine's old owner, shows you the ropes.",
+			func() -> void: _pick_mode("tutorial"))
 	_endless_button = _mode(_modes_page, "Endless",
 			"Beat the boss, take its power-ups and keep going. How far can you get?",
 			func() -> void: _pick_mode("endless"))

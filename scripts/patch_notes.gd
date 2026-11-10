@@ -6,9 +6,10 @@ extends RefCounted
 const NOTES: Array[Dictionary] = [
 	{
 		"version": "0.13.4",
-		"name": "Your Spot",
+		"name": "Meet Sal",
 		"date": "Nov 9, 2026",
 		"notes": [
+			"New Tutorial mode: Sal, the machine's old owner, walks you through launching, flipping, saving a ball from the gutter, power-ups, the boss and tilt. The game pauses and shows you exactly what to press whenever it's your turn.",
 			"The leaderboard always shows where you stand: if your best score isn't in the top 10, it appears below them with your position.",
 			"Tap the star or the skull under the leaderboard to see the top 10 for just that kind of run. Tap it again to see everyone.",
 		],

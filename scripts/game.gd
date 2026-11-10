@@ -11,6 +11,9 @@ extends Node2D
 
 const MAIN_MENU := "res://scenes/main_menu.tscn"
 
+## The player nudged the machine (keys, swipe or tilt). Used by the tutorial.
+signal nudged(dir: Vector2)
+
 @export var respawn_delay: float = 1.0
 @export_group("Nudge")
 @export var nudge_side_strength: float = 420.0
@@ -43,6 +46,10 @@ func _ready() -> void:
 	GameManager.game_started.connect(_on_game_started)
 	GameManager.round_continued.connect(_on_round_continued)
 	GameManager.victory.connect(func(_score: float) -> void: ball.remove_from_play())
+	if GameManager.game_mode == "tutorial":
+		var tutorial := Tutorial.new()
+		tutorial.game = self
+		add_child(tutorial) # before restart(), so it hears game_started
 	GameManager.restart() # every visit to this scene starts a fresh run
 	fade_in()
 
@@ -142,6 +149,7 @@ func _nudge(impulse: Vector2) -> void:
 		ball.add_impulse(impulse)
 	GameManager.add_tilt(nudge_tilt_cost)
 	_shake(impulse.normalized())
+	nudged.emit(impulse.normalized())
 
 
 func _shake(dir: Vector2) -> void:
@@ -175,6 +183,7 @@ func fade_in() -> void:
 
 ## Fade to black, then go to the main menu.
 func go_to_main_menu() -> void:
+	Engine.time_scale = 1.0 # the tutorial freezes the clock; the fade needs it running
 	get_tree().paused = false
 	GameManager.choosing = false
 	GameManager.entering_name = false

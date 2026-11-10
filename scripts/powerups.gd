@@ -216,7 +216,8 @@ func _is_available(id: String) -> bool:
 		"mega_multiplier":
 			return not _placeable_targets(true).is_empty()
 		"bouncy_ball":
-			return GameManager.ball_bounce_mult < BOUNCE_MAX - 0.001
+			# Not in the tutorial: Sal's scripted shots rely on the normal bounce.
+			return GameManager.ball_bounce_mult < BOUNCE_MAX - 0.001 and GameManager.game_mode != "tutorial"
 		"boss_magnet":
 			return GameManager.boss_magnet < BossBumper.MAGNET_MAX_STACKS
 		"gap_guard":
