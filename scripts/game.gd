@@ -18,7 +18,7 @@ signal nudged(dir: Vector2)
 @export_group("Nudge")
 @export var nudge_side_strength: float = 420.0
 @export var nudge_up_strength: float = 480.0
-@export var nudge_cooldown: float = 0.35
+@export var nudge_cooldown: float = 0.28
 @export var nudge_tilt_cost: float = 1.0
 @export var shake_distance: float = 8.0
 @export_group("Debug")

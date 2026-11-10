@@ -26,6 +26,8 @@ const GOLD := Color(1.0, 0.85, 0.3)
 const BUBBLE_POS := Vector2(30, 52)
 const BUBBLE_WIDTH := 540.0
 const PAUSED_SCALE := 0.0005
+## Game speed during the tilt lesson's nudges.
+const TILT_SLOW := 0.3
 
 # --- Classic machine, measured -------------------------------------------------
 ## Where a cradled ball rests (left / right flipper held up).
@@ -45,6 +47,7 @@ var game: Node
 var _token: int = 0
 var _touch: bool = false
 var _gutter: String = "" # side whose gutter the ball is in, during the save
+var _base_nudge_cooldown: float = 0.28
 var _expect_pick: bool = false # the power-up lesson is running
 var _pick_seen: bool = false # the picker opened during it
 
@@ -71,10 +74,13 @@ func _ready() -> void:
 	GameManager.game_started.connect(func() -> void: _begin.call_deferred())
 	game.nudged.connect(_on_nudged)
 	GameManager.powerup_choice_requested.connect(_on_pick_requested)
+	_base_nudge_cooldown = game.nudge_cooldown
 
 
 func _exit_tree() -> void:
 	Engine.time_scale = 1.0
+	if is_instance_valid(game):
+		game.nudge_cooldown = _base_nudge_cooldown
 	GameManager.input_locked = false
 	GameManager.unlocked_actions.clear()
 
@@ -83,6 +89,7 @@ func _exit_tree() -> void:
 
 func _begin() -> void:
 	_token += 1
+	game.nudge_cooldown = _base_nudge_cooldown
 	_prompt = ""
 	_rings = []
 	_waiting = false
@@ -283,8 +290,14 @@ func _run(token: int) -> void:
 	_pause()
 	await _say("One more thing about nudging. Shove her too often and she TILTS.")
 	if token != _token: return
-	_resume() # each nudge really shoves the cradled ball
+	# Slow motion while the player nudges: each nudge really shoves the ball,
+	# but it stays up long enough for the next nudges. The nudge cooldown is in
+	# game time, so it's scaled down to feel the same in real time.
+	Engine.time_scale = TILT_SLOW
+	game.nudge_cooldown = _base_nudge_cooldown * TILT_SLOW
+	_keep_alive(token) # runs alongside the prompt until the tilt
 	await _ask("nudge_many", side, "Go on, nudge a few times in a row and see what happens.")
+	game.nudge_cooldown = _base_nudge_cooldown
 	if token != _token: return
 	_lock()
 	_note("TILT! The flippers go dead and nothing scores until the ball drains.")
@@ -371,39 +384,28 @@ func _catch(token: int, stop_when: Callable = Callable()) -> String:
 				return "HIT"
 			# Heading down a side wall into an outlane? One nudge toward the
 			# middle drops it into the inlane instead (never enough to tilt).
+			# Dropping into the middle gap (no flipper reaches it)? One nudge
+			# sideways onto the nearer flipper.
 			var bp := ball.global_position
+			var falling := ball.linear_velocity.y > 0.0
+			var save_dir := Vector2.ZERO
 			if bp.y < 600.0:
 				nudged_this_drop = false
-			elif not nudged_this_drop and ball.linear_velocity.y > 0.0 and bp.y > 740.0 and bp.y < 805.0 \
-					and GameManager.tilt_meter < 1.0:
-				var dir := Vector2.ZERO
-				if bp.x > 494.0 and bp.x < 540.0:
-					dir = Vector2.LEFT
-				elif bp.x < 66.0:
-					dir = Vector2.RIGHT
-				if dir != Vector2.ZERO:
-					game._nudge_timer = 0.0
-					game.nudge_direction(dir)
-					nudged_this_drop = true
+			elif not nudged_this_drop and falling and GameManager.tilt_meter < 1.0:
+				if bp.y > 740.0 and bp.y < 805.0:
+					if bp.x > 494.0 and bp.x < 540.0:
+						save_dir = Vector2.LEFT
+					elif bp.x < 66.0:
+						save_dir = Vector2.RIGHT
+				elif bp.y > 905.0 and bp.y < 990.0 and bp.x > 250.0 and bp.x < 310.0:
+					save_dir = Vector2.LEFT if bp.x < 280.0 else Vector2.RIGHT
+			if save_dir != Vector2.ZERO:
+				game._nudge_timer = 0.0
+				game.nudge_direction(save_dir)
+				nudged_this_drop = true
 			var p := ball.global_position
 			var v := ball.linear_velocity
-			for s in ["L", "R"]:
-				var rel: Vector2 = p - FLIPPER_PIVOT[s]
-				var along: float = rel.x if s == "L" else -rel.x
-				var want := false
-				if flip_left[s] > 0:
-					flip_left[s] -= 1
-					want = true
-				elif rel.y > -110.0 and rel.y < 30.0 and along > -20.0 and along < 100.0:
-					if along < 58.0 or v.length() < 60.0:
-						want = true # over the flipper's body: hold it up to catch
-					elif v.y > 0.0 and rel.y > -50.0:
-						flip_left[s] = 24 # heading for the tip / gap: flip it back up
-						want = true
-				if want:
-					_sal(s, true)
-				else:
-					_sal(s, false)
+			_sal_flippers(flip_left)
 			still = still + 1 if v.length() < 5.0 else 0
 			if still > 60 and _near_cradle():
 				ok = true
@@ -441,6 +443,41 @@ func _settle(side: String) -> void:
 	game.ball.teleport(CRADLE[side])
 	game.ball.set_velocity_safe(Vector2.ZERO)
 	await _frames(30)
+
+
+## One physics frame of Sal working the flippers: hold a flipper up when the
+## ball comes down over its body (it lands and rolls into the cradle), flip
+## when it heads for a flipper tip or the middle gap. `timers` counts down
+## each side's flip.
+func _sal_flippers(timers: Dictionary) -> void:
+	var p: Vector2 = game.ball.global_position
+	var v: Vector2 = game.ball.linear_velocity
+	for s in ["L", "R"]:
+		var rel: Vector2 = p - FLIPPER_PIVOT[s]
+		var along: float = rel.x if s == "L" else -rel.x
+		var want := false
+		if timers[s] > 0:
+			timers[s] -= 1
+			want = true
+		elif rel.y > -110.0 and rel.y < 30.0 and along > -20.0 and along < 100.0:
+			if along < 58.0 or v.length() < 60.0:
+				want = true # over the flipper's body: hold it up to catch
+			elif v.y > 0.0 and rel.y > -50.0:
+				timers[s] = 24 # heading for the tip / gap: flip it back up
+				want = true
+		_sal(s, want)
+
+
+## Tilt lesson: Sal keeps the ball in play while the player nudges (no nudges
+## of his own: they'd count toward the tilt). Ends when the machine tilts.
+func _keep_alive(token: int) -> void:
+	var timers := {"L": 0, "R": 0}
+	while token == _token and not GameManager.tilted and game.ball.in_play:
+		await get_tree().physics_frame
+		if not get_tree().paused:
+			_sal_flippers(timers)
+	_sal("L", false)
+	_sal("R", false)
 
 
 func _near_cradle() -> bool:

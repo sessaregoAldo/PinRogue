@@ -11,6 +11,7 @@ const NOTES: Array[Dictionary] = [
 		"notes": [
 			"New Tutorial mode: Sal, the machine's old owner, walks you through launching, flipping, saving a ball from the gutter, power-ups, the boss and tilt. The game pauses and shows you exactly what to press whenever it's your turn.",
 			"The leaderboard always shows where you stand: if your best score isn't in the top 10, it appears below them with your position.",
+			"Nudges recover a little faster, so you can shove the machine again sooner.",
 			"Tap the star or the skull under the leaderboard to see the top 10 for just that kind of run. Tap it again to see everyone.",
 		],
 	},
