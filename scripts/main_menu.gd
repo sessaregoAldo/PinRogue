@@ -221,13 +221,14 @@ func _fill_controls() -> void:
 			["Pause", "The II button at the top"],
 		]
 	else:
+		var k := func(action: String) -> String: return GameManager.key_label(action)
 		rows = [
-			["Left flipper", "Z  or  Left arrow"],
-			["Right flipper", "M,  /  or  Right arrow"],
-			["Launch", "Hold Space (or Down) and release. Hold longer for more power"],
-			["Nudge", "A  W  D  (left, up, right). Too many in a row: TILT"],
-			["Pause", "Esc"],
-			["Restart", "R"],
+			["Left flipper", k.call("flipper_left")],
+			["Right flipper", k.call("flipper_right")],
+			["Launch", "Hold %s and release. Hold longer for more power" % k.call("launch")],
+			["Nudge", "%s / %s / %s (left, up, right). Too many in a row: TILT" % [k.call("nudge_left"), k.call("nudge_up"), k.call("nudge_right")]],
+			["Pause", k.call("pause")],
+			["Restart", k.call("restart")],
 		]
 	for row: Array in rows:
 		var action := Label.new()

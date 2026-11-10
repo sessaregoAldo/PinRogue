@@ -50,7 +50,7 @@ func _open(score: float, won: bool) -> void:
 	_skip_button.disabled = false
 	_status.text = "Enter a name (2-5 letters) for the all-time board." if can_submit else ""
 	_status.modulate = SOFT
-	_footer.text = "Press R or Play again" if not can_submit else "Enter submits  ·  Skip to play again"
+	_footer.text = ("Press %s or Play again" % GameManager.key_label("restart")) if not can_submit else "Enter submits  ·  Skip to play again"
 	_root.visible = true
 	_root.modulate.a = 0.0
 	create_tween().tween_property(_root, "modulate:a", 1.0, 0.5)
@@ -127,7 +127,7 @@ func _finish_entry() -> void:
 	_name_edit.release_focus()
 	_entry_row.visible = false
 	GameManager.entering_name = false
-	_footer.text = "Press R or Play again"
+	_footer.text = "Press %s or Play again" % GameManager.key_label("restart")
 
 
 func _on_main_menu() -> void:

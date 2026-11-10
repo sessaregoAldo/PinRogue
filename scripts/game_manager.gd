@@ -313,6 +313,104 @@ func _setup_input() -> void:
 			var ev := InputEventKey.new()
 			ev.physical_keycode = key as Key
 			InputMap.action_add_event(action, ev)
+	_load_key_bindings()
+
+
+# --- Key bindings (Settings > Controls) -------------------------------------------
+
+## Actions the player can rebind, in menu order, with their names.
+const BINDABLE: Array[String] = ["flipper_left", "flipper_right", "launch", "nudge_left", "nudge_up", "nudge_right", "pause", "restart"]
+const ACTION_NAMES := {
+	"flipper_left": "Left flipper", "flipper_right": "Right flipper", "launch": "Launch",
+	"nudge_left": "Nudge left", "nudge_up": "Nudge up", "nudge_right": "Nudge right",
+	"pause": "Pause", "restart": "Restart",
+}
+const KEY_SYMBOLS := {"Slash": "/", "Backslash": "\\", "Comma": ",", "Period": ".", "Semicolon": ";",
+	"Apostrophe": "'", "Bracketleft": "[", "Bracketright": "]", "Minus": "-", "Equal": "=", "Quoteleft": "`"}
+
+
+func _load_key_bindings() -> void:
+	var cfg := ConfigFile.new()
+	if cfg.load(SETTINGS_PATH) != OK or not cfg.has_section("keys"):
+		return
+	for action in BINDABLE:
+		var codes: Array = cfg.get_value("keys", action, [])
+		if not codes.is_empty():
+			_set_keys(action, codes)
+
+
+## Replace an action's keyboard keys (physical key codes).
+func _set_keys(action: String, codes: Array) -> void:
+	for ev in InputMap.action_get_events(action):
+		if ev is InputEventKey:
+			InputMap.action_erase_event(action, ev)
+	for code in codes:
+		var ev := InputEventKey.new()
+		ev.physical_keycode = int(code) as Key
+		InputMap.action_add_event(action, ev)
+
+
+## The physical key codes bound to an action.
+func key_codes(action: String) -> Array[int]:
+	var out: Array[int] = []
+	for ev in InputMap.action_get_events(action):
+		if ev is InputEventKey:
+			out.append(int(ev.physical_keycode) if ev.physical_keycode != KEY_NONE else int(ev.keycode))
+	return out
+
+
+## Bind `action` to one key. The key is taken off any other action that had it.
+func bind_key(action: String, code: int) -> void:
+	for other in BINDABLE:
+		if other != action and key_codes(other).has(code):
+			var rest := key_codes(other)
+			rest.erase(code)
+			_set_keys(other, rest)
+	_set_keys(action, [code])
+	_save_keys()
+
+
+func reset_keys() -> void:
+	for action in BINDABLE:
+		_set_keys(action, DEFAULT_INPUT[action])
+	var cfg := ConfigFile.new()
+	cfg.load(SETTINGS_PATH)
+	if cfg.has_section("keys"):
+		cfg.erase_section("keys")
+	cfg.save(SETTINGS_PATH)
+
+
+func _save_keys() -> void:
+	var cfg := ConfigFile.new()
+	cfg.load(SETTINGS_PATH) # keep the other sections
+	for action in BINDABLE:
+		cfg.set_value("keys", action, key_codes(action))
+	cfg.save(SETTINGS_PATH)
+
+
+## Readable names of an action's keys, e.g. ["Z", "Left"].
+func key_names(action: String) -> Array[String]:
+	var out: Array[String] = []
+	for code in key_codes(action):
+		out.append(key_name(code))
+	return out
+
+
+## "Z or Left" (or "unbound").
+func key_label(action: String, joiner: String = " or ") -> String:
+	var names := key_names(action)
+	return joiner.join(names) if not names.is_empty() else "unbound"
+
+
+## Name of a physical key on the player's keyboard layout.
+func key_name(code: int) -> String:
+	var mapped := code
+	if not OS.has_feature("web"):
+		var k := DisplayServer.keyboard_get_keycode_from_physical(code as Key)
+		if k != KEY_NONE:
+			mapped = k
+	var s := OS.get_keycode_string(mapped as Key)
+	return KEY_SYMBOLS.get(s, s)
 
 
 ## Called when the plunger fires: starts the Ball Saver window (if owned).

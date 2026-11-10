@@ -93,12 +93,12 @@ func _ask_confirm(mode: String) -> void:
 		_confirm_title.text = "MAIN MENU?"
 		_confirm_note.text = "Your current run will be lost."
 		_confirm_yes_button.text = "Yes, leave"
-		_confirm_hint.text = "Esc = cancel"
+		_confirm_hint.text = "%s = cancel" % GameManager.key_label("pause")
 	else:
 		_confirm_title.text = "RESTART?"
 		_confirm_note.text = "Your current game will be lost."
 		_confirm_yes_button.text = "Yes, restart"
-		_confirm_hint.text = "R = confirm   ·   Esc = cancel"
+		_confirm_hint.text = "%s = confirm   ·   %s = cancel" % [GameManager.key_label("restart"), GameManager.key_label("pause")]
 	_show_page(_confirm_page)
 
 

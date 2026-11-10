@@ -45,7 +45,16 @@ const SAVE_VELOCITY := Vector2(227, -888) # the measured velocity plus the nudge
 var game: Node
 
 var _token: int = 0
-var _touch: bool = false
+## True when the player is on a touch screen (checked live: a first touch on a
+## laptop switches the directions over).
+var _touch: bool:
+	get:
+		if _last_input_touch != null:
+			return _last_input_touch # what the player is actually using
+		var tc := game.get_node_or_null("TouchControls") if is_instance_valid(game) else null
+		return tc != null and tc.enabled
+## true after a touch, false after a key press, null before either.
+var _last_input_touch: Variant = null
 var _gutter: String = "" # side whose gutter the ball is in, during the save
 var _base_nudge_cooldown: float = 0.28
 var _expect_pick: bool = false # the power-up lesson is running
@@ -99,7 +108,6 @@ func _begin() -> void:
 
 func _run(token: int) -> void:
 	var tc := game.get_node_or_null("TouchControls")
-	_touch = tc != null and tc.enabled
 	if tc:
 		tc._hint_time = 0.0 # Sal does the explaining
 	var ball: Ball = game.ball
@@ -151,7 +159,7 @@ func _run(token: int) -> void:
 	await _say("Ha! Right across the table, and I caught it on the other side. Time your flip as the ball rolls and you can aim.")
 	if token != _token: return
 	await _say(("Each half of the bottom of the screen works its flipper." if _touch \
-			else "Z or LEFT works the left flipper, M or RIGHT the right one."))
+			else "%s works the left flipper, %s the right one." % [GameManager.key_label("flipper_left"), GameManager.key_label("flipper_right")]))
 	if token != _token: return
 
 	# 4. Gutter save: hold the flipper on the ball's side, nudge up, land on the other flipper.
@@ -189,7 +197,7 @@ func _run(token: int) -> void:
 		if token != _token: return
 		_pause()
 		_gutter = gutter
-		await _ask("nudge", gutter, "...keep holding, and swipe UP with another finger!" if _touch else "...keep holding, and nudge UP with W!")
+		await _ask("nudge", gutter, "...keep holding, and swipe UP with another finger!" if _touch else "...keep holding, and nudge UP with %s!" % GameManager.key_label("nudge_up"))
 		_gutter = ""
 		if token != _token: return
 		await _frames(60)
@@ -207,7 +215,7 @@ func _run(token: int) -> void:
 	await _say("Saved! Holding the flipper opens a path, and the nudge pops the ball over onto the other flipper.")
 	if token != _token: return
 	await _say(("Swipe left, up or right anywhere to nudge the machine that way." if _touch \
-			else "A, W and D nudge the machine left, up and right.") + " It works on either side: hold the flipper the ball is rolling under, then nudge up.")
+			else "%s, %s and %s nudge the machine left, up and right." % [GameManager.key_label("nudge_left"), GameManager.key_label("nudge_up"), GameManager.key_label("nudge_right")]) + " It works on either side: hold the flipper the ball is rolling under, then nudge up.")
 	if token != _token: return
 
 	# 5. First minor power-up: light both inlanes
@@ -330,7 +338,7 @@ func _launch_and_catch(token: int, again: bool) -> String:
 	var tries := 0
 	while true:
 		var caption := "Drag the launcher down, then let go. Pull further for more power!" if _touch \
-				else "Hold SPACE to pull the plunger back, then let go. Hold longer for more power!"
+				else "Hold %s to pull the plunger back, then let go. Hold longer for more power!" % GameManager.key_label("launch")
 		if tries > 0:
 			caption = "A bit more oomph this time! " + caption
 		elif again:
@@ -609,6 +617,10 @@ func _typing_done() -> bool:
 # --- Input --------------------------------------------------------------------------
 
 func _input(event: InputEvent) -> void:
+	if event is InputEventScreenTouch and event.pressed:
+		_last_input_touch = true
+	elif event is InputEventKey and event.pressed:
+		_last_input_touch = false
 	if get_tree().paused:
 		return # the pause menu or the power-up picker has the input
 	if event is InputEventKey and event.is_action_pressed("pause"):
@@ -699,7 +711,7 @@ func _draw_overlay() -> void:
 		_overlay.draw_arc(ring[0], float(ring[1]) + 4.0 * pulse, 0.0, TAU, 48, Color(GOLD, 0.85), 3.0, true)
 	var left := _prompt_side == "L"
 	var half := Rect2(0, 975, 300, 145) if left else Rect2(300, 975, 222, 145)
-	var keys: Array = ["Z", "LEFT"] if left else ["M", "RIGHT"]
+	var keys: Array = GameManager.key_names(_action(_prompt_side))
 	var key_x := 160.0 if left else 400.0
 	match _prompt:
 		"launch":
@@ -708,7 +720,7 @@ func _draw_overlay() -> void:
 				_swipe_arrow(Vector2(560, 760), Vector2(560, 900), t)
 				_caption(font, Vector2(300, 640), "Drag down, let go")
 			else:
-				_keycaps(font, ["SPACE"], Vector2(430, 960), pulse)
+				_keycaps(font, GameManager.key_names("launch"), Vector2(430, 960), pulse)
 				_caption(font, Vector2(430, 900), "Hold, then let go")
 		"flip", "hold":
 			var verb := "Press!" if _prompt == "flip" else "Hold!"
@@ -731,8 +743,16 @@ func _draw_overlay() -> void:
 				_swipe_arrow(Vector2(300, 880), Vector2(300, 740), t)
 				_caption(font, Vector2(300, 700), "Swipe up!")
 			else:
-				_keycaps(font, ["A", "W", "D"] if _prompt == "nudge_many" else ["W"], Vector2(300, 800), pulse)
+				var nudge_keys: Array = [_first_key("nudge_left"), _first_key("nudge_up"), _first_key("nudge_right")] if _prompt == "nudge_many" \
+						else GameManager.key_names("nudge_up")
+				_keycaps(font, nudge_keys, Vector2(300, 800), pulse)
 				_caption(font, Vector2(300, 745), "Nudge!" if _prompt == "nudge" else "Nudge again and again!")
+
+
+## The first key bound to an action (for key caps), or "?" if none.
+func _first_key(action: String) -> String:
+	var names := GameManager.key_names(action)
+	return names[0] if not names.is_empty() else "?"
 
 
 func _zone(rect: Rect2, pulse: float) -> void:
