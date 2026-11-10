@@ -190,6 +190,9 @@ func _run(token: int) -> void:
 		if token != _token: return
 		await _ask("hold", gutter, ("Press and HOLD the %s side of the screen..." if _touch else "Hold the %s flipper up and keep holding it...") % _side_word(gutter))
 		if token != _token: return
+		# Sal holds it too, so letting go early can't drop the flipper into the
+		# ball's path before it's out of the gutter.
+		_sal(gutter, true)
 		var at_window := func() -> bool:
 			var x := ball.global_position.x
 			return x >= SAVE_X["L"] if gutter == "L" else x <= SAVE_X["R"]
@@ -200,10 +203,15 @@ func _run(token: int) -> void:
 		await _ask("nudge", gutter, "...keep holding, and swipe UP with another finger!" if _touch else "...keep holding, and nudge UP with %s!" % GameManager.key_label("nudge_up"))
 		_gutter = ""
 		if token != _token: return
-		await _frames(60)
+		# Same timing as the measured save: the catching flipper goes up 60 frames
+		# after the nudge, and Sal keeps the gutter flipper up (whether or not the
+		# player still holds it) until 10 frames after that, when the ball is clear.
 		var catch_side := _other(gutter)
+		await _frames(60)
+		if token != _token: return
 		_sal(catch_side, true)
 		await _frames(10)
+		_sal(gutter, false)
 		_lock() # the player's turn is over (their held flipper drops now)
 		side = await _catch(token)
 		if token != _token: return
@@ -467,7 +475,7 @@ func _sal_flippers(timers: Dictionary) -> void:
 		if timers[s] > 0:
 			timers[s] -= 1
 			want = true
-		elif rel.y > -110.0 and rel.y < 30.0 and along > -20.0 and along < 100.0:
+		elif rel.y > -110.0 and rel.y < 30.0 and along > -60.0 and along < 100.0:
 			if along < 58.0 or v.length() < 60.0:
 				want = true # over the flipper's body: hold it up to catch
 			elif v.y > 0.0 and rel.y > -50.0:
