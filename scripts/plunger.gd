@@ -18,7 +18,7 @@ var _touch_active: bool = false
 
 ## Touch: set the pull-back amount directly (0..1) while dragging.
 func touch_set_charge(value: float) -> void:
-	if GameManager.is_game_over:
+	if GameManager.is_game_over or not GameManager.player_can("launch"):
 		return
 	_touch_active = true
 	_set_charge(clampf(value, 0.0, 1.0))
@@ -75,7 +75,7 @@ func _physics_process(delta: float) -> void:
 		return
 	if _touch_active:
 		return # the finger controls the charge
-	if Input.is_action_pressed("launch") and not GameManager.is_game_over:
+	if Input.is_action_pressed("launch") and not GameManager.is_game_over and GameManager.player_can("launch"):
 		_charging = true
 		_set_charge(minf(1.0, charge + delta / charge_time))
 	elif _charging:

@@ -75,8 +75,8 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 	Engine.time_scale = 1.0
-	Input.action_release("flipper_left")
-	Input.action_release("flipper_right")
+	GameManager.input_locked = false
+	GameManager.unlocked_actions.clear()
 
 
 # --- Script ---------------------------------------------------------------------
@@ -97,6 +97,9 @@ func _run(token: int) -> void:
 		tc._hint_time = 0.0 # Sal does the explaining
 	var ball: Ball = game.ball
 	var level: Node = game.level
+	# The player only acts when prompted: dialogue keys must not move anything.
+	GameManager.input_locked = true
+	_lock()
 	await _wait(0.4)
 	if token != _token: return
 	_pause()
@@ -128,14 +131,14 @@ func _run(token: int) -> void:
 	_resume()
 	await _settle(side) # exact cradle before every shot
 	if token != _token: return
-	Input.action_release(_action(side))
+	_sal(side, false)
 	await _frames(CROSS_FRAMES)
 	if token != _token: return
 	_pause()
 	await _ask("flip", side, ("Now! Tap the %s half of the bottom of the screen!" if _touch else "Now! Hit the %s flipper!") % _side_word(side))
 	if token != _token: return
 	await _frames(30)
-	Input.action_release(_action(side)) # in case a touch is still holding it
+	_lock() # the player's turn is over
 	side = await _catch(token)
 	if token != _token: return
 	await _say("Ha! Right across the table, and I caught it on the other side. Time your flip as the ball rolls and you can aim.")
@@ -152,11 +155,11 @@ func _run(token: int) -> void:
 		_resume()
 		await _settle(side) # exact cradle before every shot
 		if token != _token: return
-		Input.action_release(_action(side))
+		_sal(side, false)
 		await _frames(GUTTER_FRAMES[side])
-		Input.action_press(_action(side))
+		_sal(side, true)
 		await _frames(30)
-		Input.action_release(_action(side))
+		_sal(side, false)
 		var in_gutter := func() -> bool:
 			var p := ball.global_position
 			return (p.x < 62.0 and p.y > 900.0) if gutter == "L" else (p.x > 498.0 and p.x < 540.0 and p.y > 900.0)
@@ -184,7 +187,9 @@ func _run(token: int) -> void:
 		if token != _token: return
 		await _frames(60)
 		var catch_side := _other(gutter)
-		Input.action_press(_action(catch_side))
+		_sal(catch_side, true)
+		await _frames(10)
+		_lock() # the player's turn is over (their held flipper drops now)
 		side = await _catch(token)
 		if token != _token: return
 		if side == catch_side:
@@ -213,11 +218,11 @@ func _run(token: int) -> void:
 		_resume()
 		await _settle(side) # exact cradle before every shot
 		if token != _token: return
-		Input.action_release(_action(side))
+		_sal(side, false)
 		await _frames(CROSS_FRAMES)
-		Input.action_press(_action(side))
+		_sal(side, true)
 		await _frames(30)
-		Input.action_release(_action(side))
+		_sal(side, false)
 		# Catch right away; if the picker opens on the way down the game pauses,
 		# and the catch carries on after the pick.
 		side = await _catch(token)
@@ -245,11 +250,11 @@ func _run(token: int) -> void:
 		_resume()
 		await _settle(side)
 		if token != _token: return
-		Input.action_release(_action(side))
+		_sal(side, false)
 		await _frames(TOP_FRAMES)
-		Input.action_press(_action(side))
+		_sal(side, true)
 		await _frames(30)
-		Input.action_release(_action(side))
+		_sal(side, false)
 		got = await _catch(token, hit_boss)
 		if token != _token: return
 		if got == "HIT":
@@ -281,14 +286,15 @@ func _run(token: int) -> void:
 	_resume() # each nudge really shoves the cradled ball
 	await _ask("nudge_many", side, "Go on, nudge a few times in a row and see what happens.")
 	if token != _token: return
+	_lock()
 	_note("TILT! The flippers go dead and nothing scores until the ball drains.")
 	var lost := [false]
 	var on_lost := func() -> void: lost[0] = true
 	GameManager.ball_lost.connect(on_lost)
 	await _wait_until(func() -> bool: return lost[0], 15.0)
 	GameManager.ball_lost.disconnect(on_lost)
-	Input.action_release("flipper_left")
-	Input.action_release("flipper_right")
+	_sal("L", false)
+	_sal("R", false)
 	if token != _token: return
 	await _wait(0.4)
 	if token != _token: return
@@ -321,6 +327,7 @@ func _launch_and_catch(token: int, again: bool) -> String:
 		var left_lane: bool = await _wait_until(func() -> bool: return ball.global_position.x < 532.0 or ball.global_position.y < 280.0, 3.5)
 		if token != _token: return ""
 		if left_lane:
+			_lock()
 			break
 		tries += 1
 		await _wait_until(func() -> bool: return plunger.has_ball(), 3.0)
@@ -394,9 +401,9 @@ func _catch(token: int, stop_when: Callable = Callable()) -> String:
 						flip_left[s] = 24 # heading for the tip / gap: flip it back up
 						want = true
 				if want:
-					Input.action_press(_action(s))
+					_sal(s, true)
 				else:
-					Input.action_release(_action(s))
+					_sal(s, false)
 			still = still + 1 if v.length() < 5.0 else 0
 			if still > 60 and _near_cradle():
 				ok = true
@@ -405,14 +412,14 @@ func _catch(token: int, stop_when: Callable = Callable()) -> String:
 		if token != _token: return ""
 		if ok and not lost[0]:
 			var side := "L" if ball.global_position.x < 280.0 else "R"
-			Input.action_release(_action(_other(side)))
+			_sal(_other(side), false)
 			# Settle it exactly (sub-pixel), so the next shot plays out the same way.
 			ball.teleport(CRADLE[side])
 			ball.set_velocity_safe(Vector2.ZERO)
 			await _frames(20)
 			return side
-		Input.action_release("flipper_left")
-		Input.action_release("flipper_right")
+		_sal("L", false)
+		_sal("R", false)
 		if not lost[0]:
 			# Stuck somewhere odd: give the cabinet a shove and keep going.
 			game.nudge_direction(Vector2.UP)
@@ -448,8 +455,9 @@ func _finish() -> void:
 	_waiting = false
 	_bubble.visible = false
 	Engine.time_scale = 1.0
-	Input.action_release("flipper_left")
-	Input.action_release("flipper_right")
+	_sal("L", false)
+	_sal("R", false)
+	_lock() # stays locked through the fade-out; _exit_tree unlocks
 	game.go_to_main_menu()
 
 
@@ -461,6 +469,21 @@ func _pause() -> void:
 
 func _resume() -> void:
 	Engine.time_scale = 1.0
+
+
+## Sal holds a flipper up (or lets it go) without touching the player's input.
+func _sal(side: String, on: bool) -> void:
+	var level: Node = game.level if is_instance_valid(game) else null
+	if level == null:
+		return
+	var flipper := level.get_node_or_null("FlipperLeft" if side == "L" else "FlipperRight")
+	if flipper:
+		flipper.auto_pressed = on
+
+
+## Lock all the player's controls again (only dialogue keys work).
+func _lock() -> void:
+	GameManager.unlocked_actions.clear()
 
 
 func _action(side: String) -> String:
@@ -530,6 +553,9 @@ func _ask(kind: String, side: String, caption: String) -> void:
 	_note(caption)
 	_prompt = kind
 	_prompt_side = side
+	var action: String = {"launch": "launch", "flip": _action(side), "hold": _action(side)}.get(kind, "nudge")
+	if not GameManager.unlocked_actions.has(action):
+		GameManager.unlocked_actions.append(action)
 	await _prompt_done
 
 

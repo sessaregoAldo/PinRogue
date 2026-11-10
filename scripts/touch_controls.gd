@@ -265,6 +265,8 @@ func _read_tilt(delta: float) -> void:
 
 
 func _nudge(dir: Vector2) -> void:
+	if not GameManager.player_can("nudge"):
+		return
 	var game := get_parent()
 	if game and game.has_method("nudge_direction"):
 		game.nudge_direction(dir)

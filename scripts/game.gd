@@ -56,11 +56,12 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	_nudge_timer = maxf(0.0, _nudge_timer - delta)
-	if Input.is_action_just_pressed("nudge_left"):
+	var can_nudge := GameManager.player_can("nudge")
+	if can_nudge and Input.is_action_just_pressed("nudge_left"):
 		_nudge(Vector2(-nudge_side_strength, -nudge_side_strength * 0.25))
-	if Input.is_action_just_pressed("nudge_right"):
+	if can_nudge and Input.is_action_just_pressed("nudge_right"):
 		_nudge(Vector2(nudge_side_strength, -nudge_side_strength * 0.25))
-	if Input.is_action_just_pressed("nudge_up"):
+	if can_nudge and Input.is_action_just_pressed("nudge_up"):
 		_nudge(Vector2(0, -nudge_up_strength))
 
 	if level and ball.in_play and not level.table_bounds.has_point(ball.global_position):

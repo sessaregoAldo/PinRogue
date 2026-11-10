@@ -71,10 +71,15 @@ func _ready() -> void:
 	add_child(_area)
 
 
+## Held up by the tutorial's Sal (separate from the player's keys and touches).
+var auto_pressed: bool = false
+
+
 func _physics_process(delta: float) -> void:
 	if Engine.is_editor_hint():
 		return
-	var pressed := Input.is_action_pressed(_action) and not GameManager.tilted and not GameManager.is_game_over
+	var by_player := Input.is_action_pressed(_action) and GameManager.player_can(_action)
+	var pressed := (by_player or auto_pressed) and not GameManager.tilted and not GameManager.is_game_over
 	if pressed and not _was_pressed:
 		Sfx.play("flipper_up", 0.0, 1.0 if side == FlipperSide.LEFT else 1.06, 0)
 	elif _was_pressed and not pressed:

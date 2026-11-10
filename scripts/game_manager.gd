@@ -112,6 +112,10 @@ var ramp_turbo: int = 0
 var boss_magnet: int = 0
 ## Combo Master: extra share of the score added by a button combination.
 var combo_bonus_extra: float = 0.0
+## Tutorial: the player's flippers, plunger and nudges are locked, except the
+## actions in unlocked_actions ("flipper_left", "flipper_right", "launch", "nudge").
+var input_locked: bool = false
+var unlocked_actions: Array[String] = []
 ## Bouncy Ball: how bouncy the ball is (1.0 = normal, +0.1 per stack).
 var ball_bounce_mult: float = 1.0
 var _save_timer: float = 0.0
@@ -282,6 +286,8 @@ func restart() -> void:
 		start_level = randi() % LevelRegistry.count()
 	current_level = start_level
 	choosing = false
+	input_locked = false
+	unlocked_actions.clear()
 	entering_name = false
 	tilt_limit_bonus = 0.0
 	boss_damage_mult = 1.0
@@ -369,6 +375,11 @@ func _three_digits(v: float) -> String:
 		return "%.1f" % v
 	var text := "%.2f" % v
 	return text.trim_suffix("0") if text.ends_with("0") else text
+
+
+## May the player use this action right now? (Always, outside the tutorial.)
+func player_can(action: String) -> bool:
+	return not input_locked or unlocked_actions.has(action)
 
 
 func set_nudge_mode(mode: String) -> void:
