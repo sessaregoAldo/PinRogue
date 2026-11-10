@@ -36,7 +36,11 @@ const FLIPPER_PIVOT := {"L": Vector2(200, 982), "R": Vector2(360, 982)}
 ## Frames (240/s) between releasing a cradle and flipping, for each shot.
 const CROSS_FRAMES := 126 # across the table, into the opposite inlane, back to the other flipper
 const TOP_FRAMES := 144 # up to the top of the table (Sal's boss attempt)
-const GUTTER_FRAMES := {"L": 120, "R": 116} # from this cradle into the opposite outlane
+const GUTTER_FRAMES := {"L": 120, "R": 116} # flip timing for the shot into the opposite outlane
+## Velocity given as the ball leaves the flipper for that shot (x mirrored by
+## side): 20 deg from vertical at 800 px/s. Measured: every angle 18-22 deg and
+## speed 780-820 px/s lands in the outlane, from either cradle.
+const GUTTER_LOB := Vector2(274, -752)
 ## Gutter save: nudge when the ball passes this x, giving it this velocity
 ## (what a well-timed nudge does; mirrored for the right side).
 const SAVE_X := {"L": 216.0, "R": 344.0}
@@ -166,23 +170,23 @@ func _run(token: int) -> void:
 	await _say("Now, an old trick. Sometimes the ball slips down an outlane and rolls along the gutter, underneath a flipper. I'll show you.")
 	if token != _token: return
 	var gutter := _other(side)
-	while true:
-		_resume()
-		await _settle(side) # exact cradle before every shot
+	var demo_done := false
+	var shots := 0
+	while shots < 4:
+		shots += 1
+		await _gutter_shot(token, side)
 		if token != _token: return
-		_sal(side, false)
-		await _frames(GUTTER_FRAMES[side])
-		_sal(side, true)
-		await _frames(30)
-		_sal(side, false)
-		var in_gutter := func() -> bool:
-			var p := ball.global_position
-			return (p.x < 62.0 and p.y > 900.0) if gutter == "L" else (p.x > 498.0 and p.x < 540.0 and p.y > 900.0)
-		var reached: bool = await _wait_until(in_gutter, 4.0)
+		# Sal keeps it alive with the flippers in case it doesn't go in.
+		var outcome: String = await _steer_to_gutter(token)
 		if token != _token: return
-		if not reached:
-			side = await _catch(token)
-			if token != _token: return
+		if outcome.begins_with("gutter:"):
+			gutter = outcome.substr(7) # do the lesson on whichever side it went
+		else:
+			if outcome == "L" or outcome == "R":
+				side = outcome # caught it in a cradle: shoot again
+			else:
+				side = await _catch(token) # lost or loose: catch (or relaunch)
+				if token != _token: return
 			gutter = _other(side)
 			continue
 		_pause()
@@ -216,11 +220,16 @@ func _run(token: int) -> void:
 		side = await _catch(token)
 		if token != _token: return
 		if side == catch_side:
+			demo_done = true
 			break
 		await _say("Close one! Let's try that again.")
 		if token != _token: return
 		gutter = _other(side)
-	await _say("Saved! Holding the flipper opens a path, and the nudge pops the ball over onto the other flipper.")
+	_pause()
+	if demo_done:
+		await _say("Saved! Holding the flipper opens a path, and the nudge pops the ball over onto the other flipper.")
+	else:
+		await _say("Hm, the ball won't go where I want today. Here's the trick anyway: when the ball rolls along the gutter under a flipper, hold that flipper up and nudge up. It pops over onto the other flipper.")
 	if token != _token: return
 	await _say(("Swipe left, up or right anywhere to nudge the machine that way." if _touch \
 			else "%s, %s and %s nudge the machine left, up and right." % [GameManager.key_label("nudge_left"), GameManager.key_label("nudge_up"), GameManager.key_label("nudge_right")]) + " It works on either side: hold the flipper the ball is rolling under, then nudge up.")
@@ -451,6 +460,70 @@ func _catch(token: int, stop_when: Callable = Callable()) -> String:
 		if token != _token: return ""
 		return await _launch_and_catch(token, true)
 	return ""
+
+
+## Sal's shot into the far outlane: flip from the cradle, and as the ball leaves
+## the flipper give it a measured lob (GUTTER_LOB) that arcs cleanly over the
+## slingshot into the outlane. A plain flip shot bounces off the far wall and
+## only gets there by luck.
+func _gutter_shot(token: int, side: String) -> void:
+	var ball: Ball = game.ball
+	_resume()
+	await _settle(side)
+	if token != _token: return
+	_sal(side, false)
+	await _frames(GUTTER_FRAMES[side])
+	_sal(side, true)
+	var f := 0
+	while f < 60 and not (ball.linear_velocity.y < -200.0 and ball.global_position.y < 960.0):
+		await get_tree().physics_frame
+		f += 1
+	var toward := -1.0 if side == "R" else 1.0 # to the opposite side
+	ball.set_velocity_safe(Vector2(toward * GUTTER_LOB.x, GUTTER_LOB.y))
+	ball._pending_impulse = Vector2.ZERO
+	await _frames(30)
+	_sal(side, false)
+
+
+## After Sal's gutter shot: play the ball until it drops into an outlane (either
+## side); the flippers keep it alive if it goes elsewhere. Returns
+## "gutter:L" / "gutter:R", "L"/"R" (it ended in that cradle), "lost", or ""
+## (timed out / restarted).
+func _steer_to_gutter(token: int) -> String:
+	var ball: Ball = game.ball
+	var timers := {"L": 0, "R": 0}
+	var still := 0
+	var lost := [false]
+	var on_lost := func() -> void: lost[0] = true
+	GameManager.ball_lost.connect(on_lost)
+	var result := ""
+	var start := Time.get_ticks_msec()
+	while Time.get_ticks_msec() - start < 9000:
+		await get_tree().physics_frame
+		if token != _token:
+			break
+		if get_tree().paused:
+			continue
+		if lost[0] or not ball.in_play:
+			result = "lost"
+			break
+		var p := ball.global_position
+		var v := ball.linear_velocity
+		if p.x < 62.0 and p.y > 900.0:
+			result = "gutter:L"
+			break
+		if p.x > 498.0 and p.x < 540.0 and p.y > 900.0:
+			result = "gutter:R"
+			break
+		_sal_flippers(timers)
+		still = still + 1 if v.length() < 5.0 else 0
+		if still > 60 and _near_cradle():
+			result = "L" if p.x < 280.0 else "R"
+			break
+	GameManager.ball_lost.disconnect(on_lost)
+	if result == "L" or result == "R":
+		_sal(_other(result), false)
+	return result
 
 
 ## Put the cradled ball exactly on its rest point with no speed or spin (a
