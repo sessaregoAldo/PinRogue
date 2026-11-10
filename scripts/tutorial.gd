@@ -348,6 +348,7 @@ func _catch(token: int, stop_when: Callable = Callable()) -> String:
 		var ok := false
 		var start := Time.get_ticks_msec()
 		var plunger: Node = game.level.get_node("Plunger")
+		var nudged_this_drop := false
 		while (Time.get_ticks_msec() - start) < 16000:
 			await get_tree().physics_frame
 			if token != _token or lost[0]:
@@ -361,6 +362,22 @@ func _catch(token: int, stop_when: Callable = Callable()) -> String:
 			if stop_when.is_valid() and stop_when.call():
 				GameManager.ball_lost.disconnect(on_lost)
 				return "HIT"
+			# Heading down a side wall into an outlane? One nudge toward the
+			# middle drops it into the inlane instead (never enough to tilt).
+			var bp := ball.global_position
+			if bp.y < 600.0:
+				nudged_this_drop = false
+			elif not nudged_this_drop and ball.linear_velocity.y > 0.0 and bp.y > 740.0 and bp.y < 805.0 \
+					and GameManager.tilt_meter < 1.0:
+				var dir := Vector2.ZERO
+				if bp.x > 494.0 and bp.x < 540.0:
+					dir = Vector2.LEFT
+				elif bp.x < 66.0:
+					dir = Vector2.RIGHT
+				if dir != Vector2.ZERO:
+					game._nudge_timer = 0.0
+					game.nudge_direction(dir)
+					nudged_this_drop = true
 			var p := ball.global_position
 			var v := ball.linear_velocity
 			for s in ["L", "R"]:
