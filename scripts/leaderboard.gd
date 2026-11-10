@@ -77,25 +77,28 @@ func is_valid_name(player_name: String) -> bool:
 # --- Public API -----------------------------------------------------------------
 
 ## Returns {ok, online, entries: [{name, score, won}], error}.
-func fetch_top() -> Dictionary:
+## `ending` filters by how the run ended: "" = all, "won" = ended after a boss
+## (End Run), "lost" = out of balls.
+func fetch_top(ending: String = "") -> Dictionary:
 	if is_online():
 		var res := await _request(HTTPClient.METHOD_GET,
-				"%s?select=name,score,won&order=score.desc,created_at.asc&limit=%d" % [table, TOP_COUNT])
+				"%s?select=name,score,won%s&order=score.desc,created_at.asc&limit=%d" % [table, _ending_query(ending), TOP_COUNT])
 		if res["ok"]:
 			var parsed: Variant = JSON.parse_string(res["body"])
 			if parsed is Array:
 				return {"ok": true, "online": true, "entries": _normalize(parsed), "error": ""}
 			res["error"] = "unexpected reply from the server"
-		return {"ok": false, "online": false, "entries": _local_entries().slice(0, TOP_COUNT),
+		return {"ok": false, "online": false, "entries": _local_filtered(ending).slice(0, TOP_COUNT),
 				"error": "Online board unavailable (%s). Showing this device's scores." % res["error"]}
-	return {"ok": true, "online": false, "entries": _local_entries().slice(0, TOP_COUNT), "error": ""}
+	return {"ok": true, "online": false, "entries": _local_filtered(ending).slice(0, TOP_COUNT), "error": ""}
 
 
-## All-time position a score would have (1 = best). Returns -1 if unknown.
-func fetch_rank(score: float) -> int:
+## Position a score would have (1 = best), among all runs or one `ending`.
+## Returns -1 if unknown.
+func fetch_rank(score: float, ending: String = "") -> int:
 	if is_online():
 		var res := await _request(HTTPClient.METHOD_GET,
-				"%s?select=id&score=gt.%s&limit=1" % [table, _score_text(score).uri_encode()], "", ["Prefer: count=exact"])
+				"%s?select=id&score=gt.%s%s&limit=1" % [table, _score_text(score).uri_encode(), _ending_query(ending)], "", ["Prefer: count=exact"])
 		if res["ok"]:
 			# Content-Range: 0-0/123  (or */0 when nothing is higher)
 			for header: String in res["headers"]:
@@ -105,22 +108,23 @@ func fetch_rank(score: float) -> int:
 						return int(total) + 1
 		return -1
 	var better := 0
-	for e in _local_entries():
+	for e in _local_filtered(ending):
 		if float(e["score"]) > score:
 			better += 1
 	return better + 1
 
 
-## A player's best score and its all-time position, matched by name.
+## A player's best score and its position, matched by name (optionally only
+## among runs with that `ending`).
 ## Returns {found, name, score, won, rank} (rank -1 if it couldn't be worked out).
-func fetch_player_best(player_name: String) -> Dictionary:
+func fetch_player_best(player_name: String, ending: String = "") -> Dictionary:
 	var none := {"found": false, "name": player_name, "score": 0.0, "won": false, "rank": -1}
 	if not is_valid_name(player_name):
 		return none
 	var best: Dictionary = {}
 	if is_online():
 		var res := await _request(HTTPClient.METHOD_GET,
-				"%s?select=name,score,won&name=eq.%s&order=score.desc,created_at.asc&limit=1" % [table, player_name])
+				"%s?select=name,score,won&name=eq.%s%s&order=score.desc,created_at.asc&limit=1" % [table, player_name, _ending_query(ending)])
 		if res["ok"]:
 			var parsed: Variant = JSON.parse_string(res["body"])
 			if parsed is Array and not (parsed as Array).is_empty():
@@ -128,14 +132,30 @@ func fetch_player_best(player_name: String) -> Dictionary:
 		else:
 			return none
 	else:
-		for e in _local_entries(): # already sorted best first
+		for e in _local_filtered(ending): # already sorted best first
 			if e["name"] == player_name:
 				best = e
 				break
 	if best.is_empty():
 		return none
-	var rank: int = await fetch_rank(float(best["score"]))
+	var rank: int = await fetch_rank(float(best["score"]), ending)
 	return {"found": true, "name": player_name, "score": float(best["score"]), "won": bool(best["won"]), "rank": rank}
+
+
+func _ending_query(ending: String) -> String:
+	match ending:
+		"won":
+			return "&won=eq.true"
+		"lost":
+			return "&won=eq.false"
+	return ""
+
+
+func _local_filtered(ending: String) -> Array:
+	var entries := _local_entries()
+	if ending == "":
+		return entries
+	return entries.filter(func(e: Dictionary) -> bool: return bool(e["won"]) == (ending == "won"))
 
 
 ## Returns {ok, online, error}. Falls back to saving on this device.

@@ -10,6 +10,7 @@ const NOTES: Array[Dictionary] = [
 		"date": "Nov 9, 2026",
 		"notes": [
 			"The leaderboard always shows where you stand: if your best score isn't in the top 10, it appears below them with your position.",
+			"Tap the star or the skull under the leaderboard to see the top 10 for just that kind of run. Tap it again to see everyone.",
 		],
 	},
 	{

@@ -23,15 +23,26 @@ func _init() -> void:
 	_note.custom_minimum_size = Vector2(320, 0)
 	_note.add_theme_font_size_override("font_size", 14)
 	_note.add_theme_color_override("font_color", Color(0.7, 0.75, 0.9))
-	add_child(RunIcon.legend())
+	# The legend doubles as a filter: click a run ending to show only those runs.
+	add_child(RunIcon.legend(func(ending: String) -> void:
+		_ending = ending
+		refresh()))
 	add_child(_note)
 
 
+## "" = all runs, "won" = ended after a boss, "lost" = out of balls.
+var _ending: String = ""
+## Bumped on every refresh, so an older, slower request can't add rows.
+var _generation: int = 0
+
+
 func refresh() -> void:
+	_generation += 1
+	var gen := _generation
 	_clear()
 	_note.text = "Loading..."
-	var res: Dictionary = await Leaderboard.fetch_top()
-	if not is_visible_in_tree():
+	var res: Dictionary = await Leaderboard.fetch_top(_ending)
+	if not is_visible_in_tree() or gen != _generation:
 		return
 	_clear()
 	var entries: Array = res["entries"]
@@ -48,19 +59,26 @@ func refresh() -> void:
 		_cell(GameManager.format_number(float(e["score"])), c, HORIZONTAL_ALIGNMENT_RIGHT)
 	var notes: Array[String] = []
 	if entries.is_empty():
-		notes.append("No scores yet.")
-	notes.append("All-time, all players." if res["online"] else "This device only.")
+		notes.append("No scores yet." if _ending == "" else "No runs like that yet.")
+	var scope := "All-time, all players" if res["online"] else "This device only"
+	match _ending:
+		"won":
+			scope += " · only runs that ended after a boss"
+		"lost":
+			scope += " · only runs that ran out of balls"
+	notes.append(scope + ".")
 	if res["error"] != "":
 		notes.append(res["error"])
 	_note.text = "\n".join(notes)
 	if me != "" and not me_shown and not entries.is_empty():
-		await _add_player_row(me, entries.size())
+		await _add_player_row(me, entries.size(), gen)
 
 
-## Below the top 10: "···" and the player's best score with its position.
-func _add_player_row(player_name: String, shown: int) -> void:
-	var best: Dictionary = await Leaderboard.fetch_player_best(player_name)
-	if not is_visible_in_tree() or not best["found"] or int(best["rank"]) <= shown:
+## Below the top 10: "···" and the player's best score with its position
+## (within the current filter).
+func _add_player_row(player_name: String, shown: int, gen: int) -> void:
+	var best: Dictionary = await Leaderboard.fetch_player_best(player_name, _ending)
+	if not is_visible_in_tree() or gen != _generation or not best["found"] or int(best["rank"]) <= shown:
 		return
 	_cell("", GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
 	_cell("···", Color(0.6, 0.65, 0.8), HORIZONTAL_ALIGNMENT_LEFT)

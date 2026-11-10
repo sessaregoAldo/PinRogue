@@ -146,19 +146,28 @@ func _on_play_again() -> void:
 
 # --- Board ------------------------------------------------------------------------
 
+## Board filter from the clickable legend: "" = all, "won", "lost".
+var _ending: String = ""
+## Bumped on every load, so an older, slower request can't add rows.
+var _generation: int = 0
+
+
 func _load_board(rank: int) -> void:
-	_board_title.text = "ALL-TIME TOP %d" % Leaderboard.TOP_COUNT
+	_generation += 1
+	var gen := _generation
+	var suffix: String = {"": "", "won": "  ·  AFTER A BOSS", "lost": "  ·  OUT OF BALLS"}[_ending]
+	_board_title.text = "ALL-TIME TOP %d" % Leaderboard.TOP_COUNT + suffix
 	_set_board_message("Loading...")
-	var res: Dictionary = await Leaderboard.fetch_top()
-	if not _root.visible:
+	var res: Dictionary = await Leaderboard.fetch_top(_ending)
+	if not _root.visible or gen != _generation:
 		return
 	if not res["online"]:
-		_board_title.text = "TOP %d  (this device)" % Leaderboard.TOP_COUNT
+		_board_title.text = "TOP %d  (this device)" % Leaderboard.TOP_COUNT + suffix
 	var entries: Array = res["entries"]
 	for child in _board.get_children():
 		child.queue_free()
 	if entries.is_empty():
-		_set_board_message("No scores yet. Be the first!")
+		_set_board_message("No scores yet. Be the first!" if _ending == "" else "No runs like that yet.")
 	var highlighted := false
 	for i in entries.size():
 		var e: Dictionary = entries[i]
@@ -181,8 +190,8 @@ func _load_board(rank: int) -> void:
 		if e["name"] == me:
 			me_in_top = true
 	if me != "" and not me_in_top and not entries.is_empty():
-		var best: Dictionary = await Leaderboard.fetch_player_best(me)
-		if _root.visible and best["found"] and int(best["rank"]) > entries.size():
+		var best: Dictionary = await Leaderboard.fetch_player_best(me, _ending)
+		if _root.visible and gen == _generation and best["found"] and int(best["rank"]) > entries.size():
 			_cell("", GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
 			_cell("···", SOFT, HORIZONTAL_ALIGNMENT_LEFT)
 			_cell("", GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
@@ -261,7 +270,9 @@ func _build() -> void:
 	_board.add_theme_constant_override("v_separation", 4)
 	col.add_child(_board)
 
-	col.add_child(RunIcon.legend())
+	col.add_child(RunIcon.legend(func(ending: String) -> void:
+		_ending = ending
+		_load_board(-1)))
 
 	var again_row := HBoxContainer.new()
 	again_row.alignment = BoxContainer.ALIGNMENT_CENTER

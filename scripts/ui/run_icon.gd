@@ -32,17 +32,49 @@ static func name_cell(player_name: String, is_won: bool, color: Color, font_size
 	return row
 
 
-## "(star) beat a boss   (skull) out of balls"
-static func legend() -> CenterContainer:
+## "(star) ended after a boss   (skull) out of balls" as two toggle buttons:
+## click one to show only that kind of run, click it again for all runs.
+## `on_filter` is called with "won", "lost" or "" (all).
+static func legend(on_filter: Callable = Callable()) -> CenterContainer:
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
-	for item: Array in [[true, "ended after a boss"], [false, "out of balls"]]:
-		row.add_child(RunIcon.new(item[0], 13.0))
+	row.add_theme_constant_override("separation", 10)
+	var group := ButtonGroup.new()
+	group.allow_unpress = true
+	for item: Array in [[true, "ended after a boss", "won"], [false, "out of balls", "lost"]]:
+		var b := Button.new()
+		b.toggle_mode = true
+		b.button_group = group
+		b.focus_mode = Control.FOCUS_NONE
+		b.tooltip_text = "Show only these runs (click again for all)"
+		for state in ["normal", "hover", "pressed", "hover_pressed"]:
+			var box := StyleBoxFlat.new()
+			box.bg_color = Color(1, 1, 1, 0.0 if state == "normal" else (0.06 if state == "hover" else 0.1))
+			box.border_color = Color(1.0, 0.85, 0.3, 0.7) if state.contains("pressed") else Color(1, 1, 1, 0.0 if state == "normal" else 0.2)
+			box.set_border_width_all(1)
+			box.set_corner_radius_all(6)
+			b.add_theme_stylebox_override(state, box)
+		var inner := HBoxContainer.new()
+		inner.add_theme_constant_override("separation", 5)
+		inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		inner.position = Vector2(7, 4)
+		inner.add_child(RunIcon.new(item[0], 13.0))
 		var label := Label.new()
-		label.text = item[1] + ("     " if item[0] else "")
+		label.text = item[1]
 		label.add_theme_font_size_override("font_size", 13)
 		label.add_theme_color_override("font_color", Color(0.7, 0.75, 0.9))
-		row.add_child(label)
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		inner.add_child(label)
+		b.add_child(inner)
+		var text_w := ThemeDB.fallback_font.get_string_size(item[1], HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
+		b.custom_minimum_size = Vector2(13.0 + 5.0 + text_w + 14.0, 26.0)
+		var ending: String = item[2]
+		b.toggled.connect(func(on: bool) -> void:
+			label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3) if on else Color(0.7, 0.75, 0.9))
+			# Switching straight to the other filter unpresses this one first; only
+			# report "all" when nothing is pressed any more.
+			if on_filter.is_valid() and (on or group.get_pressed_button() == null):
+				on_filter.call(ending if on else ""))
+		row.add_child(b)
 	var center := CenterContainer.new()
 	center.add_child(row)
 	return center
