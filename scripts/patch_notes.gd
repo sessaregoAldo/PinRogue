@@ -5,6 +5,14 @@ extends RefCounted
 
 const NOTES: Array[Dictionary] = [
 	{
+		"version": "0.13.4",
+		"name": "Your Spot",
+		"date": "Nov 9, 2026",
+		"notes": [
+			"The leaderboard always shows where you stand: if your best score isn't in the top 10, it appears below them with your position.",
+		],
+	},
+	{
 		"version": "0.13.3",
 		"name": "Tell Us!",
 		"date": "Nov 9, 2026",

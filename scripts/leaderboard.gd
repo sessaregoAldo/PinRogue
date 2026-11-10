@@ -111,6 +111,33 @@ func fetch_rank(score: float) -> int:
 	return better + 1
 
 
+## A player's best score and its all-time position, matched by name.
+## Returns {found, name, score, won, rank} (rank -1 if it couldn't be worked out).
+func fetch_player_best(player_name: String) -> Dictionary:
+	var none := {"found": false, "name": player_name, "score": 0.0, "won": false, "rank": -1}
+	if not is_valid_name(player_name):
+		return none
+	var best: Dictionary = {}
+	if is_online():
+		var res := await _request(HTTPClient.METHOD_GET,
+				"%s?select=name,score,won&name=eq.%s&order=score.desc,created_at.asc&limit=1" % [table, player_name])
+		if res["ok"]:
+			var parsed: Variant = JSON.parse_string(res["body"])
+			if parsed is Array and not (parsed as Array).is_empty():
+				best = _normalize(parsed)[0]
+		else:
+			return none
+	else:
+		for e in _local_entries(): # already sorted best first
+			if e["name"] == player_name:
+				best = e
+				break
+	if best.is_empty():
+		return none
+	var rank: int = await fetch_rank(float(best["score"]))
+	return {"found": true, "name": player_name, "score": float(best["score"]), "won": bool(best["won"]), "rank": rank}
+
+
 ## Returns {ok, online, error}. Falls back to saving on this device.
 func submit(player_name: String, score: float, won: bool) -> Dictionary:
 	if not is_valid_name(player_name):

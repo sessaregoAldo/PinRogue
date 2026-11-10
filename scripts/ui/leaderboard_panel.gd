@@ -3,6 +3,8 @@ extends VBoxContainer
 ## All-time top 10 (online board, or this device's scores) from the Leaderboard
 ## autoload. Shared by the pause menu and the main menu. Call refresh() when shown.
 
+const GOLD := Color(1.0, 0.85, 0.3)
+
 var _grid: GridContainer
 var _note: Label
 
@@ -33,9 +35,14 @@ func refresh() -> void:
 		return
 	_clear()
 	var entries: Array = res["entries"]
+	var me := Leaderboard.last_name # this device's player
+	var me_shown := false
 	for i in entries.size():
 		var e: Dictionary = entries[i]
 		var c := Color.WHITE if i < 3 else Color(0.75, 0.8, 0.95)
+		if not me_shown and me != "" and e["name"] == me:
+			c = GOLD # the player's best score is in the top 10
+			me_shown = true
 		_cell("%d." % (i + 1), c, HORIZONTAL_ALIGNMENT_RIGHT)
 		_grid.add_child(RunIcon.name_cell(str(e["name"]), bool(e["won"]), c, 18))
 		_cell(GameManager.format_number(float(e["score"])), c, HORIZONTAL_ALIGNMENT_RIGHT)
@@ -46,6 +53,21 @@ func refresh() -> void:
 	if res["error"] != "":
 		notes.append(res["error"])
 	_note.text = "\n".join(notes)
+	if me != "" and not me_shown and not entries.is_empty():
+		await _add_player_row(me, entries.size())
+
+
+## Below the top 10: "···" and the player's best score with its position.
+func _add_player_row(player_name: String, shown: int) -> void:
+	var best: Dictionary = await Leaderboard.fetch_player_best(player_name)
+	if not is_visible_in_tree() or not best["found"] or int(best["rank"]) <= shown:
+		return
+	_cell("", GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
+	_cell("···", Color(0.6, 0.65, 0.8), HORIZONTAL_ALIGNMENT_LEFT)
+	_cell("", GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
+	_cell("%d." % int(best["rank"]), GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
+	_grid.add_child(RunIcon.name_cell(player_name, bool(best["won"]), GOLD, 18))
+	_cell(GameManager.format_number(float(best["score"])), GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
 
 
 func _clear() -> void:

@@ -174,6 +174,21 @@ func _load_board(rank: int) -> void:
 		_status.modulate = GOLD
 	if _submitted_name != "" and not highlighted and rank > 0:
 		_status.text += ("\n" if _status.text != "" else "") + "You placed #%d all-time." % rank
+	# Below the top 10: "···" and the player's best score with its position.
+	var me := _submitted_name if _submitted_name != "" else Leaderboard.last_name
+	var me_in_top := false
+	for e in entries:
+		if e["name"] == me:
+			me_in_top = true
+	if me != "" and not me_in_top and not entries.is_empty():
+		var best: Dictionary = await Leaderboard.fetch_player_best(me)
+		if _root.visible and best["found"] and int(best["rank"]) > entries.size():
+			_cell("", GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
+			_cell("···", SOFT, HORIZONTAL_ALIGNMENT_LEFT)
+			_cell("", GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
+			_cell("%d." % int(best["rank"]), GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
+			_board.add_child(RunIcon.name_cell(me, bool(best["won"]), GOLD, 18))
+			_cell(GameManager.format_number(float(best["score"])), GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
 
 
 func _set_board_message(text: String) -> void:
