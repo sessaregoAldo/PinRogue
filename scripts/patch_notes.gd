@@ -5,6 +5,20 @@ extends RefCounted
 
 const NOTES: Array[Dictionary] = [
 	{
+		"version": "0.13.6",
+		"name": "Smooth Ride",
+		"date": "Nov 11, 2026",
+		"notes": [
+			"Three new spare parts. Kickback (minor): a kicker in the outlane fires a draining ball back into play, then recharges after 10 boss hits or 20 bumper hits. Multiball Lock (major): your next boss hit launches an extra ball, and drained balls come back for 20 seconds. Upper Flipper (major): an extra flipper on the side wall, worked by the same button.",
+			"Smoother on phones: the machines take much less work to draw, and the music no longer crackles or stutters when the game is busy.",
+			"Power-ups are now called spare parts: minor spare parts from the inlanes, major spare parts from the lights near the boss.",
+			"Score multipliers can no longer go on the boss.",
+			"A short 3-2-1 countdown plays before the game continues after a pause or a spare-part pick.",
+			"Ball stuck somewhere? After a few seconds the game reminds you to nudge it free.",
+			"After a run, your score shows up in the leaderboard right where it would land, with your name filling in as you type it.",
+		],
+	},
+	{
 		"version": "0.13.5",
 		"name": "Mixtape",
 		"date": "Nov 9, 2026",

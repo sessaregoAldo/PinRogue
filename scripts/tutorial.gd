@@ -241,7 +241,7 @@ func _run(token: int) -> void:
 	_rings = [[inlane_l.global_position, 16.0], [inlane_r.global_position, 16.0]]
 	await _say("See the two orange lights beside the slingshots? Those are the inlanes.")
 	if token != _token: return
-	await _say("Light both and the machine hands you a spare part: a minor power-up. Watch, I'll send the ball through them.")
+	await _say("Light both and the machine hands you a minor spare part. Watch, I'll send the ball through them.")
 	if token != _token: return
 	_rings = []
 	_pick_seen = false
@@ -262,7 +262,7 @@ func _run(token: int) -> void:
 		if _pick_seen:
 			break
 	_expect_pick = false
-	await _say("Good pick. The lights up top, near the boss, give MAJOR parts. Those are the really strong ones.")
+	await _say("Good pick. The lights up top, near the boss, give MAJOR spare parts. Those are the really strong ones.")
 	if token != _token: return
 
 	# 6. The boss: score = damage, HP to zero

@@ -4,7 +4,7 @@ extends VBoxContainer
 ## Sends to the online "feedback" table (see Leaderboard.submit_feedback and
 ## supabase/feedback.sql) along with the game version, machine, round, score
 ## and platform. Players can only send; the developer reads the reports in
-## Supabase > Table Editor > feedback.
+## the PIN-locked viewer (FeedbackViewer) or Supabase > Table Editor > feedback.
 
 const MAX_CHARS := 500
 const MIN_CHARS := 3

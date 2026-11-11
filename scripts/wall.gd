@@ -89,5 +89,19 @@ func _draw() -> void:
 	var c := Color(1.0, 0.85, 0.3) if one_way else color
 	draw_polyline(points, c, thickness, true)
 	if not one_way:
-		for p in points:
-			draw_circle(p, thickness * 0.5, c)
+		# Round caps at the ends and at real corners. Smooth curves (tunnel rails
+		# have hundreds of points) don't need them, and each circle is a separate
+		# draw call, which phones feel.
+		var last := points.size() - 1
+		for i in points.size():
+			if i == 0 or i == last or _is_corner(i):
+				draw_circle(points[i], thickness * 0.5, c)
+
+
+## True if the wall turns by more than a few degrees at point i.
+func _is_corner(i: int) -> bool:
+	var a := points[i] - points[i - 1]
+	var b := points[i + 1] - points[i]
+	if a.length_squared() < 0.0001 or b.length_squared() < 0.0001:
+		return false
+	return absf(a.angle_to(b)) > deg_to_rad(8.0)

@@ -12,6 +12,8 @@
 [ext_resource type="Script" path="res://scripts/breakable_wall.gd" id="10_break"]
 
 [node name="LevelFortress" instance=ExtResource("1_base")]
+upper_flipper_left = Vector2(36, 740)
+upper_flipper_right = Vector2(524, 640)
 level_name = "Fortress"
 description = "The boss hides inside a ring wall with four gates, each with a light. Wall sections break after enough damage (10% of the boss's HP) and rebuild 10-15 s later. The drawbridge ramp on the right drops the ball straight into the fortress."
 art_rings = PackedVector3Array(280, 215, 98)

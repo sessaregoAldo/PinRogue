@@ -29,6 +29,21 @@ signal level_changed(level: Node)
 signal ball_saved
 ## Touch and nudge control settings changed (Options > Controls).
 signal controls_changed
+## Play should continue after a pause or a spare-part pick. The game's
+## ResumeCountdown counts down, then unpauses (see resume_play).
+signal resume_requested
+## Multiball: a drained ball should come back (multiball ball save).
+signal ball_resave_requested(ball: Ball)
+## Multiball: a ball drained while others are still in play (no life lost).
+signal extra_ball_drained(ball: Ball)
+
+
+## Unpause the game, after a short countdown when one is set up (in game).
+func resume_play() -> void:
+	if resume_requested.get_connections().is_empty():
+		get_tree().paused = false
+	else:
+		resume_requested.emit()
 
 const STARTING_BALLS := 3
 const TILT_WARN := 2.0
@@ -112,6 +127,10 @@ var ramp_turbo: int = 0
 var boss_magnet: int = 0
 ## Combo Master: extra share of the score added by a button combination.
 var combo_bonus_extra: float = 0.0
+## Multiball Lock: extra balls released by the next boss hit.
+var multiball_locks: int = 0
+## Multiball: drained balls come back until this time (Time.get_ticks_msec()).
+var multiball_save_until_ms: int = 0
 ## Tutorial: the player's flippers, plunger and nudges are locked, except the
 ## actions in unlocked_actions ("flipper_left", "flipper_right", "launch", "nudge").
 var input_locked: bool = false
@@ -295,6 +314,8 @@ func restart() -> void:
 	ramp_turbo = 0
 	boss_magnet = 0
 	combo_bonus_extra = 0.0
+	multiball_locks = 0
+	multiball_save_until_ms = 0
 	ball_bounce_mult = 1.0
 	_save_timer = 0.0
 	score_changed.emit(score)
@@ -437,6 +458,31 @@ func ball_reset_to_launcher() -> void:
 ## Seconds left on the Ball Saver for the current ball (0 = not protected).
 func ball_save_remaining() -> float:
 	return _save_timer
+
+
+## Seconds left in the multiball's ball save (0 when none).
+func multiball_save_remaining() -> float:
+	return maxf(0.0, (multiball_save_until_ms - Time.get_ticks_msec()) / 1000.0)
+
+
+## A ball reached the drain (or left the table). With several balls in play
+## only the last one costs a life; during the multiball save it comes back.
+func drain_ball(ball: Ball) -> void:
+	if ball == null or not ball.in_play:
+		return
+	ball.remove_from_play()
+	if is_game_over:
+		return
+	if multiball_save_remaining() > 0.0:
+		ball_resave_requested.emit(ball)
+		return
+	for node in get_tree().get_nodes_in_group("ball"):
+		var other := node as Ball
+		if other != null and other != ball and other.in_play:
+			Sfx.play("drain", -6.0)
+			extra_ball_drained.emit(ball)
+			return
+	ball_drained()
 
 
 ## Compact number for small labels, never more than 3 digits:

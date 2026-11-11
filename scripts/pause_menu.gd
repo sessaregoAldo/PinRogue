@@ -32,7 +32,7 @@ func _ready() -> void:
 	layer = 20
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_build()
-	_set_open(false)
+	_set_open(false, false)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -41,7 +41,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("restart"):
 		get_viewport().set_input_as_handled()
 		if GameManager.is_game_over:
-			_set_open(false)
+			_set_open(false, false)
 			GameManager.restart() # nothing to lose, no need to confirm
 		elif not visible:
 			_set_open(true)
@@ -59,9 +59,18 @@ func _unhandled_input(event: InputEvent) -> void:
 			_back()
 
 
-func _set_open(open: bool) -> void:
+func _set_open(open: bool, countdown_on_close: bool = true) -> void:
 	visible = open
-	get_tree().paused = open
+	var countdown := get_parent().get_node_or_null("ResumeCountdown") as ResumeCountdown
+	if open:
+		if countdown:
+			countdown.cancel() # paused again mid-countdown
+		get_tree().paused = true
+	else:
+		if countdown_on_close:
+			GameManager.resume_play() # "3 2 1", then play
+		else:
+			get_tree().paused = false
 	_opened_for_confirm = false
 	if open:
 		_show_page(_main_page)
@@ -114,7 +123,7 @@ func _back() -> void:
 
 func _do_confirm() -> void:
 	Sfx.play("click")
-	_set_open(false)
+	_set_open(false, false)
 	if _confirm_mode == "menu":
 		var game := get_parent()
 		if game and game.has_method("go_to_main_menu"):

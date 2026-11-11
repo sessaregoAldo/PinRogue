@@ -33,6 +33,10 @@ extends Node2D
 @export var gap_guard: PackedVector2Array = PackedVector2Array([Vector2(262, 1030), Vector2(298, 1030)])
 @export var left_outlane_guard: PackedVector2Array = PackedVector2Array([Vector2(26, 806), Vector2(55, 806)])
 @export var right_outlane_guard: PackedVector2Array = PackedVector2Array([Vector2(505, 806), Vector2(534, 806)])
+## Upper Flipper spare part: pivot of the extra flipper on each side wall.
+## Each machine places them where nothing else is in the way.
+@export var upper_flipper_left: Vector2 = Vector2(36, 720)
+@export var upper_flipper_right: Vector2 = Vector2(524, 740)
 
 
 func _ready() -> void:

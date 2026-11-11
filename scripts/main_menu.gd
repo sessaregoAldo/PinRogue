@@ -26,6 +26,8 @@ var _modes_page: VBoxContainer
 var _notes_page: VBoxContainer
 var _feedback_page: VBoxContainer
 var _feedback: FeedbackPanel
+var _reports_page: VBoxContainer
+var _reports: FeedbackViewer
 var _notes_scroll: ScrollContainer
 var _pick_page: VBoxContainer
 var _pick_view: SubViewport
@@ -121,6 +123,8 @@ func _show_page(page: Control) -> void:
 		_endless_button.grab_focus()
 	elif page == _feedback_page:
 		_feedback.refresh()
+	elif page == _reports_page:
+		_reports.open()
 	elif page == _notes_page:
 		_notes_scroll.scroll_vertical = 0
 	elif page == _pick_page:
@@ -139,6 +143,9 @@ func _back() -> void:
 		_show_page(_pick_page)
 	elif _pick_page.visible:
 		_show_page(_modes_page)
+	elif _reports_page.visible:
+		if not _reports.back():
+			_show_page(_feedback_page)
 	else:
 		_show_page(_main_page)
 
@@ -392,6 +399,23 @@ func _build_ui() -> void:
 	_feedback = FeedbackPanel.new()
 	_feedback_page.add_child(_feedback)
 	_button(_feedback_page, "Back", _back)
+	var reports_button := Button.new()
+	reports_button.text = "View reports"
+	reports_button.flat = true
+	reports_button.focus_mode = Control.FOCUS_NONE
+	reports_button.add_theme_font_size_override("font_size", 14)
+	reports_button.add_theme_color_override("font_color", Color(SOFT, 0.45))
+	reports_button.pressed.connect(func() -> void: _click_to(_reports_page))
+	var reports_row := CenterContainer.new()
+	reports_row.add_child(reports_button)
+	_feedback_page.add_child(reports_row)
+
+	# Reports (developer only: the PIN is checked by the server)
+	_reports_page = _page(holder)
+	_label(_reports_page, "REPORTS", 40, GOLD)
+	_reports = FeedbackViewer.new()
+	_reports_page.add_child(_reports)
+	_button(_reports_page, "Back", _back)
 
 	# Patch notes
 	_notes_page = _page(holder)
@@ -411,7 +435,7 @@ func _build_ui() -> void:
 			"New here? Sal, the machine's old owner, shows you the ropes.",
 			func() -> void: _pick_mode("tutorial"))
 	_endless_button = _mode(_modes_page, "Endless",
-			"Beat the boss, take its power-ups and keep going. How far can you get?",
+			"Beat the boss, collect spare parts and keep going. How far can you get?",
 			func() -> void: _pick_mode("endless"))
 	_mode(_modes_page, "Story Mode", "Coming soon", Callable())
 	_mode(_modes_page, "Daily Challenge", "Coming soon", Callable())
@@ -469,7 +493,7 @@ func _build_ui() -> void:
 	_controls_grid.add_theme_constant_override("h_separation", 16)
 	_controls_grid.add_theme_constant_override("v_separation", 12)
 	box.add_child(_controls_grid)
-	var goal := _label(box, "Hit the boss bumper until its health runs out. Light every lane in a set to pick a power-up.", 16, SOFT)
+	var goal := _label(box, "Hit the boss bumper until its health runs out. Light every lane in a set to pick a spare part.", 16, SOFT)
 	goal.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	goal.custom_minimum_size = Vector2(446, 0)
 	_controls_footer = _label(_controls_page, "", 22, Color.WHITE)
@@ -594,8 +618,8 @@ func _build_spare_parts() -> VBoxContainer:
 	list.add_theme_constant_override("separation", 10)
 	list.custom_minimum_size = Vector2(462, 0)
 	var sections := [
-		["major", "MAJOR PARTS", "Earned by lighting the machine's lights near the boss."],
-		["minor", "MINOR PARTS", "Earned by lighting both inlane lights behind the bottom slingshots."],
+		["major", "MAJOR SPARE PARTS", "Earned by lighting the machine's lights near the boss."],
+		["minor", "MINOR SPARE PARTS", "Earned by lighting both inlane lights behind the bottom slingshots."],
 	]
 	for sec: Array in sections:
 		if sec[0] == "minor":

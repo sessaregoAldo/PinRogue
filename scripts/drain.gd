@@ -21,5 +21,4 @@ func _ready() -> void:
 func _on_body_entered(body: Node) -> void:
 	var ball := body as Ball
 	if ball and ball.in_play:
-		ball.remove_from_play()
-		GameManager.ball_drained()
+		GameManager.drain_ball(ball) # multiball aware

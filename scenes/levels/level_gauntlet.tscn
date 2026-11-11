@@ -11,6 +11,8 @@
 [ext_resource type="PackedScene" path="res://scenes/tunnel.tscn" id="9_tunnel"]
 
 [node name="LevelGauntlet" instance=ExtResource("1_base")]
+upper_flipper_left = Vector2(36, 680)
+upper_flipper_right = Vector2(524, 760)
 level_name = "Gauntlet"
 description = "A walled alley runs straight up the middle to the boss, guarded by two pop bumpers. Light both alley rollovers and the two lights beside the boss. The bridge ramp crosses from left to right and drops the ball onto a lift kicker that fires it back up the right side."
 art_rings = PackedVector3Array(280, 180, 72)

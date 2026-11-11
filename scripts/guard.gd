@@ -38,6 +38,9 @@ func _ready() -> void:
 	cs.shape = rect
 	cs.position = (point_a + point_b) * 0.5
 	cs.rotation = edge.angle()
+	# Blocks only from above: a ball fired up through it (Kickback) passes.
+	cs.one_way_collision = true
+	cs.one_way_collision_margin = 8.0
 	add_child(cs)
 
 	_area = Area2D.new()
@@ -70,6 +73,8 @@ func _process(delta: float) -> void:
 func _on_body_entered(body: Node) -> void:
 	var ball := body as Ball
 	if ball == null or not ball.in_play or _dying:
+		return
+	if ball.linear_velocity.y < -150.0: # rising (e.g. a Kickback shot): let it pass
 		return
 	var now := Time.get_ticks_msec()
 	if now - _last_hit_ms < 150:

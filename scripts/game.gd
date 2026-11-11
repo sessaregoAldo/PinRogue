@@ -46,6 +46,16 @@ func _ready() -> void:
 	GameManager.game_started.connect(_on_game_started)
 	GameManager.round_continued.connect(_on_round_continued)
 	GameManager.victory.connect(func(_score: float) -> void: ball.remove_from_play())
+	var stuck_hint := StuckHint.new()
+	stuck_hint.name = "StuckHint"
+	add_child(stuck_hint)
+	var countdown := ResumeCountdown.new()
+	countdown.name = "ResumeCountdown"
+	add_child(countdown)
+	var multiball := Multiball.new()
+	multiball.name = "Multiball"
+	multiball.game = self
+	add_child(multiball)
 	if GameManager.game_mode == "tutorial":
 		var tutorial := Tutorial.new()
 		tutorial.game = self
@@ -64,9 +74,11 @@ func _physics_process(delta: float) -> void:
 	if can_nudge and Input.is_action_just_pressed("nudge_up"):
 		_nudge(Vector2(0, -nudge_up_strength))
 
-	if level and ball.in_play and not level.table_bounds.has_point(ball.global_position):
-		ball.remove_from_play()
-		GameManager.ball_drained()
+	if level:
+		for node in get_tree().get_nodes_in_group("ball"):
+			var b := node as Ball
+			if b and b.in_play and not level.table_bounds.has_point(b.global_position):
+				GameManager.drain_ball(b)
 
 
 ## Restart (R) is handled by the pause menu, which asks for confirmation.
@@ -146,8 +158,10 @@ func _nudge(impulse: Vector2) -> void:
 	if _nudge_timer > 0.0 or GameManager.tilted or GameManager.is_game_over:
 		return
 	_nudge_timer = nudge_cooldown
-	if ball.in_play:
-		ball.add_impulse(impulse)
+	for node in get_tree().get_nodes_in_group("ball"): # every ball, for multiball
+		var b := node as Ball
+		if b and b.in_play:
+			b.add_impulse(impulse)
 	GameManager.add_tilt(nudge_tilt_cost)
 	_shake(impulse.normalized())
 	nudged.emit(impulse.normalized())

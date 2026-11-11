@@ -24,6 +24,8 @@ enum FlipperSide { LEFT, RIGHT }
 ## 1.0 = ball leaves at the face's surface speed; 0 disables the assist.
 @export var hit_assist: float = 1.0
 @export var color: Color = Palette.FLIPPER
+## No flip sounds (an extra flipper that moves with a main one, e.g. Upper Flipper).
+@export var quiet: bool = false
 
 ## Current angular speed in rad/s (read-only for other scripts).
 var angular_speed: float = 0.0
@@ -81,9 +83,9 @@ func _physics_process(delta: float) -> void:
 	var by_player := Input.is_action_pressed(_action) and GameManager.player_can(_action)
 	var pressed := (by_player or auto_pressed) and not GameManager.tilted and not GameManager.is_game_over
 	if pressed and not _was_pressed:
-		Sfx.play("flipper_up", 0.0, 1.0 if side == FlipperSide.LEFT else 1.06, 0)
+		if not quiet: Sfx.play("flipper_up", 0.0, 1.0 if side == FlipperSide.LEFT else 1.06, 0)
 	elif _was_pressed and not pressed:
-		Sfx.play("flipper_down", -6.0, 1.0, 0)
+		if not quiet: Sfx.play("flipper_down", -6.0, 1.0, 0)
 	_was_pressed = pressed
 	var target := _active if pressed else _rest
 	var speed := up_speed if pressed else down_speed

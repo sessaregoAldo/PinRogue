@@ -110,8 +110,11 @@ func _update_ball_save() -> void:
 		_save_label = _make_label(Vector2(8, 30), Vector2(220, 20), 14, HORIZONTAL_ALIGNMENT_LEFT)
 		_save_label.add_theme_color_override("font_color", Color(0.5, 1.0, 0.6))
 	var left := GameManager.ball_save_remaining()
-	_save_label.visible = left > 0.0
-	if left > 0.0:
+	var multi := GameManager.multiball_save_remaining()
+	_save_label.visible = left > 0.0 or multi > 0.0
+	if multi > 0.0:
+		_save_label.text = "MULTIBALL SAVE %ds" % int(ceil(multi))
+	elif left > 0.0:
 		_save_label.text = "BALL SAVE %ds" % int(ceil(left))
 
 

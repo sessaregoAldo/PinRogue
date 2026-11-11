@@ -11,6 +11,8 @@
 [ext_resource type="PackedScene" path="res://scenes/tunnel.tscn" id="9_tunnel"]
 
 [node name="LevelPinwheel" instance=ExtResource("1_base")]
+upper_flipper_left = Vector2(36, 740)
+upper_flipper_right = Vector2(524, 560)
 level_name = "Pinwheel"
 description = "The boss sits in the middle of a cross of four pop bumpers. Light all four spoke rollovers between them. The spiral ramp on the right drops the ball onto the top of the pinwheel."
 art_rings = PackedVector3Array(280, 390, 128)

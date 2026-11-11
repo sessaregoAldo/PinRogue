@@ -31,6 +31,12 @@ const POWERUPS := [
 	{"id": "turbo_ramps", "tier": "major", "title": "Turbo Ramps", "icon": ">>",
 		"desc": "Ramp boosters fire from the entrance, so any ramp you get into completes. Ramps score +100% per stack.",
 		"color": Color(1.0, 0.7, 0.35), "weight": 0.9},
+	{"id": "multiball_lock", "tier": "major", "title": "Multiball Lock", "icon": "oo",
+		"desc": "Your next boss hit launches an extra ball. Drained balls return for 20 s. Holds 2.",
+		"color": Color(1.0, 0.55, 0.85), "weight": 0.9},
+	{"id": "upper_flipper", "tier": "major", "title": "Upper Flipper", "icon": "/",
+		"desc": "An extra flipper on the side wall, worked by the same button. Left first, then right.",
+		"color": Color(0.5, 0.75, 1.0), "weight": 0.8},
 	# --- Minor (inlane lights) ---
 	{"id": "multiplier", "tier": "minor", "title": "Score Multiplier", "icon": "x1.25",
 		"desc": "Place on a bumper or wall kicker: hitting it multiplies your score by 1.25. Pick again to upgrade a part to x1.5. 20 s cooldown.",
@@ -52,7 +58,18 @@ const POWERUPS := [
 	{"id": "combo_master", "tier": "minor", "title": "Combo Master", "icon": "+%",
 		"desc": "Button combinations add +5% more of your score (10% -> 15%). Stacks.",
 		"color": Color(0.75, 0.55, 1.0), "weight": 0.8},
+	{"id": "kickback", "tier": "minor", "title": "Kickback", "icon": "^",
+		"desc": "Kicks an outlane ball back into play. Recharges after 10 boss or 20 bumper hits.",
+		"color": Color(0.45, 1.0, 0.6), "weight": 1.0},
 ]
+## Kickback zones (bottom of each outlane) and the order the sides are added.
+const KICKBACK_POS := {"L": Vector2(40, 945), "R": Vector2(520, 945)}
+const KICKBACK_ORDER: Array[String] = ["L", "R"]
+## Upper Flipper: order the sides are added (positions come from the level).
+const UPPER_ORDER: Array[String] = ["L", "R"]
+const UPPER_LENGTH := 56.0
+const UPPER_REST_DEG := 30.0
+const UPPER_ACTIVE_DEG := -25.0
 
 const TIER_COLORS := {"major": Color(1.0, 0.75, 0.25), "minor": Color(0.55, 0.8, 1.0)}
 ## Bouncy Ball: +0.1x per stack, up to this.
@@ -78,6 +95,8 @@ const MULT_TIERS: Array[float] = [1.25, 1.5, 2.0]
 @export var outlane_guard_max: int = 3
 
 var _multipliers: Dictionary = {} # part (Node2D) -> {"mult": float, "ready_at": float}
+var _kickbacks: Dictionary = {} # "L"/"R" -> Kickback
+var _upper_flippers: Dictionary = {} # "L"/"R" -> Flipper
 var _clock: float = 0.0 # game time; doesn't advance while paused
 var _pulse: float = 0.0
 var _pending_choices: Array[String] = [] # tiers of the picks waiting to be offered
@@ -132,6 +151,11 @@ func _process(delta: float) -> void:
 
 func _reset_run() -> void:
 	_multipliers.clear()
+	for node in _kickbacks.values() + _upper_flippers.values():
+		if is_instance_valid(node):
+			node.queue_free()
+	_kickbacks.clear()
+	_upper_flippers.clear()
 	for guard in [_gap_guard, _left_guard, _right_guard]:
 		if is_instance_valid(guard):
 			guard.queue_free()
@@ -225,6 +249,13 @@ func _is_available(id: String) -> bool:
 		"outlane_guards":
 			return not is_instance_valid(_left_guard) or not is_instance_valid(_right_guard) \
 					or _left_guard.saves < outlane_guard_max or _right_guard.saves < outlane_guard_max
+		# Not in the tutorial: Sal's scripted shots expect the stock machine.
+		"kickback":
+			return _kickbacks.size() < KICKBACK_ORDER.size() and GameManager.game_mode != "tutorial"
+		"upper_flipper":
+			return _upper_flippers.size() < UPPER_ORDER.size() and GameManager.game_mode != "tutorial"
+		"multiball_lock":
+			return GameManager.multiball_locks < 2 and GameManager.game_mode != "tutorial"
 	return true
 
 
@@ -268,6 +299,12 @@ func _apply(id: String) -> void:
 			GameManager.boss_magnet += 1
 		"combo_master":
 			GameManager.combo_bonus_extra += 0.05
+		"kickback":
+			_add_kickback()
+		"upper_flipper":
+			_add_upper_flipper()
+		"multiball_lock":
+			GameManager.multiball_locks += 1
 	_finish_choice()
 
 
@@ -280,7 +317,7 @@ func _finish_choice() -> void:
 		_open_choice() # another lane set was completed meanwhile
 		return
 	GameManager.choosing = false
-	get_tree().paused = false
+	GameManager.resume_play() # short countdown, then play
 
 
 # --- Level switching ------------------------------------------------------------
@@ -293,6 +330,10 @@ var _level: Level
 ## Guards stay: every level shares the same flipper/outlane area.
 func _on_level_changed(new_level: Node) -> void:
 	_level = new_level as Level
+	for side: String in _upper_flippers:
+		var f: Flipper = _upper_flippers[side]
+		if is_instance_valid(f):
+			f.position = _upper_flipper_pos(side)
 	if _multipliers.is_empty():
 		return
 	var carried: Array = _multipliers.values()
@@ -323,6 +364,48 @@ func _guard_pos(property: String, index: int, fallback: Vector2) -> Vector2:
 		if points.size() > index:
 			return points[index]
 	return fallback
+
+
+# --- Kickback and Upper Flipper ------------------------------------------------
+
+func _add_kickback() -> void:
+	for side: String in KICKBACK_ORDER:
+		if _kickbacks.has(side):
+			continue
+		var kb := Kickback.new()
+		kb.side = side
+		kb.position = KICKBACK_POS[side]
+		kb.process_mode = Node.PROCESS_MODE_PAUSABLE
+		kb.changed.connect(_update_status)
+		get_parent().add_child.call_deferred(kb)
+		_kickbacks[side] = kb
+		return
+
+
+func _upper_flipper_pos(side: String) -> Vector2:
+	if _level:
+		return _level.upper_flipper_left if side == "L" else _level.upper_flipper_right
+	return Vector2(36, 720) if side == "L" else Vector2(524, 740)
+
+
+func _add_upper_flipper() -> void:
+	for side: String in UPPER_ORDER:
+		if _upper_flippers.has(side):
+			continue
+		var f := Flipper.new()
+		f.side = Flipper.FlipperSide.LEFT if side == "L" else Flipper.FlipperSide.RIGHT
+		f.length = UPPER_LENGTH
+		f.base_radius = 10.0
+		f.tip_radius = 5.0
+		f.rest_angle_deg = UPPER_REST_DEG
+		f.active_angle_deg = UPPER_ACTIVE_DEG
+		f.quiet = true # the main flipper on that side already plays the sound
+		f.position = _upper_flipper_pos(side)
+		f.name = "UpperFlipper" + side
+		f.process_mode = Node.PROCESS_MODE_PAUSABLE
+		get_parent().add_child.call_deferred(f)
+		_upper_flippers[side] = f
+		return
 
 
 # --- Guards -------------------------------------------------------------------
@@ -381,10 +464,10 @@ func _next_tier(target: Node2D) -> int:
 	return 0
 
 
-## Bumpers (including the boss) and wall kickers. The bottom slingshots are
-## excluded (Slingshot.multiplier_target = false).
+## Bumpers and wall kickers. The boss never takes a multiplier, and the bottom
+## slingshots are excluded (Slingshot.multiplier_target = false).
 func _collect_targets(node: Node, out: Array[Node2D]) -> void:
-	if node is Bumper or (node is Slingshot and node.multiplier_target):
+	if (node is Bumper and not node is BossBumper) or (node is Slingshot and node.multiplier_target):
 		out.append(node)
 	for child in node.get_children():
 		_collect_targets(child, out)
@@ -436,6 +519,8 @@ func _confirm_placement() -> void:
 
 
 func _on_part_hit(part: Node) -> void:
+	if part is BossBumper and GameManager.multiball_locks > 0:
+		_update_status.call_deferred() # the lock is used up by this hit (Multiball)
 	if not _multipliers.has(part):
 		return
 	var m: Dictionary = _multipliers[part]
@@ -583,13 +668,20 @@ func _status_lines() -> Array[String]:
 		lines.append("Combo Master +%d%%" % int(round(GameManager.combo_bonus_extra * 100.0)))
 	if GameManager.ball_bounce_mult > 1.001:
 		lines.append("Bouncy Ball x%s" % String.num(GameManager.ball_bounce_mult, 1))
+	for side: String in KICKBACK_ORDER:
+		if _kickbacks.has(side) and is_instance_valid(_kickbacks[side]):
+			lines.append("Kickback %s  %s" % [side, _kickbacks[side].status_text()])
+	if not _upper_flippers.is_empty():
+		lines.append("Upper Flipper %s" % " + ".join(_upper_flippers.keys()))
+	if GameManager.multiball_locks > 0:
+		lines.append("Multiball Lock x%d: hit the boss!" % GameManager.multiball_locks)
 	return lines
 
 
 func _apply_bounce() -> void:
-	var ball := get_parent().get_node_or_null("Ball")
-	if ball and ball.has_method("set_bounce_mult"):
-		ball.set_bounce_mult(GameManager.ball_bounce_mult)
+	for ball in get_tree().get_nodes_in_group("ball"): # extra multiball balls too
+		if ball.has_method("set_bounce_mult"):
+			ball.set_bounce_mult(GameManager.ball_bounce_mult)
 
 
 # --- UI construction ----------------------------------------------------------
@@ -639,7 +731,7 @@ func _build_ui() -> void:
 	center.add_child(column)
 	var title := Label.new()
 	_choice_title = title
-	title.text = "CHOOSE A POWER-UP"
+	title.text = "CHOOSE A SPARE PART"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 30)
 	title.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
@@ -657,7 +749,7 @@ func _build_ui() -> void:
 
 
 func _fill_cards() -> void:
-	_choice_title.text = "MAJOR POWER-UP" if _offer_tier == "major" else "MINOR POWER-UP"
+	_choice_title.text = "MAJOR SPARE PART" if _offer_tier == "major" else "MINOR SPARE PART"
 	_choice_title.add_theme_color_override("font_color", TIER_COLORS[_offer_tier])
 	for child in _cards_box.get_children():
 		child.queue_free()

@@ -106,7 +106,17 @@ var _right := PackedVector2Array()
 var _prev_pos: Dictionary = {} # Ball -> last local position
 var _stall_time: Dictionary = {} # Ball -> seconds spent nearly stopped on the rails
 var _last_along: Dictionary = {} # Ball -> speed along the track last step (guide)
+## Draws only the moving booster chevrons, every frame. The tunnel body is drawn
+## once (it never changes), which keeps phones from redrawing hundreds of shapes
+## per frame.
+var _fx: Node2D
+
+
 func _ready() -> void:
+	_fx = Node2D.new()
+	_fx.draw.connect(_draw_booster)
+	add_child(_fx)
+	move_child(_fx, 0) # under the rails, like the rest of the track
 	_rebuild()
 	if not Engine.is_editor_hint():
 		add_to_group("tunnels")
@@ -246,7 +256,7 @@ func _process(delta: float) -> void:
 		return
 	_anim += delta
 	_boost_glow = maxf(0.0, _boost_glow - delta * 2.0)
-	queue_redraw() # animate the booster chevrons
+	_fx.queue_redraw() # animate the booster chevrons
 
 
 func _entry_allowed(velocity: Vector2) -> bool:
@@ -379,19 +389,28 @@ func _draw() -> void:
 	if _center.size() < 2:
 		return
 	# Soft drop shadow on the table: layered, spreading copies offset down-right,
-	# so the track reads as raised above the playfield.
+	# so the track reads as raised above the playfield. Then the track itself.
+	# All of it goes out as one triangle list (a single draw call).
+	var verts := PackedVector2Array()
+	var colors := PackedColorArray()
+	var indices := PackedInt32Array()
+	var bands := []
 	for layer in SHADOW_LAYERS:
-		var off: Vector2 = layer[0]
-		var spread: float = layer[1]
-		var col := Color(0, 0, 0, layer[2])
+		bands.append([layer[0], layer[1], Color(0, 0, 0, layer[2])])
+	bands.append([Vector2.ZERO, 0.0, Color(color, 0.32)])
+	for band in bands:
+		var off: Vector2 = band[0]
+		var spread: float = band[1]
+		var col: Color = band[2]
 		for i in _center.size() - 1:
 			var n0 := (_left[i] - _right[i]).normalized() * spread
 			var n1 := (_left[i + 1] - _right[i + 1]).normalized() * spread
-			draw_primitive(PackedVector2Array([_left[i] + off + n0, _left[i + 1] + off + n1,
-					_right[i + 1] + off - n1, _right[i] + off - n0]), PackedColorArray([col]), PackedVector2Array())
-	for i in _center.size() - 1:
-		var quad := PackedVector2Array([_left[i], _left[i + 1], _right[i + 1], _right[i]])
-		draw_primitive(quad, PackedColorArray([Color(color, 0.32)]), PackedVector2Array())
+			var k := verts.size()
+			verts.append_array([_left[i] + off + n0, _left[i + 1] + off + n1,
+					_right[i + 1] + off - n1, _right[i] + off - n0])
+			colors.append_array([col, col, col, col])
+			indices.append_array([k, k + 1, k + 2, k, k + 2, k + 3])
+	RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), indices, verts, colors)
 	# Track edges: a dark underside line (thickness) and a lit top line.
 	var under := _left.duplicate()
 	var under_r := _right.duplicate()
@@ -406,8 +425,18 @@ func _draw() -> void:
 	for k in 2:
 		var base := _center[0] + dir * (10.0 + k * 12.0)
 		draw_polyline(PackedVector2Array([base + side, base + dir * 8.0, base - side]), color, 3.0, true)
-	# Booster section: chevrons scrolling toward the exit, brighter while pushing.
-	if booster_enabled and _length > 0.0:
+	# Mouth and exit lips.
+	var last := _center.size() - 1
+	draw_line(_left[0], _right[0], Color(color, 0.9), 3.0, true)
+	draw_line(_left[last], _right[last], Color(color, 0.5), 2.0, true)
+	if _fx:
+		_fx.queue_redraw()
+
+
+## Booster section: chevrons scrolling toward the exit, brighter while pushing.
+## Drawn on the _fx child, so only these get redrawn every frame.
+func _draw_booster() -> void:
+	if booster_enabled and _length > 0.0 and _center.size() >= 2:
 		var spacing := 22.0
 		var turbo := not Engine.is_editor_hint() and GameManager.ramp_turbo > 0
 		var start := _length * (0.0 if turbo else booster_from)
@@ -422,9 +451,5 @@ func _draw() -> void:
 			var fade := clampf(minf(s - start, finish - s) / 20.0, 0.0, 1.0)
 			var c := Color(1.0, 0.95, 0.5).lerp(Color.WHITE, _boost_glow)
 			c.a = (0.35 + 0.55 * _boost_glow) * fade
-			draw_polyline(PackedVector2Array([p - t * 5.0 + side_v, p + t * 4.0, p - t * 5.0 - side_v]), c, 2.5, true)
+			_fx.draw_polyline(PackedVector2Array([p - t * 5.0 + side_v, p + t * 4.0, p - t * 5.0 - side_v]), c, 2.5, true)
 			s += spacing
-	# Mouth and exit lips.
-	var last := _center.size() - 1
-	draw_line(_left[0], _right[0], Color(color, 0.9), 3.0, true)
-	draw_line(_left[last], _right[last], Color(color, 0.5), 2.0, true)

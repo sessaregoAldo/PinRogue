@@ -8,6 +8,11 @@ const SOFT := Color(0.75, 0.8, 0.95)
 var _final_score: float = 0.0
 var _won: bool = false
 var _submitted_name: String = ""
+## True while the name can still be entered: the board shows this run's row.
+var _pending: bool = false
+var _pending_cells: Array = []
+var _pending_name_label: Label = null
+const PENDING := Color(0.45, 1.0, 0.75)
 
 var _root: Control
 var _title: Label
@@ -55,6 +60,7 @@ func _open(score: float, won: bool) -> void:
 	_root.modulate.a = 0.0
 	create_tween().tween_property(_root, "modulate:a", 1.0, 0.5)
 	GameManager.entering_name = can_submit
+	_pending = can_submit
 	if can_submit:
 		_name_edit.grab_focus.call_deferred()
 		_name_edit.caret_column = _name_edit.text.length()
@@ -88,6 +94,11 @@ func _update_submit_state() -> void:
 func _process(_delta: float) -> void:
 	if _root.visible and _entry_row.visible:
 		_update_submit_state()
+		_update_pending_name() # also catches phone keyboards that skip text_changed
+	var pulse := 0.7 + 0.3 * sin(Time.get_ticks_msec() / 1000.0 * TAU * 0.8)
+	for cell in _pending_cells:
+		if is_instance_valid(cell):
+			(cell as CanvasItem).modulate.a = pulse
 
 
 func _on_submit(_text: String = "") -> void:
@@ -126,6 +137,7 @@ func _on_skip() -> void:
 func _finish_entry() -> void:
 	_name_edit.release_focus()
 	_entry_row.visible = false
+	_pending = false
 	GameManager.entering_name = false
 	_footer.text = "Press %s or Play again" % GameManager.key_label("restart")
 
@@ -166,18 +178,50 @@ func _load_board(rank: int) -> void:
 	var entries: Array = res["entries"]
 	for child in _board.get_children():
 		child.queue_free()
-	if entries.is_empty():
+	_pending_cells.clear()
+	_pending_name_label = null
+	# While the name is being typed, this run gets a row where it would land
+	# (after equal scores, which keep the older run first).
+	var show_pending := _pending and (_ending == "" or (_ending == "won") == _won)
+	var pending_at := -1
+	if show_pending:
+		pending_at = 0
+		for e: Dictionary in entries:
+			if float(e["score"]) >= _final_score:
+				pending_at += 1
+		if pending_at >= Leaderboard.TOP_COUNT:
+			pending_at = -1
+	if entries.is_empty() and pending_at < 0:
 		_set_board_message("No scores yet. Be the first!" if _ending == "" else "No runs like that yet.")
 	var highlighted := false
+	var row := 0
 	for i in entries.size():
+		if row == pending_at:
+			_add_pending_row(row + 1)
+			row += 1
+		if row >= Leaderboard.TOP_COUNT:
+			break
 		var e: Dictionary = entries[i]
 		var mine: bool = not highlighted and _submitted_name != "" and e["name"] == _submitted_name and Leaderboard.same_score(float(e["score"]), _final_score)
 		if mine:
 			highlighted = true
-		var c := GOLD if mine else (Color.WHITE if i < 3 else SOFT)
-		_cell("%d." % (i + 1), c, HORIZONTAL_ALIGNMENT_RIGHT)
+		var c := GOLD if mine else (Color.WHITE if row < 3 else SOFT)
+		_cell("%d." % (row + 1), c, HORIZONTAL_ALIGNMENT_RIGHT)
 		_board.add_child(RunIcon.name_cell(str(e["name"]), bool(e["won"]), c, 18))
 		_cell(GameManager.format_number(float(e["score"])), c, HORIZONTAL_ALIGNMENT_RIGHT)
+		row += 1
+	if row == pending_at:
+		_add_pending_row(row + 1)
+	if show_pending and pending_at < 0:
+		# Not in the top 10: "···" and where it would land.
+		var pending_rank: int = await Leaderboard.fetch_rank(_final_score, _ending, true)
+		if _root.visible and gen == _generation and _pending:
+			_cell("", SOFT, HORIZONTAL_ALIGNMENT_RIGHT)
+			_cell("···", SOFT, HORIZONTAL_ALIGNMENT_LEFT)
+			_cell("", SOFT, HORIZONTAL_ALIGNMENT_RIGHT)
+			_add_pending_row(pending_rank)
+	if not _root.visible or gen != _generation:
+		return
 	if res["error"] != "" and _status.text == "":
 		_status.text = res["error"]
 		_status.modulate = GOLD
@@ -189,7 +233,7 @@ func _load_board(rank: int) -> void:
 	for e in entries:
 		if e["name"] == me:
 			me_in_top = true
-	if me != "" and not me_in_top and not entries.is_empty():
+	if me != "" and not me_in_top and not entries.is_empty() and not _pending:
 		var best: Dictionary = await Leaderboard.fetch_player_best(me, _ending)
 		if _root.visible and gen == _generation and best["found"] and int(best["rank"]) > entries.size():
 			_cell("", GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
@@ -200,6 +244,34 @@ func _load_board(rank: int) -> void:
 			_cell(GameManager.format_number(float(best["score"])), GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
 
 
+## This run's row while the name is being typed: its place, the name as typed
+## (live) with a "THIS RUN" tag, and the score. The row gently pulses.
+func _add_pending_row(rank: int) -> void:
+	var rank_cell := _cell("%d." % rank if rank > 0 else "?", PENDING, HORIZONTAL_ALIGNMENT_RIGHT)
+	var name_row := RunIcon.name_cell("", _won, PENDING, 18)
+	_pending_name_label = name_row.get_child(0) as Label
+	var tag := Label.new()
+	tag.text = "THIS RUN"
+	tag.add_theme_font_size_override("font_size", 11)
+	tag.add_theme_color_override("font_color", PENDING)
+	tag.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	name_row.add_child(tag)
+	_board.add_child(name_row)
+	var score_cell := _cell(GameManager.format_number(_final_score), PENDING, HORIZONTAL_ALIGNMENT_RIGHT)
+	_pending_cells = [rank_cell, name_row, score_cell]
+	_update_pending_name()
+
+
+## Shows the name being typed in this run's row ("_____" while empty).
+func _update_pending_name() -> void:
+	if _pending_name_label == null or not is_instance_valid(_pending_name_label):
+		return
+	var typed := Leaderboard.clean_name(_name_edit.text)
+	var shown := typed if typed != "" else "_____"
+	if _pending_name_label.text != shown:
+		_pending_name_label.text = shown
+
+
 func _set_board_message(text: String) -> void:
 	for child in _board.get_children():
 		child.queue_free()
@@ -208,7 +280,7 @@ func _set_board_message(text: String) -> void:
 	_cell("", SOFT, HORIZONTAL_ALIGNMENT_LEFT)
 
 
-func _cell(text: String, color: Color, align: HorizontalAlignment) -> void:
+func _cell(text: String, color: Color, align: HorizontalAlignment) -> Label:
 	var label := Label.new()
 	label.text = text
 	label.horizontal_alignment = align
@@ -217,6 +289,7 @@ func _cell(text: String, color: Color, align: HorizontalAlignment) -> void:
 	if align == HORIZONTAL_ALIGNMENT_LEFT:
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_board.add_child(label)
+	return label
 
 
 # --- UI ---------------------------------------------------------------------------

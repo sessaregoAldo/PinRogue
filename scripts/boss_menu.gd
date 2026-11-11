@@ -26,7 +26,7 @@ func _open(info: Dictionary) -> void:
 	get_tree().paused = true
 	var defeated := GameManager.bosses_defeated
 	_title.text = "BOSS DEFEATED!" if defeated == 1 else "BOSS #%d DEFEATED!" % defeated
-	_details.text = "Damage dealt  %s / %s HP  (x%.2f)\n\nContinue: keep your score, balls and power-ups.\nThe next boss has  %s HP.\n\nEnd Run: finish now and post your score." % [
+	_details.text = "Damage dealt  %s / %s HP  (x%.2f)\n\nContinue: keep your score, balls and spare parts.\nThe next boss has  %s HP.\n\nEnd Run: finish now and post your score." % [
 		GameManager.format_number(float(info["total_damage"])),
 		GameManager.format_number(float(info["max_hp"])),
 		float(info["ratio"]),

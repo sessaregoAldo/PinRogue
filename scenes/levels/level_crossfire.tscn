@@ -11,6 +11,8 @@
 [ext_resource type="PackedScene" path="res://scenes/tunnel.tscn" id="9_tunnel"]
 
 [node name="LevelCrossfire" instance=ExtResource("1_base")]
+upper_flipper_left = Vector2(36, 720)
+upper_flipper_right = Vector2(524, 720)
 level_name = "Crossfire"
 description = "Two ramps cross in an X. The left ramp flings the ball at the boss in the top-right corner; the right ramp feeds the bumper cluster. Four orbit lights: both sides, the top of the arch, and the Crossroads between the bumpers and the boss."
 art_rings = PackedVector3Array(185, 250, 95, 390, 250, 62)

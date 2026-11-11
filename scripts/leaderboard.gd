@@ -94,11 +94,13 @@ func fetch_top(ending: String = "") -> Dictionary:
 
 
 ## Position a score would have (1 = best), among all runs or one `ending`.
-## Returns -1 if unknown.
-func fetch_rank(score: float, ending: String = "") -> int:
+## Returns -1 if unknown. `after_ties`: also count equal scores as ahead (where a
+## score not yet submitted would land, since ties keep the older run first).
+func fetch_rank(score: float, ending: String = "", after_ties: bool = false) -> int:
 	if is_online():
 		var res := await _request(HTTPClient.METHOD_GET,
-				"%s?select=id&score=gt.%s%s&limit=1" % [table, _score_text(score).uri_encode(), _ending_query(ending)], "", ["Prefer: count=exact"])
+				"%s?select=id&score=%s.%s%s&limit=1" % [table, "gte" if after_ties else "gt",
+				_score_text(score).uri_encode(), _ending_query(ending)], "", ["Prefer: count=exact"])
 		if res["ok"]:
 			# Content-Range: 0-0/123  (or */0 when nothing is higher)
 			for header: String in res["headers"]:
@@ -109,7 +111,7 @@ func fetch_rank(score: float, ending: String = "") -> int:
 		return -1
 	var better := 0
 	for e in _local_filtered(ending):
-		if float(e["score"]) > score:
+		if float(e["score"]) > score or (after_ties and float(e["score"]) >= score):
 			better += 1
 	return better + 1
 
@@ -183,6 +185,39 @@ func submit_feedback(data: Dictionary) -> Dictionary:
 		return {"ok": false, "error": "online features aren't set up"}
 	var res := await _request(HTTPClient.METHOD_POST, "feedback", JSON.stringify(data), ["Prefer: return=minimal"])
 	return {"ok": res["ok"], "error": res["error"]}
+
+
+## Developer report viewer. The PIN is checked by the server (feedback_list in
+## supabase/feedback_admin.sql); nothing about it is stored in the game.
+## Returns {ok, error, entries: [{id, created_unix, kind, status, message, name,
+## version, machine, boss_round, score, platform}]}, newest first.
+func fetch_feedback(pin: String) -> Dictionary:
+	var res := await _rpc("feedback_list", {"pin": pin})
+	if res["ok"]:
+		var entries: Variant = res["data"].get("entries", [])
+		res["entries"] = entries if entries is Array else []
+	return res
+
+
+## Removes one report for good. Returns {ok, error}.
+func delete_feedback(pin: String, id: int) -> Dictionary:
+	return await _rpc("feedback_delete", {"pin": pin, "feedback_id": id})
+
+
+## Calls a database function that answers {ok, error, ...}.
+## Returns {ok, error, data}.
+func _rpc(function_name: String, args: Dictionary) -> Dictionary:
+	if not is_online():
+		return {"ok": false, "error": "online features aren't set up", "data": {}}
+	var res := await _request(HTTPClient.METHOD_POST, "rpc/" + function_name, JSON.stringify(args))
+	if not res["ok"]:
+		if res["body"].contains("Could not find the function"):
+			return {"ok": false, "error": "the report viewer isn't set up in the database yet", "data": {}}
+		return {"ok": false, "error": res["error"], "data": {}}
+	var parsed: Variant = JSON.parse_string(res["body"])
+	if not parsed is Dictionary:
+		return {"ok": false, "error": "unexpected reply from the server", "data": {}}
+	return {"ok": bool(parsed.get("ok", false)), "error": str(parsed.get("error", "")), "data": parsed}
 
 
 # --- HTTP -------------------------------------------------------------------------
