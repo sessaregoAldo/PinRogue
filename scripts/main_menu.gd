@@ -637,7 +637,7 @@ func _build_spare_parts() -> VBoxContainer:
 		note.add_theme_color_override("font_color", Color(0.6, 0.65, 0.8))
 		list.add_child(note)
 		for part: Dictionary in PowerupManager.POWERUPS:
-			if part["tier"] == sec[0]:
+			if part["tier"] == sec[0] and not part.get("disabled", false):
 				list.add_child(_part_row(part))
 	return list
 

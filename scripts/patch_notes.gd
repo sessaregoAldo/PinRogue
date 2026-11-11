@@ -9,7 +9,7 @@ const NOTES: Array[Dictionary] = [
 		"name": "Smooth Ride",
 		"date": "Nov 11, 2026",
 		"notes": [
-			"Three new spare parts. Kickback (minor): a kicker in the outlane fires a draining ball back into play, then recharges after 10 boss hits or 20 bumper hits. Multiball Lock (major): your next boss hit launches an extra ball, and drained balls come back for 20 seconds. Upper Flipper (major): an extra flipper on the side wall, worked by the same button.",
+			"Two new spare parts. Kickback (minor): a kicker in the outlane fires a draining ball back into play, then recharges after 10 boss hits or 20 bumper hits. Multiball Lock (major): your next boss hit launches an extra ball, and drained balls come back for 20 seconds.",
 			"Smoother on phones: the machines take much less work to draw, and the music no longer crackles or stutters when the game is busy.",
 			"Power-ups are now called spare parts: minor spare parts from the inlanes, major spare parts from the lights near the boss.",
 			"Score multipliers can no longer go on the boss.",

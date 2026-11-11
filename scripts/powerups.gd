@@ -36,7 +36,8 @@ const POWERUPS := [
 		"color": Color(1.0, 0.55, 0.85), "weight": 0.9},
 	{"id": "upper_flipper", "tier": "major", "title": "Upper Flipper", "icon": "/",
 		"desc": "An extra flipper on the side wall, worked by the same button. Left first, then right.",
-		"color": Color(0.5, 0.75, 1.0), "weight": 0.8},
+		# Disabled for now: on most machines it knocks the ball into the nearest ramp entrance.
+		"color": Color(0.5, 0.75, 1.0), "weight": 0.8, "disabled": true},
 	# --- Minor (inlane lights) ---
 	{"id": "multiplier", "tier": "minor", "title": "Score Multiplier", "icon": "x1.25",
 		"desc": "Place on a bumper or wall kicker: hitting it multiplies your score by 1.25. Pick again to upgrade a part to x1.5. 20 s cooldown.",
@@ -214,7 +215,8 @@ func _roll_offer(count: int, tier: String) -> Array:
 
 
 func _available_of(tier: String) -> Array:
-	return POWERUPS.filter(func(p: Dictionary) -> bool: return p["tier"] == tier and _is_available(p["id"]))
+	return POWERUPS.filter(func(p: Dictionary) -> bool:
+		return p["tier"] == tier and not p.get("disabled", false) and _is_available(p["id"]))
 
 
 func _weighted_pick(pool: Array, count: int) -> Array:
