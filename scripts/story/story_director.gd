@@ -129,27 +129,29 @@ func _intro(run: int) -> void:
 		return
 	GameManager.input_locked = false
 	_hold()
+	_dialogue.begin_scene()
 	await _dialogue.say(StoryData.SAL, StoryData.INTRO_SAL, "intro_sal")
 	if run != _run:
 		return
-	# Power on: a face flickers in the glass.
-	Sfx.play("warning", -4.0, 0.5)
-	_face.visible = true
-	_face_on = true
-	await get_tree().create_timer(2.4, true, false, true).timeout
-	if run != _run:
-		return
-	_face_on = false
-	# The Journal slides out.
-	_journal_card.visible = true
-	_journal_card.modulate.a = 1.0
-	_journal_card.position = Vector2(150, 1150)
-	Sfx.play("ramp_complete", -6.0, 0.7)
-	var slide := create_tween()
-	slide.tween_property(_journal_card, "position:y", 250.0, 0.9).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	await get_tree().create_timer(1.1, true, false, true).timeout
-	if run != _run:
-		return
+	if not _dialogue.skipping: # Skip also skips the face and the Journal sliding out
+		# Power on: a face flickers in the glass.
+		Sfx.play("warning", -4.0, 0.5)
+		_face.visible = true
+		_face_on = true
+		await get_tree().create_timer(2.4, true, false, true).timeout
+		if run != _run:
+			return
+		_face_on = false
+		# The Journal slides out.
+		_journal_card.visible = true
+		_journal_card.modulate.a = 1.0
+		_journal_card.position = Vector2(150, 1150)
+		Sfx.play("ramp_complete", -6.0, 0.7)
+		var slide := create_tween()
+		slide.tween_property(_journal_card, "position:y", 250.0, 0.9).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		await get_tree().create_timer(1.1, true, false, true).timeout
+		if run != _run:
+			return
 	await _dialogue.say("", StoryData.INTRO_JOURNAL, "intro_narration")
 	if run != _run:
 		return
@@ -308,6 +310,7 @@ func _reveal(run: int) -> void:
 	await get_tree().create_timer(0.8, true, false, true).timeout
 	if run != _run:
 		return
+	_dialogue.begin_scene()
 	if again:
 		await _dialogue.say(StoryData.GHOST, [StoryData.REMATCH_LINE, chapter["hint"]], str(chapter["id"]) + "_again")
 	else:

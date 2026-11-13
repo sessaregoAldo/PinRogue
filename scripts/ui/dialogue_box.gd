@@ -30,6 +30,10 @@ var _note: PanelContainer
 var _note_text: Label
 var _note_tween: Tween
 var _waiting: bool = false
+## Set by the Skip button: every say() returns at once until the caller starts
+## a new scene (begin_scene).
+var skipping: bool = false
+var _skip: Label
 var _shown_at_ms: int = 0
 var _voice: AudioStreamPlayer
 var _note_slot: float = 640.0
@@ -55,10 +59,19 @@ func _ready() -> void:
 	_text.custom_minimum_size = Vector2(BOX_WIDTH - 44.0, 0)
 	_text.add_theme_font_size_override("font_size", 20)
 	box.add_child(_text)
+	# Bottom row: Skip (for players who have read it all before) and the hint.
+	var bottom := HBoxContainer.new()
+	box.add_child(bottom)
+	_skip = Label.new()
+	_skip.text = "  Skip  >>  "
+	_skip.mouse_filter = Control.MOUSE_FILTER_IGNORE # presses are read in _input
+	_skip.add_theme_font_size_override("font_size", 14)
+	bottom.add_child(_skip)
 	_hint = Label.new()
+	_hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_hint.add_theme_font_size_override("font_size", 13)
-	box.add_child(_hint)
+	bottom.add_child(_hint)
 
 	_voice = StoryVoice.make_player()
 	add_child(_voice)
@@ -83,6 +96,8 @@ func _ready() -> void:
 ## Voice-over: line n plays assets/voice/<voice_prefix>_<n>.mp3 if it exists
 ## (n counts from `first_number`).
 func say(speaker: String, lines: Array, voice_prefix: String = "", first_number: int = 1) -> void:
+	if skipping:
+		return
 	var ghost := speaker == StoryData.GHOST or speaker == StoryData.GHOST_UNKNOWN or speaker == ""
 	_panel.add_theme_stylebox_override("panel", _style(PAPER, INK) if ghost else _style(DARK, Color(1, 1, 1, 0.35)))
 	_speaker.text = speaker
@@ -90,6 +105,7 @@ func say(speaker: String, lines: Array, voice_prefix: String = "", first_number:
 	_speaker.add_theme_color_override("font_color", Color(0.45, 0.2, 0.12) if ghost else GOLD)
 	_text.add_theme_color_override("font_color", INK if ghost else Color.WHITE)
 	_hint.add_theme_color_override("font_color", Color(INK, 0.6) if ghost else Color(1, 1, 1, 0.55))
+	_skip.add_theme_color_override("font_color", Color(0.45, 0.2, 0.12) if ghost else GOLD)
 	_hint.text = "tap to continue" if _is_touch() else "click or press any key"
 	_note.modulate.a = 0.0
 	for i in lines.size():
@@ -111,8 +127,15 @@ func say(speaker: String, lines: Array, voice_prefix: String = "", first_number:
 		_waiting = true
 		await advanced
 		_voice.stop()
+		if skipping:
+			break
 	_waiting = false
 	_panel.visible = false
+
+
+## Call at the start of a conversation: Skip applies to one scene at a time.
+func begin_scene() -> void:
+	skipping = false
 
 
 func is_talking() -> bool:
@@ -211,6 +234,13 @@ func _input(event: InputEvent) -> void:
 	if not press:
 		return
 	get_viewport().set_input_as_handled() # a dialogue press never reaches the game
+	# A click / tap on Skip ends the whole conversation.
+	if (event is InputEventScreenTouch or event is InputEventMouseButton) \
+			and _skip.get_global_rect().grow(8.0).has_point(event.position):
+		Sfx.play("click")
+		skipping = true
+		advanced.emit()
+		return
 	if Time.get_ticks_msec() - _shown_at_ms < int(MIN_SHOW * 1000.0):
 		return
 	Sfx.play("click")

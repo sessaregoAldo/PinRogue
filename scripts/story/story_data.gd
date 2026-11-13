@@ -30,7 +30,7 @@ const COIN_RESET := 2
 ## Development, debug builds only (running from the editor, never the released
 ## game): raise this number to mark every chapter as not beaten again the next
 ## time the save loads. Used to replay chapters while they are being changed.
-const BEATEN_RESET := 1
+const BEATEN_RESET := 2
 
 ## Spare parts every story run can offer from the start.
 const STARTING_PARTS: Array[String] = ["extra_ball", "outlane_guards", "steady_hands", "multiplier", "boss_crusher"]
