@@ -56,6 +56,11 @@ func _ready() -> void:
 	multiball.name = "Multiball"
 	multiball.game = self
 	add_child(multiball)
+	if GameManager.game_mode == "story":
+		var director := StoryDirector.new()
+		director.name = "StoryDirector"
+		director.game = self
+		add_child(director) # before restart(), so it hears game_started
 	if GameManager.game_mode == "tutorial":
 		var tutorial := Tutorial.new()
 		tutorial.game = self
@@ -117,7 +122,8 @@ func _load_level(index: int) -> void:
 func _on_game_started() -> void:
 	_load_level(GameManager.start_level)
 	_spawn_ball()
-	hud.show_banner("ROUND 1  ·  %s" % level.level_name)
+	if GameManager.game_mode != "story": # the StoryDirector shows the chapter banner
+		hud.show_banner("ROUND 1  ·  %s" % level.level_name)
 
 
 func _on_round_continued(_round_number: int) -> void:
@@ -174,6 +180,36 @@ func _shake(dir: Vector2) -> void:
 	_shake_tween.tween_property(camera, "offset", dir * shake_distance, 0.04)
 	_shake_tween.tween_property(camera, "offset", -dir * shake_distance * 0.4, 0.08)
 	_shake_tween.tween_property(camera, "offset", Vector2.ZERO, 0.1)
+
+
+# --- Camera close-up (story mode's victory) ---------------------------------------
+
+var _focus_tween: Tween
+const CAMERA_HOME := Vector2(300, 560)
+
+
+## Zoom in on `point` over `seconds` of real time (works during slow motion).
+func focus_camera(point: Vector2, zoom: float, seconds: float) -> void:
+	if _focus_tween:
+		_focus_tween.kill()
+	_focus_tween = create_tween().set_parallel(true)
+	_focus_tween.set_speed_scale(1.0 / maxf(Engine.time_scale, 0.001))
+	_focus_tween.tween_property(camera, "position", point, seconds).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_focus_tween.tween_property(camera, "zoom", Vector2.ONE * zoom, seconds).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+
+
+## Back to the whole table (instantly when `seconds` is 0).
+func reset_camera(seconds: float) -> void:
+	if _focus_tween:
+		_focus_tween.kill()
+	if seconds <= 0.0:
+		camera.position = CAMERA_HOME
+		camera.zoom = Vector2.ONE
+		return
+	_focus_tween = create_tween().set_parallel(true)
+	_focus_tween.set_speed_scale(1.0 / maxf(Engine.time_scale, 0.001))
+	_focus_tween.tween_property(camera, "position", CAMERA_HOME, seconds).set_trans(Tween.TRANS_SINE)
+	_focus_tween.tween_property(camera, "zoom", Vector2.ONE, seconds).set_trans(Tween.TRANS_SINE)
 
 
 # --- Transitions ----------------------------------------------------------------

@@ -5,6 +5,16 @@ extends RefCounted
 
 const NOTES: Array[Dictionary] = [
 	{
+		"version": "0.13.7",
+		"name": "Page One",
+		"date": "Nov 13, 2026",
+		"notes": [
+			"Story Mode begins. You bought the machine from Sal. The first time it powers on, something is waiting for you inside.",
+			"Every story run pays strange coins, win or lose. Spend them in the Workshop to unlock spare parts for Story runs.",
+			"A Journal keeps track of everything you find along the way.",
+		],
+	},
+	{
 		"version": "0.13.6",
 		"name": "Smooth Ride",
 		"date": "Nov 11, 2026",

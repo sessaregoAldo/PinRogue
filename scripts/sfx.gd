@@ -18,6 +18,10 @@ const MUSIC_TRACKS: Array[String] = [
 	"res://assets/music/multiball_groove.wav",
 	"res://assets/music/bumper_bounce.wav",
 ]
+## Story mode boss fights (tools/make_music.py). Not part of the rotation.
+const BATTLE_TRACK := "res://assets/music/boss_battle.wav"
+## Story mode, after a boss is beaten: slow and a little sad.
+const QUIET_WIN_TRACK := "res://assets/music/quiet_win.wav"
 const PLAYS_PER_TRACK := 2
 const CROSSFADE := 2.0
 
@@ -38,6 +42,11 @@ var _music_last: String = ""
 var _track_started_ms: int = 0
 var _track_length: float = 0.0
 var _fade_started_ms: int = -1
+var _battle: bool = false
+var _silenced: bool = false
+## Fade to silence (story mode's victory): start time and length, real time.
+var _fade_out_started_ms: int = -1
+var _fade_out_seconds: float = 0.0
 
 
 func _ready() -> void:
@@ -106,12 +115,21 @@ func _start_track(player: AudioStreamPlayer, path: String) -> bool:
 
 
 func _process(_delta: float) -> void:
-	if _music == null or not _music.playing or _track_length <= 0.0 or MUSIC_TRACKS.size() < 2:
+	if _music == null or _track_length <= 0.0 or MUSIC_TRACKS.size() < 2:
 		return
 	var now := Time.get_ticks_msec()
+	if _fade_out_started_ms >= 0:
+		var out := clampf((now - _fade_out_started_ms) / 1000.0 / _fade_out_seconds, 0.0, 1.0)
+		_music.volume_db = linear_to_db(maxf(1.0 - out, 0.0001))
+		_music_next.volume_db = -80.0
+		if out >= 1.0:
+			silence()
+		return
 	if _fade_started_ms < 0:
+		if not _music.playing:
+			return
 		var played := (now - _track_started_ms) / 1000.0
-		if played >= _track_length * PLAYS_PER_TRACK - CROSSFADE:
+		if not _battle and played >= _track_length * PLAYS_PER_TRACK - CROSSFADE:
 			_music_next.volume_db = -80.0
 			if _start_track(_music_next, _pick_track()):
 				_fade_started_ms = now
@@ -125,6 +143,98 @@ func _process(_delta: float) -> void:
 		_music = _music_next
 		_music_next = old
 		_fade_started_ms = -1
+
+
+## Crossfade to the battle track and keep it looping until end_battle_music().
+func play_battle_music() -> void:
+	if _silenced:
+		return
+	play_theme(BATTLE_TRACK)
+
+
+## Crossfade to one track and loop it (the rotation waits) until
+## end_battle_music(). Also ends a silence(), fading in from nothing.
+func play_theme(path: String) -> void:
+	if not ResourceLoader.exists(path) or (_battle and _music_last == path):
+		return
+	if _silenced:
+		_silenced = false
+		AudioServer.set_bus_mute(_sfx_bus_index, false)
+	_battle = true
+	_music_last = path
+	_fade_to(path)
+
+
+## Back to the normal rotation.
+func end_battle_music() -> void:
+	if not _battle:
+		return
+	_battle = false
+	if not _silenced:
+		_fade_to(_pick_track())
+
+
+func is_battle_music() -> bool:
+	return _battle
+
+
+## Fade the music out over `seconds` of real time (slow motion doesn't stretch
+## it), then go to complete silence() by itself.
+func fade_to_silence(seconds: float) -> void:
+	if _silenced or _fade_out_started_ms >= 0:
+		return
+	if _fade_started_ms >= 0: # mid-crossfade: settle on the incoming track first
+		_music.stop()
+		var old := _music
+		_music = _music_next
+		_music_next = old
+		_fade_started_ms = -1
+	_fade_out_seconds = maxf(seconds, 0.05)
+	_fade_out_started_ms = Time.get_ticks_msec()
+
+
+## Complete silence (story mode's victory tilt): music stops, effects are muted.
+func silence() -> void:
+	_fade_out_started_ms = -1
+	_silenced = true
+	_battle = false
+	_fade_started_ms = -1
+	if _music:
+		_music.stop()
+	if _music_next:
+		_music_next.stop()
+	AudioServer.set_bus_mute(_sfx_bus_index, true)
+
+
+## Sound back on after silence(): effects unmuted, the rotation starts again.
+func unsilence() -> void:
+	if not _silenced:
+		return
+	_silenced = false
+	AudioServer.set_bus_mute(_sfx_bus_index, false)
+	if _music and _start_track(_music, _pick_track()):
+		_music.volume_db = 0.0
+
+
+func is_silenced() -> bool:
+	return _silenced
+
+
+## Start `path` on the idle player and crossfade to it.
+func _fade_to(path: String) -> void:
+	if _music == null or path == "":
+		return
+	_fade_out_started_ms = -1
+	if _fade_started_ms >= 0: # already mid-fade: finish that one now
+		_music.stop()
+		var old := _music
+		_music = _music_next
+		_music_next = old
+		_music.volume_db = 0.0
+		_fade_started_ms = -1
+	_music_next.volume_db = -80.0
+	if _start_track(_music_next, path):
+		_fade_started_ms = Time.get_ticks_msec()
 
 
 ## Name of the track playing now (for tests / a future "now playing").

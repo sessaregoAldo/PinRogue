@@ -127,6 +127,8 @@ var ramp_turbo: int = 0
 var boss_magnet: int = 0
 ## Combo Master: extra share of the score added by a button combination.
 var combo_bonus_extra: float = 0.0
+## Story mode: index into StoryData.CHAPTERS of the chapter being played.
+var story_chapter: int = 0
 ## Multiball Lock: extra balls released by the next boss hit.
 var multiball_locks: int = 0
 ## Multiball: drained balls come back until this time (Time.get_ticks_msec()).

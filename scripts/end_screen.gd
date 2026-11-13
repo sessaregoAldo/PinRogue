@@ -38,6 +38,8 @@ func _ready() -> void:
 
 
 func _open(score: float, won: bool) -> void:
+	if GameManager.game_mode == "story":
+		return # story runs end on the Journal's result page (StoryResult), not the leaderboard
 	_final_score = score
 	_won = won # star: the run ended by choosing End Run after a boss; skull: out of balls
 	_submitted_name = ""

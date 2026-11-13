@@ -28,6 +28,15 @@ var _feedback_page: VBoxContainer
 var _feedback: FeedbackPanel
 var _reports_page: VBoxContainer
 var _reports: FeedbackViewer
+var _story_page: VBoxContainer
+var _story_coins: Label
+var _story_line: Label
+var _story_play: Button
+var _story_status: Label
+var _journal_page: VBoxContainer
+var _journal: JournalPanel
+var _workshop_page: VBoxContainer
+var _workshop: WorkshopPanel
 var _notes_scroll: ScrollContainer
 var _pick_page: VBoxContainer
 var _pick_view: SubViewport
@@ -68,7 +77,13 @@ func _ready() -> void:
 	get_tree().paused = false
 	_build_background()
 	_build_ui()
-	_show_page(_main_page)
+	Sfx.unsilence() # a story run can end in silence...
+	Sfx.end_battle_music() # ...or on its quiet victory song: back to the usual rotation
+	if Story.return_to_hub: # back from a story run
+		Story.return_to_hub = false
+		_show_page(_story_page)
+	else:
+		_show_page(_main_page)
 	_fade.modulate.a = 1.0
 	create_tween().tween_property(_fade, "modulate:a", 0.0, 0.5)
 
@@ -125,6 +140,13 @@ func _show_page(page: Control) -> void:
 		_feedback.refresh()
 	elif page == _reports_page:
 		_reports.open()
+	elif page == _story_page:
+		_fill_story()
+		_story_play.grab_focus()
+	elif page == _journal_page:
+		_journal.refresh()
+	elif page == _workshop_page:
+		_workshop.refresh()
 	elif page == _notes_page:
 		_notes_scroll.scroll_vertical = 0
 	elif page == _pick_page:
@@ -146,6 +168,10 @@ func _back() -> void:
 	elif _reports_page.visible:
 		if not _reports.back():
 			_show_page(_feedback_page)
+	elif _journal_page.visible or _workshop_page.visible:
+		_show_page(_story_page)
+	elif _story_page.visible:
+		_show_page(_modes_page)
 	else:
 		_show_page(_main_page)
 
@@ -158,7 +184,47 @@ func _pick_mode(mode: String) -> void:
 		GameManager.start_level = 0
 		_start_run()
 		return
+	if mode == "story":
+		_click_to(_story_page)
+		return
 	_click_to(_pick_page)
+
+
+# --- Story mode ---------------------------------------------------------------------
+
+## The chapter the Story page's play button starts: the first one not beaten
+## yet, or the last one again when everything is beaten.
+func _story_chapter() -> int:
+	var next := Story.next_chapter()
+	return next if next >= 0 else StoryData.CHAPTERS.size() - 1
+
+
+func _fill_story() -> void:
+	var index := _story_chapter()
+	var ch := StoryData.chapter(index)
+	var all_beaten := Story.next_chapter() < 0
+	_story_coins.text = "%d coins" % Story.coins
+	if not Story.intro_seen:
+		_story_play.text = "Begin"
+		_story_status.text = "A pinball machine, bought from a man named Sal."
+		_story_line.text = ""
+	else:
+		_story_play.text = ("Replay Chapter %d" if all_beaten else "Chapter %d") % int(ch["number"])
+		_story_status.text = "%s%s" % [ch["title"], "  ·  beaten" if Story.is_beaten(ch["id"]) else ""]
+		var line: String = StoryData.HUB_LINE_START
+		for c: Dictionary in StoryData.CHAPTERS:
+			if Story.is_beaten(c["id"]):
+				line = c["hub_line"]
+		_story_line.text = "\"%s\"" % line + ("\n\n" + StoryData.MORE_SOON if all_beaten else "")
+
+
+func _start_story() -> void:
+	var index := _story_chapter()
+	GameManager.game_mode = "story"
+	GameManager.story_chapter = index
+	GameManager.start_random = false
+	GameManager.start_level = int(StoryData.chapter(index)["level"])
+	_start_run()
 
 
 # --- Starting machine -------------------------------------------------------------
@@ -427,6 +493,36 @@ func _build_ui() -> void:
 	_notes_scroll.add_child(_build_patch_notes())
 	_button(_notes_page, "Back", _back)
 
+	# Story mode: hub, Journal and Workshop
+	_story_page = _page(holder)
+	_label(_story_page, "STORY", 40, GOLD)
+	_story_coins = _label(_story_page, "", 20, GOLD)
+	_spacer(_story_page, 4)
+	_story_play = _button(_story_page, "Begin", _start_story)
+	_story_status = _label(_story_page, "", 16, SOFT)
+	_spacer(_story_page, 4)
+	_button(_story_page, "Journal", func() -> void: _click_to(_journal_page))
+	_button(_story_page, "Workshop", func() -> void: _click_to(_workshop_page))
+	_spacer(_story_page, 4)
+	_story_line = _label(_story_page, "", 16, Color(0.85, 0.8, 0.65))
+	_story_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_story_line.custom_minimum_size = Vector2(420, 0)
+	_spacer(_story_page, 4)
+	_button(_story_page, "Back", _back)
+
+	_journal_page = _page(holder)
+	_label(_journal_page, "JOURNAL", 40, GOLD)
+	_journal = JournalPanel.new()
+	_journal_page.add_child(_journal)
+	_button(_journal_page, "Back", _back)
+
+	_workshop_page = _page(holder)
+	_label(_workshop_page, "WORKSHOP", 40, GOLD)
+	_label(_workshop_page, "Coins unlock spare parts for Story runs.", 15, SOFT)
+	_workshop = WorkshopPanel.new()
+	_workshop_page.add_child(_workshop)
+	_button(_workshop_page, "Back", _back)
+
 	# Game modes
 	_modes_page = _page(holder)
 	_label(_modes_page, "GAME MODE", 40, GOLD)
@@ -437,7 +533,9 @@ func _build_ui() -> void:
 	_endless_button = _mode(_modes_page, "Endless",
 			"Beat the boss, collect spare parts and keep going. How far can you get?",
 			func() -> void: _pick_mode("endless"))
-	_mode(_modes_page, "Story Mode", "Coming soon", Callable())
+	_mode(_modes_page, "Story Mode",
+			"The machine has a past, and someone is still in it. Earn strange coins and unlock spare parts.",
+			func() -> void: _pick_mode("story"))
 	_mode(_modes_page, "Daily Challenge", "Coming soon", Callable())
 	_mode(_modes_page, "Boss Rush", "Coming soon", Callable())
 	_spacer(_modes_page, 8)

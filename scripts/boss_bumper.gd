@@ -28,6 +28,20 @@ enum DamageMode {
 ## Show the remaining HP as a number in the middle of the dial.
 @export var show_hp_number: bool = true
 
+## Story mode: emitted at 0 HP instead of opening the Endless boss menu.
+signal depleted(info: Dictionary)
+## Emitted on every damaging hit (story mode statistics).
+signal damaged(amount: float)
+
+## Story mode: the StoryDirector decides what happens at 0 HP.
+var story_controlled: bool = false
+## Look: "" = the health dial; "plain" = an ordinary bumper with a health bar
+## above it (story phase 1); "splitter" = the dial, cracked down the middle.
+var art: String = "":
+	set(value):
+		art = value
+		queue_redraw()
+
 var hp: float = 0.0
 var _shown_hp: float = 0.0 # animated value the dial draws
 var _hurt: float = 0.0 # white flash on the dial when damaged
@@ -52,12 +66,25 @@ func _after_hit(_ball: Ball) -> void:
 	_hurt = 1.0
 	GameManager.popup("-%s HP" % GameManager.format_short(damage),
 			global_position + Vector2(0, -radius - 16), Color(1.0, 0.35, 0.3), true)
+	damaged.emit(damage)
 	if hp <= 0.0:
-		GameManager.boss_defeated({ # GameManager adds "next_max_hp"
+		var info := { # GameManager adds "next_max_hp"
 			"max_hp": max_hp,
 			"total_damage": total_damage,
 			"ratio": float(total_damage) / float(max_hp),
-		})
+		}
+		if story_controlled:
+			depleted.emit(info)
+		else:
+			GameManager.boss_defeated(info)
+
+
+## Give the boss a new health pool (story mode: the reveal, the Splitter).
+func set_hp(new_max: float, current: float = -1.0) -> void:
+	max_hp = maxf(new_max, 1.0)
+	hp = max_hp if current < 0.0 else clampf(current, 0.0, max_hp)
+	_shown_hp = hp
+	queue_redraw()
 
 
 func _process(delta: float) -> void:
@@ -71,6 +98,9 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
+	if art == "plain":
+		_draw_plain()
+		return
 	var fill := color.lerp(Color.WHITE, _flash * 0.7)
 	draw_circle(Vector2.ZERO, radius + _flash * 6.0, color.darkened(0.5))
 	draw_circle(Vector2.ZERO, radius, fill)
@@ -93,12 +123,60 @@ func _draw() -> void:
 	draw_arc(Vector2.ZERO, r, 0.0, TAU, 48, Color(color.lightened(0.6), 0.7), 1.5, true)
 	draw_arc(Vector2.ZERO, radius, 0.0, TAU, 48, Color.WHITE, 2.0, true)
 
+	if art == "splitter":
+		_draw_crack()
+
 	if show_hp_number:
 		var font := ThemeDB.fallback_font
 		var text := GameManager.format_short(hp) if not Engine.is_editor_hint() else _short_number(hp)
 		var pos := Vector2(-r, 5)
 		draw_string_outline(font, pos, text, HORIZONTAL_ALIGNMENT_CENTER, r * 2.0, 13, 4, Color(0, 0, 0, 0.9))
 		draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_CENTER, r * 2.0, 13, Color.WHITE)
+
+
+## The zigzag line the Splitter breaks along (shared with its two halves).
+static func crack_points(r: float) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	var steps := 8
+	for i in steps + 1:
+		var y := lerpf(-r, r, float(i) / steps)
+		var x := 0.0 if i == 0 or i == steps else (r * 0.16 if i % 2 == 1 else -r * 0.14)
+		pts.append(Vector2(x, y))
+	return pts
+
+
+## Story art "splitter": one half in shadow and a crack down the middle.
+func _draw_crack() -> void:
+	var crack := crack_points(radius)
+	var shade := PackedVector2Array(crack)
+	for i in range(1, 12): # right half of the rim, bottom to top (ends are on the crack)
+		shade.append(Vector2.from_angle(PI * 0.5 - PI * float(i) / 12.0) * radius)
+	draw_colored_polygon(shade, Color(0, 0, 0, 0.3))
+	draw_polyline(crack, Color(0, 0, 0, 0.9), 5.0, true)
+	draw_polyline(crack, Color(1, 1, 1, 0.85), 1.5, true)
+
+
+## Story art "plain": looks like any pop bumper, with a health bar above it.
+func _draw_plain() -> void:
+	var base := Palette.BUMPER
+	var fill := base.lerp(Color.WHITE, _flash * 0.7)
+	draw_circle(Vector2.ZERO, radius + _flash * 6.0, base.darkened(0.5))
+	draw_circle(Vector2.ZERO, radius, fill)
+	draw_circle(Vector2.ZERO, radius * 0.55, base.darkened(0.3))
+	draw_arc(Vector2.ZERO, radius, 0.0, TAU, 48, Color.WHITE, 2.0, true)
+	var w := radius * 2.4
+	var bar := Rect2(-w * 0.5, -radius - 22.0, w, 9.0)
+	var ratio := clampf(_shown_hp / float(max_hp), 0.0, 1.0)
+	draw_rect(bar.grow(2.0), Color(0, 0, 0, 0.85))
+	draw_rect(bar, Color(0.18, 0.2, 0.3))
+	var health := Color(0.4, 0.95, 0.5).lerp(Color(1.0, 0.3, 0.3), 1.0 - ratio).lerp(Color.WHITE, _hurt * 0.5)
+	draw_rect(Rect2(bar.position, Vector2(bar.size.x * ratio, bar.size.y)), health)
+	if show_hp_number and not Engine.is_editor_hint():
+		var font := ThemeDB.fallback_font
+		var text := GameManager.format_short(hp)
+		var pos := Vector2(-w * 0.5, bar.position.y - 5.0)
+		draw_string_outline(font, pos, text, HORIZONTAL_ALIGNMENT_CENTER, w, 13, 4, Color(0, 0, 0, 0.9))
+		draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_CENTER, w, 13, Color.WHITE)
 
 
 ## 100000 -> "100K", 69900 -> "69.9K"

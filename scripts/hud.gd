@@ -147,7 +147,10 @@ func _refresh() -> void:
 	# Spare balls: the ball on the table doesn't count once it's launched.
 	var spare := GameManager.spare_balls()
 	var count := str(spare) if spare > 0 else "[color=#ff3b3b]0[/color]"
-	_balls_label.text = "[right]ROUND %d   BALLS %s[/right]" % [GameManager.boss_round, count]
+	if GameManager.game_mode == "story":
+		_balls_label.text = "[right]CHAPTER %d   BALLS %s[/right]" % [GameManager.story_chapter + 1, count]
+	else:
+		_balls_label.text = "[right]ROUND %d   BALLS %s[/right]" % [GameManager.boss_round, count]
 
 
 func _on_tilt_warning(_level: float) -> void:

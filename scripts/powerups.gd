@@ -236,6 +236,9 @@ func _weighted_pick(pool: Array, count: int) -> Array:
 
 
 func _is_available(id: String) -> bool:
+	# Story mode only offers parts the player owns (Workshop unlocks).
+	if GameManager.game_mode == "story" and not Story.is_unlocked(id):
+		return false
 	match id:
 		"multiplier":
 			return not _placeable_targets(false).is_empty()
@@ -469,7 +472,8 @@ func _next_tier(target: Node2D) -> int:
 ## Bumpers and wall kickers. The boss never takes a multiplier, and the bottom
 ## slingshots are excluded (Slingshot.multiplier_target = false).
 func _collect_targets(node: Node, out: Array[Node2D]) -> void:
-	if (node is Bumper and not node is BossBumper) or (node is Slingshot and node.multiplier_target):
+	if (node is Bumper and not node is BossBumper and not node.has_meta("no_multiplier")) \
+			or (node is Slingshot and node.multiplier_target):
 		out.append(node)
 	for child in node.get_children():
 		_collect_targets(child, out)

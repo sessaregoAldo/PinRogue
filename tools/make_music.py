@@ -34,6 +34,10 @@ C = {
     "Am7": (45, [55, 60, 64, 67]), "Bbmaj9": (46, [57, 60, 62, 65]), "C13": (36, [52, 57, 58, 62]),
     "Bm7": (47, [57, 62, 66, 69]), "Emaj9": (40, [56, 59, 63, 66]), "C#m9": (49, [56, 59, 64, 68]),
     "F#m9": (42, [57, 61, 64, 68]), "B13": (47, [57, 63, 68, 71]), "Amaj9": (45, [56, 59, 61, 64]),
+    # Bare fifths and minor shapes for the boss battle track.
+    "A5": (33, [57, 64, 69, 76]), "F5": (29, [53, 60, 65, 72]), "G5": (31, [55, 62, 67, 74]),
+    "E5": (28, [52, 59, 64, 71]), "D5": (38, [50, 57, 62, 69]), "Am": (33, [57, 60, 64, 69]),
+    "Dm": (38, [53, 57, 62, 65]), "Em": (28, [52, 55, 59, 64]),
 }
 
 TRACKS = [
@@ -57,6 +61,22 @@ TRACKS = [
         "a": ["Fmaj9", "Gm9", "Am7", "Bbmaj9"] * 2,
         "b": ["Gm9", "C13", "Fmaj9", "Am7", "Gm9", "C13", "Fmaj9", "C13"],
         "scale": [65, 67, 69, 72, 74, 77, 79, 81],
+    },
+    {
+        # Story mode boss fights: fast, straight, minor, driving octave bass.
+        "name": "boss_battle", "bpm": 142, "swing": 0.5, "seed": 71, "chords": "stab", "bass": "octave",
+        "drums": "four", "lowpass": 7200.0, "crackle": 0.0,
+        "a": ["Am", "A5", "F5", "G5"] * 2,
+        "b": ["Dm", "D5", "Em", "E5", "F5", "G5", "Am", "E5"],
+        "scale": [57, 60, 62, 64, 67, 69, 72, 76],
+    },
+    {
+        # Story mode, after a boss falls: slow, sparse, a little sad. No drums.
+        "name": "quiet_win", "bpm": 58, "swing": 0.5, "seed": 5, "chords": "arp", "bass": "slow",
+        "drums": "none", "lowpass": 2600.0, "crackle": 0.0025,
+        "a": ["Am9", "Fmaj7", "Cmaj9", "Em7"] * 2,
+        "b": ["Dm9", "Am9", "Fmaj7", "E7", "Dm9", "Am9", "Fmaj7", "Em7"],
+        "scale": [57, 60, 62, 64, 67, 69, 72, 74],
     },
 ]
 
@@ -184,13 +204,17 @@ def render(spec):
         elif spec["bass"] == "funk":
             for e, note, v in ((0, root, 0.45), (3, root + 12, 0.32), (4, root + 7, 0.36), (6, root, 0.38), (7, root + 10, 0.3)):
                 bass(note, bt(bar, pos8(e)), 0.4 * beat, v)
+        elif spec["bass"] == "slow":  # one long note per bar
+            bass(root, bt(bar, 0.0), 3.4 * beat, 0.4)
         else:  # walk
             nxt = progression[(bar + 1) % bars][0]
             steps = [root, root + 4, root + 7, nxt - 1 if nxt > root else nxt + 1]
             for q in range(4):
                 bass(steps[q], bt(bar, q), 0.8 * beat, 0.4)
         # Drums
-        if spec["drums"] == "four":
+        if spec["drums"] == "none":
+            pass
+        elif spec["drums"] == "four":
             for q in range(4):
                 kick(bt(bar, q), 0.85 if q % 2 == 0 else 0.7)
             snare(bt(bar, 1.0))
@@ -202,13 +226,13 @@ def render(spec):
             snare(bt(bar, 3.0), 0.32, clap=True)
             if bar % 4 == 3:
                 snare(bt(bar, 3.75), 0.16)
-        for s in range(16):
+        for s in range(16 if spec["drums"] != "none" else 0):
             p = s / 4.0
             if s % 2 == 1:
                 p = (s // 2) / 2.0 + (swing - 0.5) * 0.5 + 0.25
             vel = (0.24 if s % 4 == 0 else 0.16 if s % 2 == 0 else 0.10) * random.uniform(0.85, 1.15)
             hat(bt(bar, p), vel, open_hat=(s == 14 and bar % 2 == 1))
-        if bar % 8 == 7:
+        if bar % 8 == 7 and spec["drums"] != "none":
             hat(bt(bar, 3.5), 0.25, open_hat=True)
         # Melody: two-bar phrases from the pentatonic scale, more notes in B.
         scale = spec["scale"]

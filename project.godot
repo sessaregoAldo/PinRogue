@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="PinRogue"
-config/version="0.13.6"
+config/version="0.13.7"
 run/main_scene="res://scenes/main_menu.tscn"
 config/features=PackedStringArray("4.3", "GL Compatibility")
 
@@ -25,6 +25,7 @@ general/default_playback_type.web=0
 GameManager="*res://scripts/game_manager.gd"
 Sfx="*res://scripts/sfx.gd"
 Leaderboard="*res://scripts/leaderboard.gd"
+Story="*res://scripts/story/story_save.gd"
 VersionTag="*res://scripts/version_tag.gd"
 
 [display]
