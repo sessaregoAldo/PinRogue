@@ -158,7 +158,7 @@ func _draw_crack() -> void:
 
 ## Story art "plain": looks like any pop bumper, with a health bar above it.
 func _draw_plain() -> void:
-	var base := Palette.BUMPER
+	var base := Palette.BUMPER if Engine.is_editor_hint() else Cosmetics.bumper_color()
 	var fill := base.lerp(Color.WHITE, _flash * 0.7)
 	draw_circle(Vector2.ZERO, radius + _flash * 6.0, base.darkened(0.5))
 	draw_circle(Vector2.ZERO, radius, fill)

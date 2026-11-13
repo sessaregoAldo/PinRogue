@@ -5,6 +5,17 @@ extends RefCounted
 
 const NOTES: Array[Dictionary] = [
 	{
+		"version": "0.14.1",
+		"name": "Fresh Paint",
+		"date": "Nov 13, 2026",
+		"notes": [
+			"Cosmetics: spend story coins on new flipper colors, bumper colors and table backgrounds. Point at one to see how your table would look before you buy.",
+			"Every story chapter now has its own leaderboard. Post your run from the result page, and switch between the Endless and Story boards on the Leaderboard page.",
+			"A new machine joins the game. It stays locked in Endless until you've earned it in Story Mode.",
+			"Your coins now sit in the corner of the Story menu, and a small coin pops up above your target each time you earn one.",
+		],
+	},
+	{
 		"version": "0.14.0",
 		"name": "Page One",
 		"date": "Nov 13, 2026",

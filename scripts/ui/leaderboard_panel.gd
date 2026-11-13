@@ -5,6 +5,8 @@ extends VBoxContainer
 
 const GOLD := Color(1.0, 0.85, 0.3)
 
+## Which board to show: "" = Endless, otherwise a story chapter id.
+var board: String = ""
 var _grid: GridContainer
 var _note: Label
 
@@ -41,7 +43,7 @@ func refresh() -> void:
 	var gen := _generation
 	_clear()
 	_note.text = "Loading..."
-	var res: Dictionary = await Leaderboard.fetch_top(_ending)
+	var res: Dictionary = await Leaderboard.fetch_top(_ending, board)
 	if not is_visible_in_tree() or gen != _generation:
 		return
 	_clear()
@@ -77,7 +79,7 @@ func refresh() -> void:
 ## Below the top 10: "···" and the player's best score with its position
 ## (within the current filter).
 func _add_player_row(player_name: String, shown: int, gen: int) -> void:
-	var best: Dictionary = await Leaderboard.fetch_player_best(player_name, _ending)
+	var best: Dictionary = await Leaderboard.fetch_player_best(player_name, _ending, board)
 	if not is_visible_in_tree() or gen != _generation or not best["found"] or int(best["rank"]) <= shown:
 		return
 	_cell("", GOLD, HORIZONTAL_ALIGNMENT_RIGHT)

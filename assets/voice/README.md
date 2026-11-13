@@ -29,9 +29,9 @@ This list is generated from scripts/story/story_data.gd by tools/list_voice_line
 | `splitter_briefing_2.mp3` | The Craftsman | My business partner. "Fifty-fifty," he'd say, and then he'd count, and somehow his fifty was always the bigger one. |
 | `splitter_briefing_3.mp3` | The Craftsman | He split everything. The profits, the workshop, the blame. In the end he split the company and took the half with the customers in it. |
 | `splitter_briefing_4.mp3` | The Craftsman | I should tell you I let him. I was busy. I had a machine to finish. |
-| `splitter_briefing_5.mp3` | The Craftsman | Mind the bumpers up top: knock one and he comes apart in two, each half holding its share. Hit one half, then the other, quick as you can. He never could stand being caught on both sides. |
+| `splitter_briefing_5.mp3` | The Craftsman | Knock him three times and he comes apart in two, each half holding its share. Hit one half, then the other, quick as you can. He never could stand being caught on both sides. |
 | `splitter_again_1.mp3` | The Craftsman | Back for another round, is he? He never did know when a meeting was over. |
-| `splitter_again_2.mp3` | The Craftsman | Top bumpers split him in two. Hit one half, then the other, for double damage. |
+| `splitter_again_2.mp3` | The Craftsman | Every third hit splits him in two. Hit one half, then the other, for double damage. |
 | `splitter_defeat_1.mp3` | The Craftsman | Not this time. He was always the better talker. |
 | `splitter_defeat_2.mp3` | The Craftsman | Take the coins. Odd things, aren't they? I never minted them. I don't know who did. |
 | `splitter_victory_1.mp3` | The Craftsman | There. He's quiet now. First time in forty years he hasn't had the last word. |

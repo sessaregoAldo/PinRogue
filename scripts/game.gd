@@ -113,8 +113,13 @@ func _load_level(index: int) -> void:
 	if level:
 		level_holder.remove_child(level)
 		level.queue_free()
-	level = LevelRegistry.instantiate(index)
+	# Story chapters can bring their own machine (not part of the Endless rotation).
+	if GameManager.game_mode == "story" and GameManager.story_level_scene != "" 			and ResourceLoader.exists(GameManager.story_level_scene):
+		level = (load(GameManager.story_level_scene) as PackedScene).instantiate() as Level
+	else:
+		level = LevelRegistry.instantiate(index)
 	level_holder.add_child(level)
+	Cosmetics.apply(level) # the player's flipper / bumper colors and background
 	GameManager.current_level = index
 	GameManager.level_changed.emit(level)
 

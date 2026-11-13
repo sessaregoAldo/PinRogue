@@ -241,7 +241,7 @@ func _run(token: int) -> void:
 	_rings = [[inlane_l.global_position, 16.0], [inlane_r.global_position, 16.0]]
 	await _say("See the two orange lights beside the slingshots? Those are the inlanes.")
 	if token != _token: return
-	await _say("Light both and the machine hands you a minor spare part. Watch, I'll send the ball through them.")
+	await _say("Light both and the machine hands you a spare part. Watch, I'll send the ball through them.")
 	if token != _token: return
 	_rings = []
 	_pick_seen = false
@@ -262,7 +262,7 @@ func _run(token: int) -> void:
 		if _pick_seen:
 			break
 	_expect_pick = false
-	await _say("Good pick. The lights up top, near the boss, give MAJOR spare parts. Those are the really strong ones.")
+	await _say("Good pick. The lights up top, near the boss, give the MAJOR spare parts. Those are the really strong ones.")
 	if token != _token: return
 
 	# 6. The boss: score = damage, HP to zero
@@ -741,7 +741,7 @@ func _on_pick_requested(_tier: String) -> void:
 	if not _expect_pick or _pick_seen:
 		return
 	_pick_seen = true
-	_note("Pick one! Minor parts are small helpers that last the whole run.")
+	_note("Pick one! Spare parts last for the whole run.")
 	# One pick is the lesson: no light gives parts for the rest of the tutorial
 	# (Sal's play up top could otherwise light a set mid-explanation).
 	for r in game.level.find_children("*", "Area2D", true, false):

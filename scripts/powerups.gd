@@ -63,6 +63,8 @@ const POWERUPS := [
 		"desc": "Kicks an outlane ball back into play. Recharges after 10 boss or 20 bumper hits.",
 		"color": Color(0.45, 1.0, 0.6), "weight": 1.0},
 ]
+## The three parts the tutorial's pick always shows.
+const TUTORIAL_OFFER: Array[String] = ["turbo_ramps", "multiplier", "boss_crusher"]
 ## Kickback zones (bottom of each outlane) and the order the sides are added.
 const KICKBACK_POS := {"L": Vector2(40, 945), "R": Vector2(520, 945)}
 const KICKBACK_ORDER: Array[String] = ["L", "R"]
@@ -208,6 +210,14 @@ func _open_choice() -> void:
 ## Minor picks: all minor. Major picks: major cards first, minor ones only fill
 ## in when there aren't enough majors available.
 func _roll_offer(count: int, tier: String) -> Array:
+	# The tutorial always offers the same three, so the lesson plays the same way.
+	if GameManager.game_mode == "tutorial":
+		var fixed := []
+		for id in TUTORIAL_OFFER:
+			for p: Dictionary in POWERUPS:
+				if p["id"] == id:
+					fixed.append(p)
+		return fixed
 	var picked := _weighted_pick(_available_of(tier), count)
 	if picked.size() < count and tier == "major":
 		picked.append_array(_weighted_pick(_available_of("minor"), count - picked.size()))
@@ -254,6 +264,9 @@ func _is_available(id: String) -> bool:
 		"outlane_guards":
 			return not is_instance_valid(_left_guard) or not is_instance_valid(_right_guard) \
 					or _left_guard.saves < outlane_guard_max or _right_guard.saves < outlane_guard_max
+		"turbo_ramps":
+			# Pointless on a machine with no ramps.
+			return not get_tree().get_nodes_in_group("tunnels").is_empty()
 		# Not in the tutorial: Sal's scripted shots expect the stock machine.
 		"kickback":
 			return _kickbacks.size() < KICKBACK_ORDER.size() and GameManager.game_mode != "tutorial"
@@ -756,6 +769,8 @@ func _build_ui() -> void:
 
 func _fill_cards() -> void:
 	_choice_title.text = "MAJOR SPARE PART" if _offer_tier == "major" else "MINOR SPARE PART"
+	if GameManager.game_mode == "tutorial":
+		_choice_title.text = "SPARE PART" # its fixed offer mixes both kinds
 	_choice_title.add_theme_color_override("font_color", TIER_COLORS[_offer_tier])
 	for child in _cards_box.get_children():
 		child.queue_free()

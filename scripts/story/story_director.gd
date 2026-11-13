@@ -35,6 +35,8 @@ var _phase_one_max: float = 1.0
 var _boss_max: float = 1.0
 var _revealed: bool = false
 var _whispered: Dictionary = {}
+## Coins already announced with a popup this run (see _coins_from_damage).
+var _coins_popped: int = 0
 var _run: int = 0 # bumped on every (re)start: stale sequences stop
 var _fx_layer: CanvasLayer
 var _face: Control
@@ -71,6 +73,7 @@ func _on_run_started() -> void:
 	_run += 1
 	phase = "plain"
 	_revealed = false
+	_coins_popped = 0
 	_whispered.clear()
 	stats = {"damage": 0.0, "boss_hits": 0, "bumper_hits": 0, "nudges": 0, "tilts": 0,
 			"balls_lost": 0, "parts": 0, "time": 0.0, "splits": 0}
@@ -236,6 +239,37 @@ func _on_boss_damaged(amount: float) -> void:
 		return
 	stats["damage"] = float(stats["damage"]) + amount
 	stats["boss_hits"] = int(stats["boss_hits"]) + 1
+	_pop_coins.call_deferred() # after the hit has been taken off the HP
+
+
+## Coins earned so far from damage alone: whole coins for the share of the
+## first bumper's HP and of the boss's HP that is gone.
+func _coins_from_damage(boss_beaten: bool = false) -> int:
+	var phase_one_share := 1.0
+	if not _revealed and is_instance_valid(_boss):
+		phase_one_share = clampf(1.0 - _boss.hp / _phase_one_max, 0.0, 1.0)
+	var boss_share := 0.0
+	if boss_beaten:
+		boss_share = 1.0
+	elif _revealed and phase != "reveal":
+		boss_share = clampf(1.0 - _current_boss_hp() / _boss_max, 0.0, 1.0)
+	return floori(StoryData.COINS_PHASE_ONE * phase_one_share + 0.0001) + floori(StoryData.COINS_BOSS * boss_share + 0.0001)
+
+
+## A small "+1 coin" above the boss each time the damage earns another coin.
+func _pop_coins() -> void:
+	if phase == "over" or not is_instance_valid(_boss):
+		return
+	var earned := _coins_from_damage()
+	if earned <= _coins_popped:
+		return
+	var gained := earned - _coins_popped
+	_coins_popped = earned
+	var at := _boss.global_position
+	if is_instance_valid(_gimmick) and _gimmick.is_split():
+		at = _gimmick.halves_center()
+	GameManager.popup("+%d coin%s" % [gained, "" if gained == 1 else "s"], at + Vector2(0, -_boss.radius - 44.0), Color(1.0, 0.82, 0.25), false)
+	Sfx.play("click", -6.0, 2.0, 60)
 
 
 func _on_boss_depleted(_info: Dictionary) -> void:
@@ -358,16 +392,14 @@ func _on_game_over(_score: float) -> void:
 
 ## Pay the coins, save, and open the Journal's result page.
 func _finish(won: bool) -> void:
-	var phase_one_share := 1.0
-	if not _revealed and is_instance_valid(_boss):
-		phase_one_share = clampf(1.0 - _boss.hp / _phase_one_max, 0.0, 1.0)
 	var boss_share := 0.0
 	if won:
 		boss_share = 1.0
 	elif _revealed:
 		boss_share = clampf(1.0 - _current_boss_hp() / _boss_max, 0.0, 1.0)
 	var first := false
-	var coins := roundi(StoryData.COINS_PHASE_ONE * phase_one_share) + roundi(StoryData.COINS_BOSS * boss_share)
+	# The same whole coins the popups counted during play, plus the win bonus.
+	var coins := _coins_from_damage(won)
 	if won:
 		first = Story.beat_chapter(chapter["id"])
 		coins += StoryData.COINS_FIRST_DEFEAT if first else StoryData.COINS_REPEAT_DEFEAT

@@ -29,6 +29,9 @@ extends StaticBody2D
 var _normal: Vector2
 var _flash: float = 0.0
 var _last_hit_ms: int = -100000
+var _area: Area2D
+## Seconds a ball has been lying still against the kicking edge.
+var _rest_time: float = 0.0
 
 
 func _ready() -> void:
@@ -60,7 +63,29 @@ func _ready() -> void:
 	cs.rotation = edge.angle()
 	area.add_child(cs)
 	add_child(area)
+	_area = area
 	area.body_entered.connect(_on_body_entered)
+
+
+## A ball that comes to rest on the kicking edge (it entered too gently to be
+## noticed again) gets kicked after a moment, so it can't sit there.
+func _physics_process(delta: float) -> void:
+	if Engine.is_editor_hint() or _area == null or GameManager.tilted:
+		return
+	var resting: Ball = null
+	for body in _area.get_overlapping_bodies():
+		var ball := body as Ball
+		if ball != null and ball.in_play and ball.linear_velocity.length() < 60.0:
+			resting = ball
+			break
+	if resting == null:
+		_rest_time = 0.0
+		return
+	_rest_time += delta
+	if _rest_time > 0.35:
+		_rest_time = 0.0
+		_last_hit_ms = -100000
+		_on_body_entered(resting)
 
 
 func _process(delta: float) -> void:

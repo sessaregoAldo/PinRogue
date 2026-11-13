@@ -1,11 +1,12 @@
 class_name SplitterBoss
 extends Node
 ## Story boss gimmick, "The Splitter".
-## Hitting a bumper in the top third of the table splits the boss into two
-## smaller bumpers, each holding half of his remaining HP. Hitting one half and
-## then the other within COMBO_WINDOW seconds deals double damage. After
-## SPLIT_TIME seconds (or when a half is emptied) they recombine, and the boss
-## continues with what the two halves have left.
+## Every HITS_TO_SPLIT-th hit on the whole boss breaks him into two smaller
+## bumpers at random spots in the top half of the table, each holding half of
+## his remaining HP. Hitting one half and then the other within COMBO_WINDOW
+## seconds deals double damage. After SPLIT_TIME seconds they rejoin, and the
+## boss continues with what the two halves have left. An emptied half stays
+## where it is (hits on it do nothing) until then; emptying both beats him.
 
 signal split_started
 signal recombined
@@ -13,7 +14,8 @@ signal damaged(amount: float)
 ## The halves were emptied: the boss is beaten.
 signal defeated(info: Dictionary)
 
-const TOP_THIRD_Y := 1120.0 / 3.0
+## Hits on the whole boss between splits.
+const HITS_TO_SPLIT := 3
 const SPLIT_TIME := 8.0
 const COMBO_WINDOW := 1.5
 ## Fallback when no free spot is found: how far each half sits from his center.
@@ -24,8 +26,14 @@ const HALF_RADIUS_RATIO := 0.72
 ## inside the walls and left of the shooter lane.
 const SPLIT_AREA := Rect2(70, 110, 420, 440)
 
-var boss: BossBumper
+var boss: BossBumper:
+	set(value):
+		boss = value
+		if boss != null and not boss.damaged.is_connected(_on_boss_hit):
+			boss.damaged.connect(_on_boss_hit)
 var active: bool = false
+## Hits on the whole boss since he last rejoined.
+var _hits: int = 0
 var _halves: Array[SplitHalf] = []
 var _time_left: float = 0.0
 var _last_half: SplitHalf = null
@@ -34,12 +42,19 @@ var _last_hit_ms: int = -100000
 var _hp_at_split: float = 0.0
 
 
-func _ready() -> void:
-	GameManager.part_hit.connect(_on_part_hit)
-
-
 func is_split() -> bool:
 	return not _halves.is_empty()
+
+
+## Midpoint between the two halves (where "the boss" is while split).
+func halves_center() -> Vector2:
+	var sum := Vector2.ZERO
+	var count := 0
+	for half in _halves:
+		if is_instance_valid(half):
+			sum += half.global_position
+			count += 1
+	return sum / count if count > 0 else (boss.global_position if is_instance_valid(boss) else Vector2.ZERO)
 
 
 ## HP left in the two halves together (while split).
@@ -51,12 +66,19 @@ func halves_hp() -> float:
 	return total
 
 
-func _on_part_hit(part: Node) -> void:
+## A hit on the whole boss: every HITS_TO_SPLIT-th one splits him.
+func _on_boss_hit(_amount: float) -> void:
 	if not active or is_split() or not is_instance_valid(boss) or boss.hp <= 0.0:
 		return
-	if part is Bumper and not part is BossBumper and not part is SplitHalf \
-			and (part as Node2D).global_position.y < TOP_THIRD_Y:
+	_hits += 1
+	if _hits >= HITS_TO_SPLIT:
+		_hits = 0
 		_split.call_deferred() # after the physics step: the split looks for free spots
+
+
+## Hits still needed before the next split.
+func hits_until_split() -> int:
+	return HITS_TO_SPLIT - _hits
 
 
 func _split() -> void:
@@ -121,8 +143,9 @@ func _pick_spots(r: float) -> Array[Vector2]:
 				break
 		if blocked:
 			continue
-		for tunnel in get_tree().get_nodes_in_group("tunnels"):
-			if tunnel.covers(p, r + 8.0):
+		# Not under a ramp, and not on a moving part's track.
+		for node in get_tree().get_nodes_in_group("tunnels") + get_tree().get_nodes_in_group("split_avoid"):
+			if node.covers(p, r + 8.0):
 				blocked = true
 				break
 		if blocked:
@@ -143,6 +166,8 @@ func _pick_spots(r: float) -> Array[Vector2]:
 func _on_half_struck(half: SplitHalf) -> void:
 	if not is_split():
 		return
+	if half.hp <= 0.0:
+		return # already emptied: nothing left to take from this half
 	var damage := maxf(roundf(GameManager.score * GameManager.boss_damage_mult), 1.0)
 	var now := Time.get_ticks_msec()
 	var doubled := _last_half != null and _last_half != half and now - _last_hit_ms <= int(COMBO_WINDOW * 1000.0)
@@ -150,14 +175,14 @@ func _on_half_struck(half: SplitHalf) -> void:
 		damage *= 2.0
 	_last_half = half
 	_last_hit_ms = now
-	half.hp -= damage
+	half.hp = maxf(half.hp - damage, 0.0)
 	var text := "-%s HP" % GameManager.format_short(damage)
 	GameManager.popup("DOUBLE!  " + text if doubled else text,
 			half.global_position + Vector2(0, -half.radius - 16),
 			Color(1.0, 0.85, 0.3) if doubled else Color(1.0, 0.35, 0.3), true)
 	damaged.emit(damage)
-	if half.hp <= 0.0:
-		_recombine.call_deferred() # not while the physics callback is running
+	if halves_hp() <= 0.0:
+		_recombine.call_deferred() # both emptied: he is beaten (not inside the physics callback)
 
 
 func _process(delta: float) -> void:
@@ -185,7 +210,7 @@ func _recombine() -> void:
 		return
 	boss.process_mode = Node.PROCESS_MODE_INHERIT
 	boss.visible = true
-	# If either half was emptied, the overkill doesn't carry: he keeps the other half's HP.
+	_hits = 0
 	boss.set_hp(boss.max_hp, left)
 	if left <= 0.0:
 		defeated.emit({"max_hp": boss.max_hp, "total_damage": boss.max_hp, "ratio": 1.0})

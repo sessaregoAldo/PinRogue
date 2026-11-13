@@ -27,17 +27,21 @@ const COINS_REPEAT_DEFEAT := 5
 ## Development: raise this number to set every player's coins back to 0 the next
 ## time their save loads (used while prices and payouts are being tuned).
 const COIN_RESET := 2
+## Development, debug builds only (running from the editor, never the released
+## game): raise this number to mark every chapter as not beaten again the next
+## time the save loads. Used to replay chapters while they are being changed.
+const BEATEN_RESET := 1
 
 ## Spare parts every story run can offer from the start.
-const STARTING_PARTS: Array[String] = ["extra_ball", "outlane_guards", "steady_hands", "multiplier", "turbo_ramps"]
-## Workshop prices (coins) for the rest.
+const STARTING_PARTS: Array[String] = ["extra_ball", "outlane_guards", "steady_hands", "multiplier", "boss_crusher"]
+## Workshop prices (coins) for the rest. Turbo Ramps isn't sold yet: no story
+## machine has ramps so far (it would never be offered).
 const PART_PRICES := {
 	"bouncy_ball": 40,
 	"gap_guard": 45,
 	"ball_saver": 45,
 	"combo_master": 60,
 	"kickback": 70,
-	"boss_crusher": 90,
 	"boss_magnet": 90,
 	"multiball_lock": 120,
 	"mega_multiplier": 140,
@@ -82,7 +86,9 @@ const CHAPTERS: Array[Dictionary] = [
 		"number": 1,
 		"title": "The Partner",
 		"boss": "The Splitter",
-		"level": 0, # LevelRegistry index (Classic)
+		# The chapter's own machine. Beating the chapter unlocks it for Endless
+		# (LevelRegistry.LOCKS).
+		"scene": "res://scenes/levels/level_twin_lifts.tscn",
 		"gimmick": "splitter",
 		"art": "splitter",
 		"reveal": "Something behind the bumper comes loose. The cap cracks down the middle.",
@@ -91,9 +97,9 @@ const CHAPTERS: Array[Dictionary] = [
 			"My business partner. \"Fifty-fifty,\" he'd say, and then he'd count, and somehow his fifty was always the bigger one.",
 			"He split everything. The profits, the workshop, the blame. In the end he split the company and took the half with the customers in it.",
 			"I should tell you I let him. I was busy. I had a machine to finish.",
-			"Mind the bumpers up top: knock one and he comes apart in two, each half holding its share. Hit one half, then the other, quick as you can. He never could stand being caught on both sides.",
+			"Knock him three times and he comes apart in two, each half holding its share. Hit one half, then the other, quick as you can. He never could stand being caught on both sides.",
 		],
-		"hint": "Top bumpers split him in two. Hit one half, then the other, for double damage.",
+		"hint": "Every third hit splits him in two. Hit one half, then the other, for double damage.",
 		"defeat": [
 			"Not this time. He was always the better talker.",
 			"Take the coins. Odd things, aren't they? I never minted them. I don't know who did.",

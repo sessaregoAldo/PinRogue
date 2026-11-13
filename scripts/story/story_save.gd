@@ -23,6 +23,10 @@ var coin_tray: Array = []
 ## Best run per chapter id: {score, damage}.
 var best: Dictionary = {}
 var attempts: int = 0
+var _saved_beaten_reset: int = 0
+## Cosmetics (see Cosmetics): ids bought, and the one in use per group.
+var cosmetics_owned: Array[String] = []
+var cosmetics_equipped: Dictionary = {}
 ## Main menu: open the Story page when it loads (set when a story run ends).
 var return_to_hub: bool = false
 
@@ -55,6 +59,17 @@ func load_save() -> void:
 	var best_value: Variant = cfg.get_value("story", "best", {})
 	best = best_value if best_value is Dictionary else {}
 	attempts = int(cfg.get_value("story", "attempts", 0))
+	_saved_beaten_reset = int(cfg.get_value("story", "beaten_reset", 0))
+	cosmetics_owned = []
+	for id in cfg.get_value("story", "cosmetics_owned", []):
+		cosmetics_owned.append(str(id))
+	var worn: Variant = cfg.get_value("story", "cosmetics_equipped", {})
+	cosmetics_equipped = worn if worn is Dictionary else {}
+	# Development reset (StoryData.BEATEN_RESET), editor runs only: chapters
+	# count as not beaten again, once per raise of that number.
+	if OS.is_debug_build() and int(cfg.get_value("story", "beaten_reset", 0)) != StoryData.BEATEN_RESET:
+		beaten = []
+		save()
 	# Development coin reset (StoryData.COIN_RESET): coins back to 0, once.
 	if int(cfg.get_value("story", "coin_reset", 0)) != StoryData.COIN_RESET:
 		coins = 0
@@ -71,7 +86,11 @@ func save() -> void:
 	cfg.set_value("story", "coin_tray", coin_tray)
 	cfg.set_value("story", "best", best)
 	cfg.set_value("story", "attempts", attempts)
+	cfg.set_value("story", "cosmetics_owned", cosmetics_owned)
+	cfg.set_value("story", "cosmetics_equipped", cosmetics_equipped)
 	cfg.set_value("story", "coin_reset", StoryData.COIN_RESET)
+	# Kept as it was outside the editor, so a released build never clears it.
+	cfg.set_value("story", "beaten_reset", StoryData.BEATEN_RESET if OS.is_debug_build() else _saved_beaten_reset)
 	cfg.save(save_path)
 	changed.emit()
 
@@ -105,6 +124,33 @@ func record_run(chapter_id: String, score: float, damage: float) -> void:
 		"score": maxf(score, float(old.get("score", 0.0))),
 		"damage": maxf(damage, float(old.get("damage", 0.0))),
 	}
+
+
+# --- Cosmetics ----------------------------------------------------------------------
+
+func owns_cosmetic(item: Dictionary) -> bool:
+	return int(item.get("price", 0)) <= 0 or cosmetics_owned.has(item["id"])
+
+
+func is_equipped(group: String, item: Dictionary) -> bool:
+	return str(cosmetics_equipped.get(group, Cosmetics.default_id(group))) == str(item["id"])
+
+
+## Buys a cosmetic and puts it on. False if it can't be afforded.
+func buy_cosmetic(group: String, item: Dictionary) -> bool:
+	if owns_cosmetic(item) or coins < int(item["price"]):
+		return false
+	coins -= int(item["price"])
+	cosmetics_owned.append(str(item["id"]))
+	cosmetics_equipped[group] = str(item["id"])
+	save()
+	return true
+
+
+func equip_cosmetic(group: String, item: Dictionary) -> void:
+	if owns_cosmetic(item):
+		cosmetics_equipped[group] = str(item["id"])
+		save()
 
 
 # --- Coins and parts ----------------------------------------------------------------

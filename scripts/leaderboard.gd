@@ -20,6 +20,9 @@ const TIMEOUT := 10.0
 var url: String = ""
 var key: String = ""
 var table: String = "scores"
+## Story chapters have their own boards in this table (supabase/story_scores.sql),
+## one per chapter id. Functions take it as `board`: "" = the Endless board.
+const STORY_TABLE := "story_scores"
 ## The last name used on this device, offered again next time.
 var last_name: String = ""
 
@@ -79,28 +82,28 @@ func is_valid_name(player_name: String) -> bool:
 ## Returns {ok, online, entries: [{name, score, won}], error}.
 ## `ending` filters by how the run ended: "" = all, "won" = ended after a boss
 ## (End Run), "lost" = out of balls.
-func fetch_top(ending: String = "") -> Dictionary:
+func fetch_top(ending: String = "", board: String = "") -> Dictionary:
 	if is_online():
 		var res := await _request(HTTPClient.METHOD_GET,
-				"%s?select=name,score,won%s&order=score.desc,created_at.asc&limit=%d" % [table, _ending_query(ending), TOP_COUNT])
+				"%s?select=name,score,won%s%s&order=score.desc,created_at.asc&limit=%d" % [_table(board), _board_query(board), _ending_query(ending), TOP_COUNT])
 		if res["ok"]:
 			var parsed: Variant = JSON.parse_string(res["body"])
 			if parsed is Array:
 				return {"ok": true, "online": true, "entries": _normalize(parsed), "error": ""}
 			res["error"] = "unexpected reply from the server"
-		return {"ok": false, "online": false, "entries": _local_filtered(ending).slice(0, TOP_COUNT),
+		return {"ok": false, "online": false, "entries": _local_filtered(ending, board).slice(0, TOP_COUNT),
 				"error": "Online board unavailable (%s). Showing this device's scores." % res["error"]}
-	return {"ok": true, "online": false, "entries": _local_filtered(ending).slice(0, TOP_COUNT), "error": ""}
+	return {"ok": true, "online": false, "entries": _local_filtered(ending, board).slice(0, TOP_COUNT), "error": ""}
 
 
 ## Position a score would have (1 = best), among all runs or one `ending`.
 ## Returns -1 if unknown. `after_ties`: also count equal scores as ahead (where a
 ## score not yet submitted would land, since ties keep the older run first).
-func fetch_rank(score: float, ending: String = "", after_ties: bool = false) -> int:
+func fetch_rank(score: float, ending: String = "", after_ties: bool = false, board: String = "") -> int:
 	if is_online():
 		var res := await _request(HTTPClient.METHOD_GET,
-				"%s?select=id&score=%s.%s%s&limit=1" % [table, "gte" if after_ties else "gt",
-				_score_text(score).uri_encode(), _ending_query(ending)], "", ["Prefer: count=exact"])
+				"%s?select=id&score=%s.%s%s%s&limit=1" % [_table(board), "gte" if after_ties else "gt",
+				_score_text(score).uri_encode(), _board_query(board), _ending_query(ending)], "", ["Prefer: count=exact"])
 		if res["ok"]:
 			# Content-Range: 0-0/123  (or */0 when nothing is higher)
 			for header: String in res["headers"]:
@@ -110,7 +113,7 @@ func fetch_rank(score: float, ending: String = "", after_ties: bool = false) -> 
 						return int(total) + 1
 		return -1
 	var better := 0
-	for e in _local_filtered(ending):
+	for e in _local_filtered(ending, board):
 		if float(e["score"]) > score or (after_ties and float(e["score"]) >= score):
 			better += 1
 	return better + 1
@@ -119,14 +122,14 @@ func fetch_rank(score: float, ending: String = "", after_ties: bool = false) -> 
 ## A player's best score and its position, matched by name (optionally only
 ## among runs with that `ending`).
 ## Returns {found, name, score, won, rank} (rank -1 if it couldn't be worked out).
-func fetch_player_best(player_name: String, ending: String = "") -> Dictionary:
+func fetch_player_best(player_name: String, ending: String = "", board: String = "") -> Dictionary:
 	var none := {"found": false, "name": player_name, "score": 0.0, "won": false, "rank": -1}
 	if not is_valid_name(player_name):
 		return none
 	var best: Dictionary = {}
 	if is_online():
 		var res := await _request(HTTPClient.METHOD_GET,
-				"%s?select=name,score,won&name=eq.%s%s&order=score.desc,created_at.asc&limit=1" % [table, player_name, _ending_query(ending)])
+				"%s?select=name,score,won&name=eq.%s%s%s&order=score.desc,created_at.asc&limit=1" % [_table(board), player_name, _board_query(board), _ending_query(ending)])
 		if res["ok"]:
 			var parsed: Variant = JSON.parse_string(res["body"])
 			if parsed is Array and not (parsed as Array).is_empty():
@@ -134,13 +137,13 @@ func fetch_player_best(player_name: String, ending: String = "") -> Dictionary:
 		else:
 			return none
 	else:
-		for e in _local_filtered(ending): # already sorted best first
+		for e in _local_filtered(ending, board): # already sorted best first
 			if e["name"] == player_name:
 				best = e
 				break
 	if best.is_empty():
 		return none
-	var rank: int = await fetch_rank(float(best["score"]), ending)
+	var rank: int = await fetch_rank(float(best["score"]), ending, false, board)
 	return {"found": true, "name": player_name, "score": float(best["score"]), "won": bool(best["won"]), "rank": rank}
 
 
@@ -153,27 +156,38 @@ func _ending_query(ending: String) -> String:
 	return ""
 
 
-func _local_filtered(ending: String) -> Array:
-	var entries := _local_entries()
+## Table and filter for a board ("" = Endless, otherwise a story chapter id).
+func _table(board: String) -> String:
+	return table if board == "" else STORY_TABLE
+
+
+func _board_query(board: String) -> String:
+	return "" if board == "" else "&chapter=eq.%s" % board.uri_encode()
+
+
+func _local_filtered(ending: String, board: String = "") -> Array:
+	var entries := _local_entries(board)
 	if ending == "":
 		return entries
 	return entries.filter(func(e: Dictionary) -> bool: return bool(e["won"]) == (ending == "won"))
 
 
 ## Returns {ok, online, error}. Falls back to saving on this device.
-func submit(player_name: String, score: float, won: bool) -> Dictionary:
+func submit(player_name: String, score: float, won: bool, board: String = "") -> Dictionary:
 	if not is_valid_name(player_name):
 		return {"ok": false, "online": false, "error": name_rule()}
 	_remember_name(player_name)
 	if is_online():
 		var body := '{"name": %s, "score": %s, "won": %s}' % [JSON.stringify(player_name), _score_text(score), "true" if won else "false"]
-		var res := await _request(HTTPClient.METHOD_POST, table, body, ["Prefer: return=minimal"])
+		if board != "":
+			body = body.trim_suffix("}") + ', "chapter": %s}' % JSON.stringify(board)
+		var res := await _request(HTTPClient.METHOD_POST, _table(board), body, ["Prefer: return=minimal"])
 		if res["ok"]:
 			return {"ok": true, "online": true, "error": ""}
-		_save_local(player_name, score, won)
+		_save_local(player_name, score, won, board)
 		return {"ok": false, "online": false,
 				"error": "Couldn't reach the online board (%s). Saved on this device." % res["error"]}
-	_save_local(player_name, score, won)
+	_save_local(player_name, score, won, board)
 	return {"ok": true, "online": false, "error": ""}
 
 
@@ -261,20 +275,26 @@ func _normalize(rows: Array) -> Array:
 
 # --- Local fallback -----------------------------------------------------------------
 
-func _local_entries() -> Array:
+## Section of the local scores file that holds a board.
+func _local_section(board: String) -> String:
+	return "scores" if board == "" else "story_" + board
+
+
+func _local_entries(board: String = "") -> Array:
 	var cfg := ConfigFile.new()
 	if cfg.load(LOCAL_PATH) != OK:
 		return []
-	var entries: Array = cfg.get_value("scores", "entries", [])
+	var entries: Array = cfg.get_value(_local_section(board), "entries", [])
 	return _normalize(entries)
 
 
-func _save_local(player_name: String, score: float, won: bool) -> void:
-	var entries := _local_entries()
+func _save_local(player_name: String, score: float, won: bool, board: String = "") -> void:
+	var entries := _local_entries(board)
 	entries.append({"name": player_name, "score": score, "won": won})
 	entries.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a["score"] > b["score"])
 	var cfg := ConfigFile.new()
-	cfg.set_value("scores", "entries", entries.slice(0, LOCAL_KEEP))
+	cfg.load(LOCAL_PATH) # keep the other boards
+	cfg.set_value(_local_section(board), "entries", entries.slice(0, LOCAL_KEEP))
 	cfg.save(LOCAL_PATH)
 
 

@@ -21,6 +21,7 @@ func _init() -> void:
 	_coins.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_coins.add_theme_font_size_override("font_size", 22)
 	_coins.add_theme_color_override("font_color", GOLD)
+	_coins.visible = false # the menu shows the coins in the corner (CoinBadge)
 	add_child(_coins)
 	_scroll = ScrollContainer.new()
 	_scroll.custom_minimum_size = Vector2(WIDTH, 620)

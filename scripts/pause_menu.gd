@@ -1,6 +1,6 @@
 extends CanvasLayer
-## Esc pause menu: Resume, Settings, Scoring legend, High Scores, Restart and
-## Main Menu (both confirmed), Exit (desktop only). Also owns the R restart key
+## Esc pause menu: Resume, Settings, Scoring legend, High Scores (not in story mode), Restart and
+## Main Menu (both confirmed). Exit and the Journal live in the main menu. Also owns the R restart key
 ## so it can confirm first. Runs while the tree is paused (process_mode ALWAYS).
 
 const BUTTON_SIZE := Vector2(260, 48)
@@ -13,8 +13,6 @@ var _highscores_page: VBoxContainer
 var _confirm_page: VBoxContainer
 var _feedback_page: VBoxContainer
 var _feedback: FeedbackPanel
-var _journal_page: VBoxContainer # story mode only
-var _journal: JournalPanel
 var _resume_button: Button
 var _confirm_yes_button: Button
 var _confirm_title: Label
@@ -90,8 +88,6 @@ func _show_page(page: VBoxContainer) -> void:
 		_settings.focus_first()
 	elif page == _feedback_page:
 		_feedback.refresh()
-	elif page == _journal_page and _journal:
-		_journal.refresh()
 	elif page == _highscores_page:
 		_leaderboard.refresh()
 	elif page == _scoring_page:
@@ -285,16 +281,12 @@ func _build() -> void:
 	_resume_button = _make_button(_main_page, "Resume", _on_button(func() -> void: _set_open(false)))
 	_make_button(_main_page, "Settings", _on_button(func() -> void: _show_page(_settings_page)))
 	_make_button(_main_page, "Scoring", _on_button(func() -> void: _show_page(_scoring_page)))
-	if GameManager.game_mode == "story":
-		_make_button(_main_page, "Journal", _on_button(func() -> void: _show_page(_journal_page)))
-	else:
+	if GameManager.game_mode != "story": # that board is Endless only
 		_make_button(_main_page, "High Scores", _on_button(func() -> void: _show_page(_highscores_page)))
 	_make_button(_main_page, "Feedback", _on_button(func() -> void: _show_page(_feedback_page)))
 	_make_button(_main_page, "Restart", _on_button(func() -> void: _ask_confirm("restart")))
 	_make_button(_main_page, "Main Menu", _on_button(func() -> void: _ask_confirm("menu")))
-	if not OS.has_feature("web"): # a browser tab cannot be closed by the game
-		_make_button(_main_page, "Exit", func() -> void:
-			Sfx.quit_game())
+	# No Exit here: leave through Main Menu, which has it.
 
 	# High scores page
 	_highscores_page = _make_page(holder, "HIGH SCORES")
@@ -303,12 +295,6 @@ func _build() -> void:
 	_make_button(_highscores_page, "Back", _on_button(_back))
 
 	# Settings page
-	if GameManager.game_mode == "story":
-		_journal_page = _make_page(holder, "JOURNAL")
-		_journal = JournalPanel.new()
-		_journal_page.add_child(_journal)
-		_make_button(_journal_page, "Back", _on_button(_back))
-
 	_feedback_page = _make_page(holder, "FEEDBACK")
 	_feedback = FeedbackPanel.new()
 	_feedback_page.add_child(_feedback)

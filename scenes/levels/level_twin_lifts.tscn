@@ -1,0 +1,172 @@
+[gd_scene load_steps=12 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/levels/level_base.tscn" id="1_base"]
+[ext_resource type="Script" path="res://scripts/wall.gd" id="2_wall"]
+[ext_resource type="PackedScene" path="res://scenes/bumper.tscn" id="3_bumper"]
+[ext_resource type="PackedScene" path="res://scenes/boss_bumper.tscn" id="4_boss"]
+[ext_resource type="PackedScene" path="res://scenes/slingshot.tscn" id="5_sling"]
+[ext_resource type="Script" path="res://scripts/rollover.gd" id="6_rollover"]
+[ext_resource type="Script" path="res://scripts/button_bank.gd" id="7_bank"]
+[ext_resource type="Script" path="res://scripts/target_button.gd" id="8_button"]
+[ext_resource type="Script" path="res://scripts/spinner.gd" id="11_spinner"]
+[ext_resource type="Script" path="res://scripts/saucer.gd" id="12_saucer"]
+[ext_resource type="Script" path="res://scripts/moving_bumper.gd" id="13_moving"]
+
+[node name="LevelTwinLifts" instance=ExtResource("1_base")]
+level_name = "Twin Lifts"
+description = "A lift runs up each side wall: drop into one and a kicker fires the ball back to the top, through a spinner on the way. The saucer at the top catches the ball and shoots it down the middle, past two small bumpers that circle whoever is waiting there."
+art_rings = PackedVector3Array(280, 420, 108, 280, 420, 60)
+
+[node name="LiftWallLeft" type="StaticBody2D" parent="Walls"]
+script = ExtResource("2_wall")
+points = PackedVector2Array(74, 300, 74, 640)
+bounce = 0.2
+color = Color(0.62, 0.55, 0.95, 1)
+
+[node name="LiftWallRight" type="StaticBody2D" parent="Walls"]
+script = ExtResource("2_wall")
+points = PackedVector2Array(486, 335, 486, 640)
+bounce = 0.2
+color = Color(0.62, 0.55, 0.95, 1)
+
+[node name="LiftKickerLeft" parent="." instance=ExtResource("5_sling")]
+corner_a = Vector2(26, 692)
+corner_b = Vector2(72, 692)
+corner_c = Vector2(49, 722)
+kick_strength = 1250.0
+kick_angle_jitter_deg = 3.0
+kick_strength_jitter = 0.06
+keep_tangent = 0.1
+score_value = 50
+legend_name = "Lift kicker"
+color = Color(0.45, 1, 0.85, 1)
+
+[node name="LiftKickerRight" parent="." instance=ExtResource("5_sling")]
+corner_a = Vector2(488, 692)
+corner_b = Vector2(534, 692)
+corner_c = Vector2(511, 722)
+kick_strength = 1250.0
+kick_angle_jitter_deg = 3.0
+kick_strength_jitter = 0.06
+keep_tangent = 0.1
+score_value = 50
+legend_name = "Lift kicker"
+color = Color(0.45, 1, 0.85, 1)
+
+[node name="SpinnerLeft" type="Area2D" parent="."]
+position = Vector2(47, 480)
+script = ExtResource("11_spinner")
+width = 42.0
+
+[node name="SpinnerRight" type="Area2D" parent="."]
+position = Vector2(513, 480)
+script = ExtResource("11_spinner")
+width = 42.0
+
+[node name="Saucer" type="Area2D" parent="."]
+position = Vector2(280, 135)
+script = ExtResource("12_saucer")
+eject_velocity = Vector2(0, 520)
+
+[node name="LightLeft" type="Area2D" parent="Rollovers"]
+position = Vector2(130, 310)
+script = ExtResource("6_rollover")
+legend_name = "Boss light"
+
+[node name="LightMid" type="Area2D" parent="Rollovers"]
+position = Vector2(280, 255)
+script = ExtResource("6_rollover")
+legend_name = "Boss light"
+
+[node name="LightRight" type="Area2D" parent="Rollovers"]
+position = Vector2(430, 310)
+script = ExtResource("6_rollover")
+legend_name = "Boss light"
+
+[node name="Bumpers" type="Node2D" parent="."]
+
+[node name="BossBumper" parent="Bumpers" instance=ExtResource("4_boss")]
+position = Vector2(280, 420)
+radius = 36.0
+kick_strength = 800.0
+legend_name = "Boss bumper"
+color = Color(0.9, 0.16, 0.22, 1)
+hit_pitch = 0.7
+
+[node name="BumperLeft" parent="Bumpers" instance=ExtResource("3_bumper")]
+position = Vector2(185, 225)
+
+[node name="BumperRight" parent="Bumpers" instance=ExtResource("3_bumper")]
+position = Vector2(375, 225)
+
+[node name="MiniBumperLeft" parent="Bumpers" instance=ExtResource("3_bumper")]
+position = Vector2(195, 630)
+radius = 16.0
+kick_strength = 600.0
+score_value = 50
+legend_name = "Mini bumper"
+color = Color(0.25, 0.95, 0.8, 1)
+
+[node name="MiniBumperRight" parent="Bumpers" instance=ExtResource("3_bumper")]
+position = Vector2(365, 630)
+radius = 16.0
+kick_strength = 600.0
+score_value = 50
+legend_name = "Mini bumper"
+color = Color(0.25, 0.95, 0.8, 1)
+
+[node name="Buttons" type="Node2D" parent="."]
+script = ExtResource("7_bank")
+
+[node name="ButtonL1" type="StaticBody2D" parent="Buttons"]
+script = ExtResource("8_button")
+point_a = Vector2(84, 400)
+point_b = Vector2(84, 432)
+
+[node name="ButtonL2" type="StaticBody2D" parent="Buttons"]
+script = ExtResource("8_button")
+point_a = Vector2(84, 446)
+point_b = Vector2(84, 478)
+
+[node name="ButtonL3" type="StaticBody2D" parent="Buttons"]
+script = ExtResource("8_button")
+point_a = Vector2(84, 492)
+point_b = Vector2(84, 524)
+
+[node name="ButtonR1" type="StaticBody2D" parent="Buttons"]
+script = ExtResource("8_button")
+point_a = Vector2(476, 432)
+point_b = Vector2(476, 400)
+
+[node name="ButtonR2" type="StaticBody2D" parent="Buttons"]
+script = ExtResource("8_button")
+point_a = Vector2(476, 478)
+point_b = Vector2(476, 446)
+
+[node name="ButtonR3" type="StaticBody2D" parent="Buttons"]
+script = ExtResource("8_button")
+point_a = Vector2(476, 524)
+point_b = Vector2(476, 492)
+
+[node name="HandA" type="StaticBody2D" parent="Bumpers"]
+script = ExtResource("13_moving")
+orbit_center = Vector2(280, 420)
+orbit_radius = 108.0
+period = 8.0
+radius = 16.0
+kick_strength = 600.0
+score_value = 50
+legend_name = "Orbiting bumper"
+color = Color(0.25, 0.95, 0.8, 1)
+
+[node name="HandB" type="StaticBody2D" parent="Bumpers"]
+script = ExtResource("13_moving")
+orbit_center = Vector2(280, 420)
+orbit_radius = 108.0
+period = 8.0
+start_angle_deg = 180.0
+radius = 16.0
+kick_strength = 600.0
+score_value = 50
+legend_name = "Orbiting bumper"
+color = Color(0.25, 0.95, 0.8, 1)

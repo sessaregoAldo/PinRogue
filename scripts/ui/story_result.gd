@@ -17,6 +17,15 @@ var _scroll: ScrollContainer
 var _voice: AudioStreamPlayer
 ## Voice-over ids still to play, one after another (the ghost's closing lines).
 var _voice_queue: Array[String] = []
+# Posting the run to the chapter's leaderboard (Leaderboard, board = chapter id).
+var _entry_row: HBoxContainer
+var _name_edit: LineEdit
+var _post_button: Button
+var _post_status: Label
+var _board: String = ""
+var _score: float = 0.0
+var _won: bool = false
+var _posted: bool = false
 
 
 func _ready() -> void:
@@ -46,17 +55,83 @@ func _ready() -> void:
 	paper.add_theme_stylebox_override("panel", JournalPanel.paper_style())
 	col.add_child(paper)
 	_scroll = ScrollContainer.new()
-	_scroll.custom_minimum_size = Vector2(WIDTH - 40.0, 800)
+	_scroll.custom_minimum_size = Vector2(WIDTH - 40.0, 730)
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	paper.add_child(_scroll)
 	_page = VBoxContainer.new()
 	_page.add_theme_constant_override("separation", 9)
 	_page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scroll.add_child(_page)
+	_entry_row = HBoxContainer.new()
+	_entry_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_entry_row.add_theme_constant_override("separation", 8)
+	col.add_child(_entry_row)
+	_name_edit = LineEdit.new()
+	_name_edit.placeholder_text = "NAME"
+	_name_edit.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_name_edit.custom_minimum_size = Vector2(140, 44)
+	_name_edit.add_theme_font_size_override("font_size", 24)
+	_name_edit.text_changed.connect(_on_name_changed)
+	_name_edit.text_submitted.connect(func(_t: String) -> void: _post())
+	_entry_row.add_child(_name_edit)
+	_post_button = Button.new()
+	_post_button.text = "Post score"
+	_post_button.custom_minimum_size = Vector2(150, 44)
+	_post_button.add_theme_font_size_override("font_size", 18)
+	_post_button.pressed.connect(_post)
+	_entry_row.add_child(_post_button)
+	_post_status = Label.new()
+	_post_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_post_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_post_status.custom_minimum_size = Vector2(WIDTH, 0)
+	_post_status.add_theme_font_size_override("font_size", 15)
+	_post_status.add_theme_color_override("font_color", Color(0.75, 0.8, 0.95))
+	col.add_child(_post_status)
 	_buttons = HBoxContainer.new()
 	_buttons.alignment = BoxContainer.ALIGNMENT_CENTER
 	_buttons.add_theme_constant_override("separation", 12)
 	col.add_child(_buttons)
+
+
+# --- Chapter leaderboard ------------------------------------------------------------
+
+func _on_name_changed(text: String) -> void:
+	var cleaned := Leaderboard.clean_name(text)
+	if cleaned != text:
+		var caret := _name_edit.caret_column
+		_name_edit.text = cleaned
+		_name_edit.caret_column = mini(caret, cleaned.length())
+
+
+func _process(_delta: float) -> void:
+	# Polled: phone keyboards can change the text without a signal.
+	if is_open() and _entry_row.visible and not _posted:
+		_post_button.disabled = not Leaderboard.is_valid_name(Leaderboard.clean_name(_name_edit.text))
+
+
+func _post() -> void:
+	var player_name := Leaderboard.clean_name(_name_edit.text)
+	if _posted or not Leaderboard.is_valid_name(player_name):
+		_post_status.text = Leaderboard.name_rule()
+		return
+	_posted = true
+	_name_edit.editable = false
+	_name_edit.release_focus()
+	_post_button.disabled = true
+	_post_status.text = "Posting..."
+	Sfx.play("click")
+	var res: Dictionary = await Leaderboard.submit(player_name, _score, _won, _board)
+	if not is_open():
+		return
+	if res["error"] != "":
+		_post_status.text = res["error"]
+		return
+	var rank: int = await Leaderboard.fetch_rank(_score, "", false, _board)
+	if not is_open():
+		return
+	var where := "this chapter's board" if res["online"] else "this device's board"
+	_post_status.text = ("Posted! You are #%d on %s." % [rank, where]) if rank > 0 else "Posted to %s!" % where
+	Sfx.play("ramp_complete")
 
 
 func close() -> void:
@@ -138,6 +213,14 @@ func open(data: Dictionary) -> void:
 	else:
 		_button("Try again", func() -> void: retry_pressed.emit()).grab_focus.call_deferred()
 		_button("Story menu", func() -> void: menu_pressed.emit())
+	_board = str(ch["id"])
+	_score = float(data["score"])
+	_won = won
+	_posted = false
+	_entry_row.visible = _score > 0.0
+	_name_edit.editable = true
+	_name_edit.text = Leaderboard.last_name
+	_post_status.text = "Post this run to the Chapter %d leaderboard." % int(ch["number"]) if _score > 0.0 else ""
 	_root.visible = true
 	_root.modulate.a = 0.0
 	create_tween().tween_property(_root, "modulate:a", 1.0, 0.6)

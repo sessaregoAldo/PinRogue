@@ -11,6 +11,10 @@ const GAME_SCENE := "res://scenes/game.tscn"
 const BUTTON_SIZE := Vector2(280, 52)
 const GOLD := Color(1.0, 0.85, 0.3)
 const SOFT := Color(0.75, 0.8, 0.95)
+## Pulsing line under the title while the game's version starts with
+## SPLASH_VERSION; other versions show the usual tagline.
+const SPLASH_TEXT := "Now with Story Mode!"
+const SPLASH_VERSION := "0.14."
 
 var _pages: Array[Control] = []
 var _main_page: VBoxContainer
@@ -28,11 +32,17 @@ var _feedback_page: VBoxContainer
 var _feedback: FeedbackPanel
 var _reports_page: VBoxContainer
 var _reports: FeedbackViewer
+var _splash: Label
 var _story_page: VBoxContainer
-var _story_coins: Label
+var _coin_badge: CoinBadge
+var _cosmetics_page: VBoxContainer
+var _cosmetics: CosmeticsPanel
 var _story_line: Label
 var _story_play: Button
 var _story_status: Label
+var _records_page: VBoxContainer
+var _records_title: Label
+var _records: LeaderboardPanel
 var _journal_page: VBoxContainer
 var _journal: JournalPanel
 var _workshop_page: VBoxContainer
@@ -62,6 +72,9 @@ var _touch_used: bool = false
 var _start_button: Button
 var _settings: SettingsPanel
 var _leaderboard: LeaderboardPanel
+var _board_name: Label
+## Leaderboard page: 0 = Endless, 1.. = story chapters in order.
+var _board_index: int = 0
 var _fade: ColorRect
 var _starting: bool = false
 
@@ -124,13 +137,16 @@ func _show_page(page: Control) -> void:
 	for p in _pages:
 		p.visible = p == page
 	_notes_corner.visible = page == _main_page
+	# Story pages: the coin count sits in the top-right corner.
+	_coin_badge.visible = page in [_story_page, _workshop_page, _cosmetics_page, _journal_page, _records_page]
+	_cosmetics.preview.visible = page == _cosmetics_page
 	if page == _main_page:
 		_start_button.grab_focus()
 	elif page == _options_page:
 		_settings.refresh()
 		_settings.focus_first()
 	elif page == _leaderboard_page:
-		_leaderboard.refresh()
+		_show_board(_board_index)
 	elif page == _machines_page:
 		_show_machine(_machine_index)
 		_show_tab(false)
@@ -145,8 +161,15 @@ func _show_page(page: Control) -> void:
 		_story_play.grab_focus()
 	elif page == _journal_page:
 		_journal.refresh()
+	elif page == _records_page:
+		var ch := StoryData.chapter(_story_chapter())
+		_records_title.text = "Chapter %d  ·  %s" % [int(ch["number"]), ch["title"]]
+		_records.board = str(ch["id"])
+		_records.refresh()
 	elif page == _workshop_page:
 		_workshop.refresh()
+	elif page == _cosmetics_page:
+		_cosmetics.refresh()
 	elif page == _notes_page:
 		_notes_scroll.scroll_vertical = 0
 	elif page == _pick_page:
@@ -168,7 +191,7 @@ func _back() -> void:
 	elif _reports_page.visible:
 		if not _reports.back():
 			_show_page(_feedback_page)
-	elif _journal_page.visible or _workshop_page.visible:
+	elif _journal_page.visible or _workshop_page.visible or _records_page.visible or _cosmetics_page.visible:
 		_show_page(_story_page)
 	elif _story_page.visible:
 		_show_page(_modes_page)
@@ -190,6 +213,29 @@ func _pick_mode(mode: String) -> void:
 	_click_to(_pick_page)
 
 
+# --- Leaderboard page: Endless and one board per story chapter -----------------------
+
+func _show_board(index: int) -> void:
+	_board_index = posmod(index, StoryData.CHAPTERS.size() + 1)
+	if _board_index == 0:
+		_board_name.text = "Endless"
+		_leaderboard.board = ""
+	else:
+		var ch: Dictionary = StoryData.CHAPTERS[_board_index - 1]
+		_board_name.text = "Story  ·  Chapter %d" % int(ch["number"])
+		_leaderboard.board = str(ch["id"])
+	_leaderboard.refresh()
+
+
+func _cycle_board(step: int) -> void:
+	Sfx.play("click")
+	_show_board(_board_index + step)
+
+
+func _splash_active() -> bool:
+	return str(ProjectSettings.get_setting("application/config/version", "")).begins_with(SPLASH_VERSION)
+
+
 # --- Story mode ---------------------------------------------------------------------
 
 ## The chapter the Story page's play button starts: the first one not beaten
@@ -203,7 +249,6 @@ func _fill_story() -> void:
 	var index := _story_chapter()
 	var ch := StoryData.chapter(index)
 	var all_beaten := Story.next_chapter() < 0
-	_story_coins.text = "%d coins" % Story.coins
 	if not Story.intro_seen:
 		_story_play.text = "Begin"
 		_story_status.text = "A pinball machine, bought from a man named Sal."
@@ -223,19 +268,27 @@ func _start_story() -> void:
 	GameManager.game_mode = "story"
 	GameManager.story_chapter = index
 	GameManager.start_random = false
-	GameManager.start_level = int(StoryData.chapter(index)["level"])
+	GameManager.start_level = maxi(0, LevelRegistry.index_of(str(StoryData.chapter(index)["scene"])))
+	GameManager.story_level_scene = ""
 	_start_run()
 
 
 # --- Starting machine -------------------------------------------------------------
 
 func _process(delta: float) -> void:
+	if _splash and _splash.is_visible_in_tree():
+		var beat := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 1000.0 * TAU * 0.9)
+		_splash.pivot_offset = _splash.size * 0.5
+		_splash.scale = Vector2.ONE * (1.0 + 0.09 * beat)
+		_splash.modulate = Color(1, 1, 1, 0.8 + 0.2 * beat)
 	# "Random" flips through the machines in its preview.
 	if _pick_page.visible and _pick_index < 0:
 		_pick_cycle_time -= delta
 		if _pick_cycle_time <= 0.0:
 			_pick_cycle_time = 0.5
-			_pick_cycle_level = (_pick_cycle_level + 1) % LevelRegistry.count()
+			# Only machines the player has unlocked can come up.
+			var pool := LevelRegistry.unlocked()
+			_pick_cycle_level = pool[(pool.find(_pick_cycle_level) + 1) % pool.size()]
 			_put_level(_pick_view, _pick_cycle_level)
 
 
@@ -251,7 +304,10 @@ func _show_pick(index: int) -> void:
 	else:
 		var level := _put_level(_pick_view, _pick_index)
 		_pick_name.text = level.level_name
-		_pick_desc.text = level.description
+		# A locked machine says how to unlock it instead of describing itself.
+		_pick_desc.text = level.description if LevelRegistry.is_unlocked(_pick_index) \
+				else LevelRegistry.lock_text(_pick_index)
+	_pick_play.disabled = _pick_index >= 0 and not LevelRegistry.is_unlocked(_pick_index)
 
 
 func _click_pick(index: int) -> void:
@@ -260,6 +316,8 @@ func _click_pick(index: int) -> void:
 
 
 func _confirm_pick() -> void:
+	if _pick_index >= 0 and not LevelRegistry.is_unlocked(_pick_index):
+		return
 	GameManager.start_random = _pick_index < 0
 	GameManager.start_level = maxi(0, _pick_index)
 	_click_to(_controls_page)
@@ -335,7 +393,9 @@ func _show_machine(index: int) -> void:
 	_machine_index = posmod(index, LevelRegistry.count())
 	var level := _put_level(_machine_view, _machine_index)
 	_machine_name.text = level.level_name
-	_machine_desc.text = level.description
+	# A locked machine says how to unlock it instead of describing itself.
+	_machine_desc.text = level.description if LevelRegistry.is_unlocked(_machine_index) \
+			else LevelRegistry.lock_text(_machine_index)
 	_machine_count.text = "%d / %d" % [_machine_index + 1, LevelRegistry.count()]
 
 
@@ -346,6 +406,9 @@ func _put_level(view: SubViewport, index: int) -> Level:
 			view.remove_child(child)
 			child.queue_free()
 	var level := LevelRegistry.instantiate(index)
+	Cosmetics.apply(level)
+	if not LevelRegistry.is_unlocked(index):
+		level.modulate = Color(0.22, 0.22, 0.28) # locked: shown in the dark
 	level.process_mode = Node.PROCESS_MODE_DISABLED # just a picture
 	view.add_child(level)
 	return level
@@ -381,6 +444,11 @@ func _build_background() -> void:
 	var level := LevelRegistry.instantiate(0)
 	level.process_mode = Node.PROCESS_MODE_DISABLED
 	add_child(level)
+	# The table behind the menu wears the player's cosmetics, and changes with them.
+	Cosmetics.apply(level)
+	Story.changed.connect(func() -> void:
+		if is_instance_valid(level):
+			Cosmetics.apply(level))
 
 
 func _build_ui() -> void:
@@ -400,7 +468,13 @@ func _build_ui() -> void:
 	# Main page
 	_main_page = _page(holder)
 	_label(_main_page, "PINROGUE", 64, GOLD)
-	_label(_main_page, "a roguelike pinball", 18, SOFT)
+	# The line under the title. While SPLASH_TEXT's update is the current one it
+	# shows that instead, pulsing (see _process).
+	if _splash_active():
+		_splash = _label(_main_page, SPLASH_TEXT, 21, Color(1.0, 0.95, 0.45))
+		_splash.custom_minimum_size = Vector2(0, 30)
+	else:
+		_label(_main_page, "a roguelike pinball", 18, SOFT)
 	_spacer(_main_page, 24)
 	_start_button = _button(_main_page, "Start Run", func() -> void: _click_to(_modes_page))
 	_button(_main_page, "Options", func() -> void: _click_to(_options_page))
@@ -421,6 +495,20 @@ func _build_ui() -> void:
 	# Leaderboard
 	_leaderboard_page = _page(holder)
 	_label(_leaderboard_page, "LEADERBOARD", 40, GOLD)
+	# Which board: Endless, or one story chapter's.
+	var board_row := HBoxContainer.new()
+	board_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	board_row.add_theme_constant_override("separation", 10)
+	_leaderboard_page.add_child(board_row)
+	_small_button(board_row, "<", func() -> void: _cycle_board(-1))
+	_board_name = Label.new()
+	_board_name.custom_minimum_size = Vector2(230, 0)
+	_board_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_board_name.add_theme_font_size_override("font_size", 20)
+	_board_name.add_theme_color_override("font_color", SOFT)
+	board_row.add_child(_board_name)
+	_small_button(board_row, ">", func() -> void: _cycle_board(1))
+	_spacer(_leaderboard_page, 4)
 	_leaderboard = LeaderboardPanel.new()
 	_leaderboard_page.add_child(_leaderboard)
 	_button(_leaderboard_page, "Back", _back)
@@ -496,13 +584,14 @@ func _build_ui() -> void:
 	# Story mode: hub, Journal and Workshop
 	_story_page = _page(holder)
 	_label(_story_page, "STORY", 40, GOLD)
-	_story_coins = _label(_story_page, "", 20, GOLD)
 	_spacer(_story_page, 4)
 	_story_play = _button(_story_page, "Begin", _start_story)
 	_story_status = _label(_story_page, "", 16, SOFT)
 	_spacer(_story_page, 4)
 	_button(_story_page, "Journal", func() -> void: _click_to(_journal_page))
 	_button(_story_page, "Workshop", func() -> void: _click_to(_workshop_page))
+	_button(_story_page, "Cosmetics", func() -> void: _click_to(_cosmetics_page))
+	_button(_story_page, "Leaderboard", func() -> void: _click_to(_records_page))
 	_spacer(_story_page, 4)
 	_story_line = _label(_story_page, "", 16, Color(0.85, 0.8, 0.65))
 	_story_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -510,11 +599,35 @@ func _build_ui() -> void:
 	_spacer(_story_page, 4)
 	_button(_story_page, "Back", _back)
 
+	# One leaderboard per chapter (the chapter the Story page is on).
+	_records_page = _page(holder)
+	_label(_records_page, "LEADERBOARD", 40, GOLD)
+	_records_title = _label(_records_page, "", 18, SOFT)
+	_spacer(_records_page, 8)
+	_records = LeaderboardPanel.new()
+	_records_page.add_child(_records)
+	_spacer(_records_page, 8)
+	_button(_records_page, "Back", _back)
+
 	_journal_page = _page(holder)
 	_label(_journal_page, "JOURNAL", 40, GOLD)
 	_journal = JournalPanel.new()
 	_journal_page.add_child(_journal)
 	_button(_journal_page, "Back", _back)
+
+	# Cosmetics shop, with its preview table in the top-left corner.
+	_cosmetics_page = _page(holder)
+	_label(_cosmetics_page, "COSMETICS", 40, GOLD)
+	_cosmetics = CosmeticsPanel.new()
+	_cosmetics_page.add_child(_cosmetics)
+	_button(_cosmetics_page, "Back", _back)
+	_cosmetics.preview.position = Vector2(10, 10)
+	_cosmetics.preview.visible = false
+	ui.add_child(_cosmetics.preview)
+	_coin_badge = CoinBadge.new()
+	_coin_badge.position = Vector2(600.0 - CoinBadge.SIZE.x - 8.0, 8.0)
+	_coin_badge.visible = false
+	ui.add_child(_coin_badge)
 
 	_workshop_page = _page(holder)
 	_label(_workshop_page, "WORKSHOP", 40, GOLD)

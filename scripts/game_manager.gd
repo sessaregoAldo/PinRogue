@@ -129,6 +129,8 @@ var boss_magnet: int = 0
 var combo_bonus_extra: float = 0.0
 ## Story mode: index into StoryData.CHAPTERS of the chapter being played.
 var story_chapter: int = 0
+## Story mode: scene of the chapter's own machine ("" = use start_level).
+var story_level_scene: String = ""
 ## Multiball Lock: extra balls released by the next boss hit.
 var multiball_locks: int = 0
 ## Multiball: drained balls come back until this time (Time.get_ticks_msec()).
@@ -304,7 +306,7 @@ func restart() -> void:
 	boss_color = Palette.BOSS_START
 	next_boss_hp = float(BOSS_BASE_HP)
 	if start_random:
-		start_level = randi() % LevelRegistry.count()
+		start_level = LevelRegistry.random_unlocked()
 	current_level = start_level
 	choosing = false
 	input_locked = false

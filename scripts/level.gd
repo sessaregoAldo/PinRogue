@@ -19,6 +19,12 @@ extends Node2D
 	set(value):
 		background_color = value
 		queue_redraw()
+## Optional picture printed on the playfield (Cosmetics backgrounds). It is
+## dimmed so the parts stay easy to read.
+var background_texture: Texture2D = null:
+	set(value):
+		background_texture = value
+		queue_redraw()
 ## Decorative rings printed on the playfield: x, y = center, z = radius.
 @export var art_rings: PackedVector3Array = PackedVector3Array():
 	set(value):
@@ -68,6 +74,8 @@ func _tunnels(node: Node, out: Array) -> void:
 func _draw() -> void:
 	draw_rect(Rect2(-100, -100, 800, 1400), background_color.darkened(0.5))
 	draw_rect(Rect2(20, 20, 560, 1100), background_color)
+	if background_texture != null:
+		_draw_background_picture()
 	var accent := Color(0.35, 0.45, 0.9, 0.35)
 	for ring in art_rings:
 		draw_arc(Vector2(ring.x, ring.y), ring.z, 0.0, TAU, 64, accent, 3.0, true)
@@ -89,6 +97,20 @@ func _draw() -> void:
 			draw_line(Vector2(x - 10, y), Vector2(x + 10, y + 10), Color(1, 0.25, 0.2, 0.35), 4.0, true)
 	if art_title != "":
 		draw_string(ThemeDB.fallback_font, art_title_position, art_title, HORIZONTAL_ALIGNMENT_CENTER, 200, 30, Color(1, 1, 1, 0.12))
+
+
+## The picture fills the playfield (cropped to its shape, never stretched),
+## under a dark veil.
+func _draw_background_picture() -> void:
+	var field := Rect2(20, 20, 560, 1100)
+	var tex_size := background_texture.get_size()
+	if tex_size.x <= 0.0 or tex_size.y <= 0.0:
+		return
+	var scale_by := maxf(field.size.x / tex_size.x, field.size.y / tex_size.y)
+	var shown := field.size / scale_by # part of the picture that fits the field
+	var source := Rect2((tex_size - shown) * 0.5, shown)
+	draw_texture_rect_region(background_texture, field, source)
+	draw_rect(field, Color(0.02, 0.02, 0.05, 0.45))
 
 
 func _draw_arrows(mouth: Vector2, dir: Vector2, c: Color) -> void:

@@ -33,6 +33,8 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	var body := color if side < 0 else color.darkened(0.3)
+	if hp <= 0.0:
+		body = Color(0.3, 0.3, 0.36) # emptied: a grey husk until they rejoin
 	body = body.lerp(Color.WHITE, maxf(_flash * 0.7, _hurt * 0.4))
 	# Half disc: the jagged crack on the inner side, the round rim on the outer.
 	var pts := PackedVector2Array()
