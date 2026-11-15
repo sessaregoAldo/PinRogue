@@ -405,7 +405,7 @@ func _switch_table(run: int) -> void:
 	await _morph(run, again)
 	if run != _run or not is_instance_valid(_boss):
 		return
-	_boss.art = str(chapter["art"]) if again else "plain"
+	_boss.art = str(chapter["art"]) if again else str(chapter.get("plain_art", "plain"))
 	_boss.set_hp(float(chapter.get("phase_one_hp", StoryData.PHASE_ONE_HP)))
 	_phase_one_max = _boss.max_hp
 	phase = "plain"
@@ -493,7 +493,9 @@ func _morph(run: int, again: bool) -> void:
 	old.queue_free()
 	_boss = fresh.boss()
 	if _boss:
-		_take_boss(_boss, "plain")
+		# Rises already looking as it will be fought (no health bar flashing by).
+		_take_boss(_boss, str(chapter["art"]) if again else str(chapter.get("plain_art", "plain")))
+		_boss.set_hp(float(chapter.get("phase_one_hp", StoryData.PHASE_ONE_HP)))
 	Sfx.play("ramp_complete", -4.0, 0.5)
 	var rise := create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	rise.tween_property(fresh, "position:y", 0.0, RISE_SECONDS).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)

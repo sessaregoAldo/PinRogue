@@ -5,6 +5,16 @@ extends RefCounted
 
 const NOTES: Array[Dictionary] = [
 	{
+		"version": "0.15.1",
+		"name": "Heavier Purse",
+		"date": "Nov 14, 2026",
+		"notes": [
+			"Story chapter 2 is tougher: what waits under the new machine's bumper has twice the health.",
+			"That bumper now shows its health on a round dial, like the bosses in Endless.",
+			"The Story menu's leaderboard has arrows to switch between every chapter's board and Endless.",
+		],
+	},
+	{
 		"version": "0.15.0",
 		"name": "Upstairs",
 		"date": "Nov 14, 2026",

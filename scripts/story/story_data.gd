@@ -127,9 +127,11 @@ const CHAPTERS: Array[Dictionary] = [
 		"phase_one_hits": 3,
 		# The prelude's bumper is the beaten Splitter: it cracks a little more with each hit.
 		"phase_one_art": "splitter",
-		# A bit harder than chapter 1 (200K, score x192).
+		# Harder than chapter 1 (200K, score x192).
 		"phase_one_hp": 250000.0,
-		"boss_hp_factor": 240.0,
+		"boss_hp_factor": 480.0,
+		# The Showroom's bumper before the reveal: blue, with a round health dial.
+		"plain_art": "plain_dial",
 		"gimmick": "collector",
 		"art": "collector",
 		# Played instead of Sal's handover when the chapter starts.

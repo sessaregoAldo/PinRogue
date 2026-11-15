@@ -115,7 +115,9 @@ func _draw() -> void:
 		_draw_plain()
 		return
 	# The Collector is all coin: an old-gold body instead of the boss red.
-	var body := Color(0.45, 0.33, 0.12) if art == "collector" else color
+	# "plain_dial" is an ordinary bumper's blue with the Endless boss's dial.
+	var plain_blue := Palette.BUMPER if Engine.is_editor_hint() else Cosmetics.bumper_color()
+	var body := Color(0.45, 0.33, 0.12) if art == "collector" else (plain_blue if art == "plain_dial" else color)
 	var fill := body.lerp(Color.WHITE, _flash * 0.7)
 	draw_circle(Vector2.ZERO, radius + _flash * 6.0, body.darkened(0.5))
 	draw_circle(Vector2.ZERO, radius, fill)
@@ -123,7 +125,7 @@ func _draw() -> void:
 	# Health dial: dark disc = lost health, colored slice = remaining health.
 	var r := radius * dial_ratio
 	# The Collector's dial is emerald, so he reads apart from the plain bumper and the Splitter.
-	var core := Color(0.1, 0.72, 0.42) if art == "collector" else color
+	var core := Color(0.1, 0.72, 0.42) if art == "collector" else body
 	draw_circle(Vector2.ZERO, r, core.darkened(0.78))
 	var ratio := clampf(_shown_hp / float(max_hp), 0.0, 1.0)
 	var health_color := core.lightened(0.35).lerp(Color.WHITE, _hurt * 0.5)

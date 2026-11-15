@@ -58,6 +58,9 @@ var _story_next: Button
 var _records_page: VBoxContainer
 var _records_title: Label
 var _records: LeaderboardPanel
+var _records_name: Label
+## Story menu leaderboard: 0 = Endless, 1.. = story chapters in order.
+var _records_index: int = 1
 var _journal_page: VBoxContainer
 var _journal: JournalPanel
 var _workshop_page: VBoxContainer
@@ -179,10 +182,7 @@ func _show_page(page: Control) -> void:
 	elif page == _journal_page:
 		_journal.refresh()
 	elif page == _records_page:
-		var ch := StoryData.chapter(_story_chapter())
-		_records_title.text = "Chapter %d  ·  %s" % [int(ch["number"]), ch["title"]]
-		_records.board = str(ch["id"])
-		_records.refresh()
+		_show_records(_story_chapter() + 1) # opens on the chapter picked in the Story menu
 	elif page == _workshop_page:
 		_workshop.refresh()
 	elif page == _cosmetics_page:
@@ -312,6 +312,22 @@ func _show_board(index: int) -> void:
 func _cycle_board(step: int) -> void:
 	Sfx.play("click")
 	_show_board(_board_index + step)
+
+
+## The Story menu's leaderboard: the same boards (0 = Endless, 1.. = chapters),
+## switched with its own arrows.
+func _show_records(index: int) -> void:
+	_records_index = posmod(index, StoryData.CHAPTERS.size() + 1)
+	if _records_index == 0:
+		_records_name.text = "Endless"
+		_records_title.text = "All machines"
+		_records.board = ""
+	else:
+		var ch: Dictionary = StoryData.CHAPTERS[_records_index - 1]
+		_records_name.text = "Story  ·  Chapter %d" % int(ch["number"])
+		_records_title.text = str(ch["title"])
+		_records.board = str(ch["id"])
+	_records.refresh()
 
 
 ## Story progress changed (e.g. a cosmetic was bought): re-dress the table behind the menu.
@@ -743,8 +759,24 @@ func _build_ui() -> void:
 	# One leaderboard per chapter (the chapter the Story page is on).
 	_records_page = _page(holder)
 	_label(_records_page, "LEADERBOARD", 40, GOLD)
-	_records_title = _label(_records_page, "", 18, SOFT)
-	_spacer(_records_page, 8)
+	var records_row := HBoxContainer.new()
+	records_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	records_row.add_theme_constant_override("separation", 10)
+	_records_page.add_child(records_row)
+	_small_button(records_row, "<", func() -> void:
+		Sfx.play("click")
+		_show_records(_records_index - 1))
+	_records_name = Label.new()
+	_records_name.custom_minimum_size = Vector2(230, 0)
+	_records_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_records_name.add_theme_font_size_override("font_size", 20)
+	_records_name.add_theme_color_override("font_color", SOFT)
+	records_row.add_child(_records_name)
+	_small_button(records_row, ">", func() -> void:
+		Sfx.play("click")
+		_show_records(_records_index + 1))
+	_records_title = _label(_records_page, "", 16, Color(SOFT, 0.7))
+	_spacer(_records_page, 4)
 	_records = LeaderboardPanel.new()
 	_records_page.add_child(_records)
 	_spacer(_records_page, 8)
