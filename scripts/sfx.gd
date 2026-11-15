@@ -377,6 +377,9 @@ func _build_sounds() -> void:
 		return (sin(TAU * 1046.5 * t) + 0.5 * sin(TAU * 1568.0 * t)) / 1.5 * 0.45 * exp(-t * 38.0) + _noise() * 0.2 * exp(-t * 400.0))
 	_streams["click"] = _synth(0.03, func(t: float, _p: float) -> float:
 		return sin(TAU * 1200.0 * t) * 0.4 * exp(-t * 200.0))
+	# A journal page turning: a soft paper rustle that swells and fades.
+	_streams["page"] = _synth(0.32, func(t: float, p: float) -> float:
+		return _noise() * 0.3 * pow(sin(PI * p), 2.0) * (0.65 + 0.35 * sin(TAU * 19.0 * t)))
 
 
 func _synth(duration: float, sample: Callable) -> AudioStreamWAV:

@@ -86,6 +86,7 @@ const CHAPTERS: Array[Dictionary] = [
 		"number": 1,
 		"title": "The Partner",
 		"boss": "The Splitter",
+		"person": "Corwin, my partner", # who the boss was (Journal)
 		# The chapter's own machine. Beating the chapter unlocks it for Endless
 		# (LevelRegistry.LOCKS).
 		"scene": "res://scenes/levels/level_twin_lifts.tscn",
@@ -118,6 +119,7 @@ const CHAPTERS: Array[Dictionary] = [
 		"number": 2,
 		"title": "The Patron",
 		"boss": "The Collector",
+		"person": "Ambrose Pell, my patron",
 		# A prelude on the last chapter's machine: after "phase_one_hits" hits on
 		# its center bumper the table drops away and "boss_scene" (which beating
 		# the chapter unlocks) rises in its place. There phase 1 ("phase_one_hp")

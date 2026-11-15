@@ -34,8 +34,10 @@ static func name_cell(player_name: String, is_won: bool, color: Color, font_size
 
 ## "(star) ended after a boss   (skull) out of balls" as two toggle buttons:
 ## click one to show only that kind of run, click it again for all runs.
-## `on_filter` is called with "won", "lost" or "" (all).
-static func legend(on_filter: Callable = Callable()) -> CenterContainer:
+## `on_filter` is called with "won", "lost" or "" (all). `text` / `lit` color the
+## labels (normal / pressed); `line` is the pressed button's outline.
+static func legend(on_filter: Callable = Callable(), text := Color(0.7, 0.75, 0.9),
+		lit := Color(1.0, 0.85, 0.3), line := Color(1.0, 0.85, 0.3, 0.7)) -> CenterContainer:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	var group := ButtonGroup.new()
@@ -48,8 +50,8 @@ static func legend(on_filter: Callable = Callable()) -> CenterContainer:
 		b.tooltip_text = "Show only these runs (click again for all)"
 		for state in ["normal", "hover", "pressed", "hover_pressed"]:
 			var box := StyleBoxFlat.new()
-			box.bg_color = Color(1, 1, 1, 0.0 if state == "normal" else (0.06 if state == "hover" else 0.1))
-			box.border_color = Color(1.0, 0.85, 0.3, 0.7) if state.contains("pressed") else Color(1, 1, 1, 0.0 if state == "normal" else 0.2)
+			box.bg_color = Color(text, 0.0 if state == "normal" else (0.06 if state == "hover" else 0.1))
+			box.border_color = line if state.contains("pressed") else Color(text, 0.0 if state == "normal" else 0.35)
 			box.set_border_width_all(1)
 			box.set_corner_radius_all(6)
 			b.add_theme_stylebox_override(state, box)
@@ -61,7 +63,7 @@ static func legend(on_filter: Callable = Callable()) -> CenterContainer:
 		var label := Label.new()
 		label.text = item[1]
 		label.add_theme_font_size_override("font_size", 13)
-		label.add_theme_color_override("font_color", Color(0.7, 0.75, 0.9))
+		label.add_theme_color_override("font_color", text)
 		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		inner.add_child(label)
 		b.add_child(inner)
@@ -69,7 +71,7 @@ static func legend(on_filter: Callable = Callable()) -> CenterContainer:
 		b.custom_minimum_size = Vector2(13.0 + 5.0 + text_w + 14.0, 26.0)
 		var ending: String = item[2]
 		b.toggled.connect(func(on: bool) -> void:
-			label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3) if on else Color(0.7, 0.75, 0.9))
+			label.add_theme_color_override("font_color", lit if on else text)
 			# Switching straight to the other filter unpresses this one first; only
 			# report "all" when nothing is pressed any more.
 			if on_filter.is_valid() and (on or group.get_pressed_button() == null):
@@ -96,6 +98,7 @@ func _draw() -> void:
 	var dark := Color(0.05, 0.05, 0.1)
 	draw_circle(c + Vector2(0, -r * 0.15), r * 0.78, BONE)
 	draw_rect(Rect2(c.x - r * 0.45, c.y + r * 0.25, r * 0.9, r * 0.6), BONE)
+	draw_arc(c + Vector2(0, -r * 0.15), r * 0.78, PI * 0.8, PI * 2.2, 20, Color(0, 0, 0, 0.45), 1.0, true) # readable on paper too
 	draw_circle(c + Vector2(-r * 0.33, -r * 0.12), r * 0.22, dark)
 	draw_circle(c + Vector2(r * 0.33, -r * 0.12), r * 0.22, dark)
 	draw_colored_polygon(PackedVector2Array([c + Vector2(0, r * 0.12), c + Vector2(-r * 0.1, r * 0.32), c + Vector2(r * 0.1, r * 0.32)]), dark)

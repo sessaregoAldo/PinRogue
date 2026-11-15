@@ -45,26 +45,12 @@ var _splash: Label
 ## The table shown behind the menu.
 var _background_level: Level
 var _story_page: VBoxContainer
+## The Story menu: the Craftsman's journal, drawn over the whole screen.
+var _story_journal: StoryJournal
+## Holds the menu pages; faded out while the journal comes and goes.
+var _center: CenterContainer
+var _story_moving: bool = false
 var _coin_badge: CoinBadge
-var _cosmetics_page: VBoxContainer
-var _cosmetics: CosmeticsPanel
-var _story_line: Label
-var _story_play: Button
-var _story_status: Label
-## Story page: the chapter picked with the arrows (-1 = the next one to play).
-var _story_pick: int = -1
-var _story_prev: Button
-var _story_next: Button
-var _records_page: VBoxContainer
-var _records_title: Label
-var _records: LeaderboardPanel
-var _records_name: Label
-## Story menu leaderboard: 0 = Endless, 1.. = story chapters in order.
-var _records_index: int = 1
-var _journal_page: VBoxContainer
-var _journal: JournalPanel
-var _workshop_page: VBoxContainer
-var _workshop: WorkshopPanel
 var _notes_scroll: ScrollContainer
 var _pick_page: VBoxContainer
 var _pick_view: SubViewport
@@ -113,6 +99,7 @@ func _ready() -> void:
 	if Story.return_to_hub: # back from a story run
 		Story.return_to_hub = false
 		_show_page(_story_page)
+		_story_journal.open()
 	else:
 		_show_page(_main_page)
 	_fade.modulate.a = 1.0
@@ -158,8 +145,8 @@ func _show_page(page: Control) -> void:
 	if _gear:
 		_gear.get_child(0).queue_redraw() # gold while Options is open
 	# Story pages: the coin count sits in the top-right corner.
-	_coin_badge.visible = page in [_story_page, _workshop_page, _cosmetics_page, _journal_page, _records_page]
-	_cosmetics.preview.visible = page == _cosmetics_page
+	_coin_badge.visible = page == _story_page
+	_story_journal.visible = page == _story_page
 	if page == _main_page:
 		_start_button.grab_focus()
 	elif page == _options_page:
@@ -176,17 +163,6 @@ func _show_page(page: Control) -> void:
 		_feedback.refresh()
 	elif page == _reports_page:
 		_reports.open()
-	elif page == _story_page:
-		_fill_story()
-		_story_play.grab_focus()
-	elif page == _journal_page:
-		_journal.refresh()
-	elif page == _records_page:
-		_show_records(_story_chapter() + 1) # opens on the chapter picked in the Story menu
-	elif page == _workshop_page:
-		_workshop.refresh()
-	elif page == _cosmetics_page:
-		_cosmetics.refresh()
 	elif page == _notes_page:
 		_notes_scroll.scroll_vertical = 0
 	elif page == _pick_page:
@@ -210,10 +186,8 @@ func _back() -> void:
 	elif _reports_page.visible:
 		if not _reports.back():
 			_show_page(_feedback_page)
-	elif _journal_page.visible or _workshop_page.visible or _records_page.visible or _cosmetics_page.visible:
-		_show_page(_story_page)
 	elif _story_page.visible:
-		_show_page(_modes_page)
+		_leave_story()
 	elif _reset_page.visible:
 		_show_page(_options_page)
 	elif _options_page.visible:
@@ -228,6 +202,8 @@ func _toggle_options() -> void:
 	if _options_page.visible or _reset_page.visible:
 		Sfx.save_settings()
 		_click_to(_options_from if is_instance_valid(_options_from) else _main_page)
+		if _story_page.visible:
+			_story_journal.refresh() # progress may have been reset meanwhile
 		return
 	for p in _pages:
 		if p.visible:
@@ -290,7 +266,7 @@ func _pick_mode(mode: String) -> void:
 		_start_run()
 		return
 	if mode == "story":
-		_click_to(_story_page)
+		_enter_story()
 		return
 	_click_to(_pick_page)
 
@@ -314,22 +290,6 @@ func _cycle_board(step: int) -> void:
 	_show_board(_board_index + step)
 
 
-## The Story menu's leaderboard: the same boards (0 = Endless, 1.. = chapters),
-## switched with its own arrows.
-func _show_records(index: int) -> void:
-	_records_index = posmod(index, StoryData.CHAPTERS.size() + 1)
-	if _records_index == 0:
-		_records_name.text = "Endless"
-		_records_title.text = "All machines"
-		_records.board = ""
-	else:
-		var ch: Dictionary = StoryData.CHAPTERS[_records_index - 1]
-		_records_name.text = "Story  ·  Chapter %d" % int(ch["number"])
-		_records_title.text = str(ch["title"])
-		_records.board = str(ch["id"])
-	_records.refresh()
-
-
 ## Story progress changed (e.g. a cosmetic was bought): re-dress the table behind the menu.
 func _on_story_changed() -> void:
 	if is_instance_valid(_background_level):
@@ -342,53 +302,35 @@ func _splash_active() -> bool:
 
 # --- Story mode ---------------------------------------------------------------------
 
-## The chapter the Story page's play button starts: the one picked with the
-## arrows, else the first one not beaten yet (the last one when all are).
-func _story_chapter() -> int:
-	var last_open := _story_last_open()
-	if _story_pick >= 0 and _story_pick <= last_open:
-		return _story_pick
-	return last_open
-
-
-## The furthest chapter that can be played: the first not beaten (or the last).
-func _story_last_open() -> int:
-	var next := Story.next_chapter()
-	return next if next >= 0 else StoryData.CHAPTERS.size() - 1
-
-
-## The Story page's arrows: step through the chapters played so far.
-func _step_story(step: int) -> void:
+## The menu fades out, then the closed journal drops in and opens.
+func _enter_story() -> void:
+	if _story_moving:
+		return
+	_story_moving = true
 	Sfx.play("click")
-	_story_pick = clampi(_story_chapter() + step, 0, _story_last_open())
-	_fill_story()
+	var fade := create_tween()
+	fade.tween_property(_center, "modulate:a", 0.0, 0.3)
+	await fade.finished
+	_show_page(_story_page)
+	_center.modulate.a = 1.0 # the Story page itself is empty
+	await _story_journal.arrive()
+	_story_moving = false
 
 
-func _fill_story() -> void:
-	var index := _story_chapter()
-	var ch := StoryData.chapter(index)
-	var all_beaten := Story.next_chapter() < 0
-	var choices := Story.intro_seen and _story_last_open() > 0
-	_story_prev.modulate.a = 1.0 if choices else 0.0
-	_story_next.modulate.a = 1.0 if choices else 0.0
-	_story_prev.disabled = not choices or index <= 0
-	_story_next.disabled = not choices or index >= _story_last_open()
-	if not Story.intro_seen:
-		_story_play.text = "Begin"
-		_story_status.text = "A pinball machine, bought from a man named Sal."
-		_story_line.text = ""
-	else:
-		_story_play.text = ("Replay Chapter %d" if Story.is_beaten(ch["id"]) else "Chapter %d") % int(ch["number"])
-		_story_status.text = "%s%s" % [ch["title"], "  ·  beaten" if Story.is_beaten(ch["id"]) else ""]
-		var line: String = StoryData.HUB_LINE_START
-		for c: Dictionary in StoryData.CHAPTERS:
-			if Story.is_beaten(c["id"]):
-				line = c["hub_line"]
-		_story_line.text = "\"%s\"" % line + ("\n\n" + StoryData.MORE_SOON if all_beaten else "")
+## The journal closes and lifts away, then the menu fades back in.
+func _leave_story() -> void:
+	if _story_moving:
+		return
+	_story_moving = true
+	await _story_journal.leave()
+	_center.modulate.a = 0.0
+	_show_page(_modes_page)
+	var fade := create_tween()
+	fade.tween_property(_center, "modulate:a", 1.0, 0.3)
+	await fade.finished
+	_story_moving = false
 
-
-func _start_story() -> void:
-	var index := _story_chapter()
+func _start_story(index: int) -> void:
 	GameManager.game_mode = "story"
 	GameManager.story_chapter = index
 	GameManager.start_random = false
@@ -586,6 +528,7 @@ func _build_ui() -> void:
 	var center := CenterContainer.new()
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	ui.add_child(center)
+	_center = center
 	var holder := VBoxContainer.new()
 	center.add_child(holder)
 
@@ -720,94 +663,18 @@ func _build_ui() -> void:
 	TouchScroll.setup(_notes_scroll)
 	_button(_notes_page, "Back", _back)
 
-	# Story mode: hub, Journal and Workshop
+	# Story mode: the journal (StoryJournal), over the whole screen. Its page in
+	# the list stays empty; it only marks where the menu is.
 	_story_page = _page(holder)
-	_label(_story_page, "STORY", 40, GOLD)
-	_spacer(_story_page, 4)
-	_story_play = _button(_story_page, "Begin", _start_story)
-	# Chapter title between two arrows (shown once a second chapter is open).
-	var chapter_row := HBoxContainer.new()
-	chapter_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	chapter_row.add_theme_constant_override("separation", 12)
-	_story_page.add_child(chapter_row)
-	_story_prev = Button.new()
-	_story_prev.text = "<"
-	_story_prev.custom_minimum_size = Vector2(52, 40)
-	_story_prev.add_theme_font_size_override("font_size", 20)
-	_story_prev.pressed.connect(_step_story.bind(-1))
-	chapter_row.add_child(_story_prev)
-	_story_status = _label(chapter_row, "", 16, SOFT)
-	_story_status.custom_minimum_size = Vector2(300, 0)
-	_story_next = Button.new()
-	_story_next.text = ">"
-	_story_next.custom_minimum_size = Vector2(52, 40)
-	_story_next.add_theme_font_size_override("font_size", 20)
-	_story_next.pressed.connect(_step_story.bind(1))
-	chapter_row.add_child(_story_next)
-	_spacer(_story_page, 4)
-	_button(_story_page, "Journal", func() -> void: _click_to(_journal_page))
-	_button(_story_page, "Workshop", func() -> void: _click_to(_workshop_page))
-	_button(_story_page, "Cosmetics", func() -> void: _click_to(_cosmetics_page))
-	_button(_story_page, "Leaderboard", func() -> void: _click_to(_records_page))
-	_spacer(_story_page, 4)
-	_story_line = _label(_story_page, "", 16, Color(0.85, 0.8, 0.65))
-	_story_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_story_line.custom_minimum_size = Vector2(420, 0)
-	_spacer(_story_page, 4)
-	_button(_story_page, "Back", _back)
-
-	# One leaderboard per chapter (the chapter the Story page is on).
-	_records_page = _page(holder)
-	_label(_records_page, "LEADERBOARD", 40, GOLD)
-	var records_row := HBoxContainer.new()
-	records_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	records_row.add_theme_constant_override("separation", 10)
-	_records_page.add_child(records_row)
-	_small_button(records_row, "<", func() -> void:
-		Sfx.play("click")
-		_show_records(_records_index - 1))
-	_records_name = Label.new()
-	_records_name.custom_minimum_size = Vector2(230, 0)
-	_records_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_records_name.add_theme_font_size_override("font_size", 20)
-	_records_name.add_theme_color_override("font_color", SOFT)
-	records_row.add_child(_records_name)
-	_small_button(records_row, ">", func() -> void:
-		Sfx.play("click")
-		_show_records(_records_index + 1))
-	_records_title = _label(_records_page, "", 16, Color(SOFT, 0.7))
-	_spacer(_records_page, 4)
-	_records = LeaderboardPanel.new()
-	_records_page.add_child(_records)
-	_spacer(_records_page, 8)
-	_button(_records_page, "Back", _back)
-
-	_journal_page = _page(holder)
-	_label(_journal_page, "JOURNAL", 40, GOLD)
-	_journal = JournalPanel.new()
-	_journal_page.add_child(_journal)
-	_button(_journal_page, "Back", _back)
-
-	# Cosmetics shop, with its preview table in the top-left corner.
-	_cosmetics_page = _page(holder)
-	_label(_cosmetics_page, "COSMETICS", 40, GOLD)
-	_cosmetics = CosmeticsPanel.new()
-	_cosmetics_page.add_child(_cosmetics)
-	_button(_cosmetics_page, "Back", _back)
-	_cosmetics.preview.position = Vector2(10, 10)
-	_cosmetics.preview.visible = false
-	ui.add_child(_cosmetics.preview)
+	_story_journal = StoryJournal.new()
+	_story_journal.visible = false
+	_story_journal.play_requested.connect(_start_story)
+	_story_journal.back_requested.connect(_back)
+	ui.add_child(_story_journal)
 	_coin_badge = CoinBadge.new()
 	_coin_badge.position = Vector2(600.0 - CoinBadge.SIZE.x - 8.0, 8.0)
 	_coin_badge.visible = false
 	ui.add_child(_coin_badge)
-
-	_workshop_page = _page(holder)
-	_label(_workshop_page, "WORKSHOP", 40, GOLD)
-	_label(_workshop_page, "Coins unlock spare parts for Story runs.", 15, SOFT)
-	_workshop = WorkshopPanel.new()
-	_workshop_page.add_child(_workshop)
-	_button(_workshop_page, "Back", _back)
 
 	# Game modes
 	_modes_page = _page(holder)

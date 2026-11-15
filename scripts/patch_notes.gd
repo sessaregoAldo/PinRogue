@@ -5,6 +5,16 @@ extends RefCounted
 
 const NOTES: Array[Dictionary] = [
 	{
+		"version": "0.15.5",
+		"name": "Field Notes",
+		"date": "Nov 14, 2026",
+		"notes": [
+			"The Story menu is now the Craftsman's journal. It drops onto the table closed and falls open; Back shuts it and puts it away. Bookmark tabs on its edge open Chapters, Story, Workshop, Coins, Wardrobe and Leaderboard.",
+			"Swipe across a page, or tap the arrows at its foot, to turn to the next page of a section. Each chapter has its own page.",
+			"The Story pages tell who each boss was, with a sketch and how to beat him.",
+		],
+	},
+	{
 		"version": "0.15.4",
 		"name": "Poker Face",
 		"date": "Nov 14, 2026",

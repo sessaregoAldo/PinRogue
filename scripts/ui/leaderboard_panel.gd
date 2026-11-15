@@ -14,9 +14,19 @@ var _note: Label
 var _sort_row: HBoxContainer
 var _sort_buttons: Dictionary = {}
 var _legend: Control
+## Colors: light on the dark menu, or ink on the Story journal's paper.
+var _top := Color.WHITE
+var _rest := Color(0.75, 0.8, 0.95)
+var _mine := GOLD
+var _faint := Color(0.7, 0.75, 0.9)
 
 
-func _init() -> void:
+func _init(paper: bool = false) -> void:
+	if paper:
+		_top = Color(0.17, 0.13, 0.1)
+		_rest = Color(0.3, 0.24, 0.18)
+		_mine = Color(0.5, 0.16, 0.1)
+		_faint = Color(0.43, 0.36, 0.28)
 	add_theme_constant_override("separation", 10)
 	# Story boards: rank by highest score or by fastest win.
 	_sort_row = HBoxContainer.new()
@@ -32,7 +42,9 @@ func _init() -> void:
 		b.focus_mode = Control.FOCUS_NONE
 		b.custom_minimum_size = Vector2(140, 34)
 		b.add_theme_font_size_override("font_size", 15)
-		b.add_theme_color_override("font_pressed_color", GOLD)
+		b.add_theme_color_override("font_pressed_color", _mine)
+		if paper:
+			_ink_button(b)
 		var mode: String = item[0]
 		b.pressed.connect(func() -> void:
 			if sort != mode:
@@ -52,11 +64,12 @@ func _init() -> void:
 	_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_note.custom_minimum_size = Vector2(320, 0)
 	_note.add_theme_font_size_override("font_size", 14)
-	_note.add_theme_color_override("font_color", Color(0.7, 0.75, 0.9))
+	_note.add_theme_color_override("font_color", _faint)
 	# The legend doubles as a filter: click a run ending to show only those runs.
-	_legend = RunIcon.legend(func(ending: String) -> void:
+	var on_filter := func(ending: String) -> void:
 		_ending = ending
-		refresh())
+		refresh()
+	_legend = RunIcon.legend(on_filter, _faint, _mine, Color(_mine, 0.7)) if paper else RunIcon.legend(on_filter)
 	add_child(_legend)
 	add_child(_note)
 
@@ -87,9 +100,9 @@ func refresh() -> void:
 	var me_shown := false
 	for i in entries.size():
 		var e: Dictionary = entries[i]
-		var c := Color.WHITE if i < 3 else Color(0.75, 0.8, 0.95)
+		var c := _top if i < 3 else _rest
 		if not me_shown and me != "" and e["name"] == me:
-			c = GOLD # the player's best score is in the top 10
+			c = _mine # the player's best score is in the top 10
 			me_shown = true
 		_cell("%d." % (i + 1), c, HORIZONTAL_ALIGNMENT_RIGHT)
 		_grid.add_child(RunIcon.name_cell(str(e["name"]), bool(e["won"]), c, 18))
@@ -123,12 +136,12 @@ func _add_player_row(player_name: String, shown: int, gen: int) -> void:
 	var best: Dictionary = await Leaderboard.fetch_player_best(player_name, _ending, board, sort)
 	if not is_visible_in_tree() or gen != _generation or not best["found"] or int(best["rank"]) <= shown:
 		return
-	_cell("", GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
-	_cell("···", Color(0.6, 0.65, 0.8), HORIZONTAL_ALIGNMENT_LEFT)
-	_cell("", GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
-	_cell("%d." % int(best["rank"]), GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
-	_grid.add_child(RunIcon.name_cell(player_name, bool(best["won"]), GOLD, 18))
-	_cell(_value_text(best), GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
+	_cell("", _mine, HORIZONTAL_ALIGNMENT_RIGHT)
+	_cell("···", _faint, HORIZONTAL_ALIGNMENT_LEFT)
+	_cell("", _mine, HORIZONTAL_ALIGNMENT_RIGHT)
+	_cell("%d." % int(best["rank"]), _mine, HORIZONTAL_ALIGNMENT_RIGHT)
+	_grid.add_child(RunIcon.name_cell(player_name, bool(best["won"]), _mine, 18))
+	_cell(_value_text(best), _mine, HORIZONTAL_ALIGNMENT_RIGHT)
 
 
 ## The number shown for a row: the score, or the run time on the time board.
@@ -152,3 +165,19 @@ func _cell(text: String, color: Color, align: HorizontalAlignment) -> void:
 	if align == HORIZONTAL_ALIGNMENT_LEFT:
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_grid.add_child(label)
+
+
+## A flat toggle with ink text, for the paper version.
+func _ink_button(b: Button) -> void:
+	for state: String in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
+		var box := StyleBoxFlat.new()
+		box.bg_color = Color(_top, 0.0 if state == "normal" or state == "focus" else 0.07)
+		box.border_color = Color(_mine, 0.8) if state.contains("pressed") else Color(_top, 0.0 if state == "normal" else 0.3)
+		box.set_border_width_all(2 if state.contains("pressed") else 1)
+		box.set_corner_radius_all(6)
+		if state == "focus":
+			box.draw_center = false
+		b.add_theme_stylebox_override(state, box)
+	b.add_theme_color_override("font_color", _rest)
+	b.add_theme_color_override("font_hover_color", _top)
+	b.add_theme_color_override("font_hover_pressed_color", _mine)
