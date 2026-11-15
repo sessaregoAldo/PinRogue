@@ -116,7 +116,7 @@ const CHAPTERS: Array[Dictionary] = [
 	{
 		"id": "collector",
 		"number": 2,
-		"title": "The Collector",
+		"title": "The Patron",
 		"boss": "The Collector",
 		# A prelude on the last chapter's machine: after "phase_one_hits" hits on
 		# its center bumper the table drops away and "boss_scene" (which beating

@@ -5,11 +5,19 @@ extends RefCounted
 
 const NOTES: Array[Dictionary] = [
 	{
-		"version": "0.15.2",
+		"version": "0.15.3",
 		"name": "Proper Name",
 		"date": "Nov 14, 2026",
 		"notes": [
-			"Story chapter 2 now goes by the name of the one waiting in it.",
+			"Story chapter 2 is now called The Patron.",
+		],
+	},
+	{
+		"version": "0.15.2",
+		"name": "Small Print",
+		"date": "Nov 14, 2026",
+		"notes": [
+			"A wording fix in Story chapter 2.",
 		],
 	},
 	{
