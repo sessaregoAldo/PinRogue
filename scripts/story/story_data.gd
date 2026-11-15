@@ -116,7 +116,7 @@ const CHAPTERS: Array[Dictionary] = [
 	{
 		"id": "collector",
 		"number": 2,
-		"title": "The Client",
+		"title": "The Collector",
 		"boss": "The Collector",
 		# A prelude on the last chapter's machine: after "phase_one_hits" hits on
 		# its center bumper the table drops away and "boss_scene" (which beating
@@ -149,7 +149,7 @@ const CHAPTERS: Array[Dictionary] = [
 		],
 		"reveal": "The bumper's cap flips over like a coin on a counter. The other side is gold, with a jeweller's loupe screwed into it.",
 		"briefing": [
-			"Pell. Of course it's Pell. He ran the arcade on the old pier. Forty machines, and every one of them mine. My best client. Toward the end, my only one.",
+			"Pell. Of course it's Pell. He ran the arcade on the old pier. Forty machines, and every one of them mine. My best customer. Toward the end, my only one.",
 			"He wanted one machine that could be every machine. So I made her pieces lift out and swap between nights. A Tuesday machine, a Saturday machine. He paid for the finished one in advance.",
 			"He never got it. And I never built her to swap them by herself. I would very much like to know who did.",
 			"He can't keep his eyes off a fine piece. When the ball comes out of the Till's sparkling door, he stops to admire it: hit him then. And anything that falls on him from the gallery up top hurts twice over.",
