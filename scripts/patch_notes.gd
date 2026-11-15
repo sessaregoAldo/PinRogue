@@ -5,7 +5,7 @@ extends RefCounted
 
 const NOTES: Array[Dictionary] = [
 	{
-		"version": "0.14.2",
+		"version": "0.15.0",
 		"name": "Upstairs",
 		"date": "Nov 14, 2026",
 		"notes": [

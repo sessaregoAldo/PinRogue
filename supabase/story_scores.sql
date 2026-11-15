@@ -24,7 +24,7 @@ create policy "submit story scores" on public.story_scores for insert to anon wi
 
 grant select, insert on public.story_scores to anon;
 
--- Run time in seconds (0.14.2): lets each chapter board rank the fastest wins.
+-- Run time in seconds (0.15.0): lets each chapter board rank the fastest wins.
 alter table public.story_scores add column if not exists run_time double precision
   check (run_time is null or (run_time >= 0 and run_time < 86400));
 create index if not exists story_scores_time_idx on public.story_scores (chapter, run_time asc, created_at asc) where won;

@@ -54,7 +54,7 @@ func load_save() -> void:
 	for id in cfg.get_value("story", "beaten", []):
 		var chapter_id := str(id)
 		if chapter_id == "merchant":
-			chapter_id = "collector" # chapter 2's boss was renamed (0.14.2, before release)
+			chapter_id = "collector" # chapter 2's boss was renamed (0.15.0, before release)
 		beaten.append(chapter_id)
 	for id in cfg.get_value("story", "unlocked", []):
 		unlocked.append(str(id))
