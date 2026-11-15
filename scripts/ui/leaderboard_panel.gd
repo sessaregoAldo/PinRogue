@@ -7,12 +7,40 @@ const GOLD := Color(1.0, 0.85, 0.3)
 
 ## Which board to show: "" = Endless, otherwise a story chapter id.
 var board: String = ""
+## Leaderboard.SORT_SCORE or SORT_TIME (story boards only).
+var sort: String = Leaderboard.SORT_SCORE
 var _grid: GridContainer
 var _note: Label
+var _sort_row: HBoxContainer
+var _sort_buttons: Dictionary = {}
+var _legend: Control
 
 
 func _init() -> void:
 	add_theme_constant_override("separation", 10)
+	# Story boards: rank by highest score or by fastest win.
+	_sort_row = HBoxContainer.new()
+	_sort_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_sort_row.add_theme_constant_override("separation", 8)
+	add_child(_sort_row)
+	var group := ButtonGroup.new()
+	for item: Array in [[Leaderboard.SORT_SCORE, "High score"], [Leaderboard.SORT_TIME, "Fastest win"]]:
+		var b := Button.new()
+		b.text = item[1]
+		b.toggle_mode = true
+		b.button_group = group
+		b.focus_mode = Control.FOCUS_NONE
+		b.custom_minimum_size = Vector2(140, 34)
+		b.add_theme_font_size_override("font_size", 15)
+		b.add_theme_color_override("font_pressed_color", GOLD)
+		var mode: String = item[0]
+		b.pressed.connect(func() -> void:
+			if sort != mode:
+				Sfx.play("click")
+				sort = mode
+				refresh())
+		_sort_row.add_child(b)
+		_sort_buttons[mode] = b
 	_grid = GridContainer.new()
 	_grid.columns = 3
 	_grid.add_theme_constant_override("h_separation", 18)
@@ -26,9 +54,10 @@ func _init() -> void:
 	_note.add_theme_font_size_override("font_size", 14)
 	_note.add_theme_color_override("font_color", Color(0.7, 0.75, 0.9))
 	# The legend doubles as a filter: click a run ending to show only those runs.
-	add_child(RunIcon.legend(func(ending: String) -> void:
+	_legend = RunIcon.legend(func(ending: String) -> void:
 		_ending = ending
-		refresh()))
+		refresh())
+	add_child(_legend)
 	add_child(_note)
 
 
@@ -42,8 +71,14 @@ func refresh() -> void:
 	_generation += 1
 	var gen := _generation
 	_clear()
+	if board == "":
+		sort = Leaderboard.SORT_SCORE # times are kept on story boards only
+	var by_time := sort == Leaderboard.SORT_TIME
+	_sort_row.visible = board != ""
+	(_sort_buttons[sort] as Button).button_pressed = true
+	_legend.visible = not by_time # every run on the time board is a win
 	_note.text = "Loading..."
-	var res: Dictionary = await Leaderboard.fetch_top(_ending, board)
+	var res: Dictionary = await Leaderboard.fetch_top(_ending, board, sort)
 	if not is_visible_in_tree() or gen != _generation:
 		return
 	_clear()
@@ -58,16 +93,22 @@ func refresh() -> void:
 			me_shown = true
 		_cell("%d." % (i + 1), c, HORIZONTAL_ALIGNMENT_RIGHT)
 		_grid.add_child(RunIcon.name_cell(str(e["name"]), bool(e["won"]), c, 18))
-		_cell(GameManager.format_number(float(e["score"])), c, HORIZONTAL_ALIGNMENT_RIGHT)
+		_cell(_value_text(e), c, HORIZONTAL_ALIGNMENT_RIGHT)
 	var notes: Array[String] = []
 	if entries.is_empty():
-		notes.append("No scores yet." if _ending == "" else "No runs like that yet.")
+		if by_time:
+			notes.append("No timed wins yet.")
+		else:
+			notes.append("No scores yet." if _ending == "" else "No runs like that yet.")
 	var scope := "All-time, all players" if res["online"] else "This device only"
-	match _ending:
-		"won":
-			scope += " · only runs that ended after a boss"
-		"lost":
-			scope += " · only runs that ran out of balls"
+	if by_time:
+		scope += " · fastest wins"
+	else:
+		match _ending:
+			"won":
+				scope += " · only runs that ended after a boss"
+			"lost":
+				scope += " · only runs that ran out of balls"
 	notes.append(scope + ".")
 	if res["error"] != "":
 		notes.append(res["error"])
@@ -79,7 +120,7 @@ func refresh() -> void:
 ## Below the top 10: "···" and the player's best score with its position
 ## (within the current filter).
 func _add_player_row(player_name: String, shown: int, gen: int) -> void:
-	var best: Dictionary = await Leaderboard.fetch_player_best(player_name, _ending, board)
+	var best: Dictionary = await Leaderboard.fetch_player_best(player_name, _ending, board, sort)
 	if not is_visible_in_tree() or gen != _generation or not best["found"] or int(best["rank"]) <= shown:
 		return
 	_cell("", GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
@@ -87,7 +128,14 @@ func _add_player_row(player_name: String, shown: int, gen: int) -> void:
 	_cell("", GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
 	_cell("%d." % int(best["rank"]), GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
 	_grid.add_child(RunIcon.name_cell(player_name, bool(best["won"]), GOLD, 18))
-	_cell(GameManager.format_number(float(best["score"])), GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
+	_cell(_value_text(best), GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
+
+
+## The number shown for a row: the score, or the run time on the time board.
+func _value_text(e: Dictionary) -> String:
+	if sort == Leaderboard.SORT_TIME:
+		return Story.clock(float(e.get("time", 0.0)))
+	return GameManager.format_number(float(e["score"]))
 
 
 func _clear() -> void:

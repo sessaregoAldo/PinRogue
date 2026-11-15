@@ -99,7 +99,7 @@ func _show_page(page: VBoxContainer) -> void:
 func _ask_confirm(mode: String) -> void:
 	_confirm_mode = mode
 	if mode == "menu":
-		_confirm_title.text = "MAIN MENU?"
+		_confirm_title.text = "STORY MENU?" if GameManager.game_mode == "story" else "MAIN MENU?"
 		_confirm_note.text = "Your current run will be lost."
 		_confirm_yes_button.text = "Yes, leave"
 		_confirm_hint.text = "%s = cancel" % GameManager.key_label("pause")
@@ -285,7 +285,8 @@ func _build() -> void:
 		_make_button(_main_page, "High Scores", _on_button(func() -> void: _show_page(_highscores_page)))
 	_make_button(_main_page, "Feedback", _on_button(func() -> void: _show_page(_feedback_page)))
 	_make_button(_main_page, "Restart", _on_button(func() -> void: _ask_confirm("restart")))
-	_make_button(_main_page, "Main Menu", _on_button(func() -> void: _ask_confirm("menu")))
+	_make_button(_main_page, "Story Menu" if GameManager.game_mode == "story" else "Main Menu",
+			_on_button(func() -> void: _ask_confirm("menu")))
 	# No Exit here: leave through Main Menu, which has it.
 
 	# High scores page

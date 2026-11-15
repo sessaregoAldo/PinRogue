@@ -145,7 +145,6 @@ entrance_posts = false
 min_entry_speed = 250.0
 entry_angle_deg = 65.0
 booster_from = 0.35
-exit_max_speed = 400.0
 score_value = 1000
 color = Color(1, 0.6, 0.3, 1)
 legend_name = "Bridge"

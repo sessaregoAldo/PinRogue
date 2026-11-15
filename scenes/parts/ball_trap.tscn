@@ -1,0 +1,22 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/ball_trap.gd" id="1_trap"]
+[ext_resource type="Script" path="res://scripts/trap_exit.gd" id="2_exit"]
+
+[node name="BallTrap" type="Area2D"]
+script = ExtResource("1_trap")
+
+[node name="ExitLeft" type="Node2D" parent="."]
+position = Vector2(-150, 120)
+rotation = -0.35
+script = ExtResource("2_exit")
+
+[node name="ExitRight" type="Node2D" parent="."]
+position = Vector2(150, 120)
+rotation = 0.35
+script = ExtResource("2_exit")
+
+[node name="ExitTop" type="Node2D" parent="."]
+position = Vector2(0, -130)
+rotation = 3.14159
+script = ExtResource("2_exit")

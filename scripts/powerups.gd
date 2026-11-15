@@ -148,6 +148,26 @@ func _process(delta: float) -> void:
 	_pulse += delta
 	if _placing or not _multipliers.is_empty():
 		queue_redraw()
+	_show_deck_of(_place_targets[_place_index] if _placing and _place_index < _place_targets.size() else null)
+
+
+var _shown_deck: UpperDeck
+
+## While placing, a highlighted part that sits on a second floor brings that
+## floor into view; it goes again once a first-floor part is highlighted.
+func _show_deck_of(target: Node) -> void:
+	var deck: UpperDeck = null
+	var node := target
+	while node and deck == null:
+		deck = node as UpperDeck
+		node = node.get_parent()
+	if deck == _shown_deck:
+		return
+	if is_instance_valid(_shown_deck):
+		_shown_deck.set_forced(false)
+	_shown_deck = deck
+	if deck:
+		deck.set_forced(true)
 
 
 # --- Run lifecycle ------------------------------------------------------------

@@ -100,6 +100,13 @@ var current_level: int = 0
 var round_id: int = 0
 ## Option: show floating "+points" text where points are earned.
 var show_score_popups: bool = true
+## Story scenes (the table switch): floating texts are hidden and new ones dropped.
+var popups_hidden: bool = false:
+	set(value):
+		popups_hidden = value
+		popups_hidden_changed.emit(value)
+@warning_ignore("unused_signal")
+signal popups_hidden_changed(hidden: bool)
 ## Touch and mobile controls (Options > Controls).
 ## nudge_mode: "swipe" (swipe the upper screen) or "tilt" (jolt the phone).
 var nudge_mode: String = "swipe"

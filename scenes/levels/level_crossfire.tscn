@@ -142,7 +142,6 @@ width = 52.0
 entrance_posts = false
 min_entry_speed = 250.0
 entry_angle_deg = 65.0
-exit_max_speed = 500.0
 legend_name = "Boss ramp"
 
 [node name="RampToBumpers" parent="." instance=ExtResource("9_tunnel")]
@@ -153,7 +152,6 @@ rail_layer = 5
 entrance_posts = false
 min_entry_speed = 250.0
 entry_angle_deg = 65.0
-exit_max_speed = 400.0
 score_value = 750
 color = Color(1, 0.6, 0.3, 1)
 legend_name = "Bumper ramp"

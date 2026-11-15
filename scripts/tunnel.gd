@@ -17,8 +17,11 @@ extends Node2D
 ## Tunnels that cross each other need different `rail_layer` and `z_index` values.
 
 const LAYER_TABLE := 1
-## Drop shadow layers: [offset, extra width per side, alpha] (outer = softer).
-const SHADOW_LAYERS := [[Vector2(18, 24), 7.0, 0.07], [Vector2(13, 17), 4.0, 0.09], [Vector2(8, 11), 1.0, 0.13]]
+## Drop shadow layers: [share of the track's height it drops, extra width per
+## side, alpha] (outer = softer). Shadows fall straight down the table.
+const SHADOW_LAYERS := [[1.0, 7.0, 0.07], [0.72, 4.0, 0.09], [0.45, 1.0, 0.13]]
+const RAIL_COLOR := Color(0.85, 0.88, 0.95)
+const POST_COLOR := Color(0.55, 0.5, 0.55)
 
 @export var path: PackedVector2Array = PackedVector2Array([Vector2(0, 0), Vector2(0, -200)]):
 	set(value):
@@ -67,15 +70,33 @@ const SHADOW_LAYERS := [[Vector2(18, 24), 7.0, 0.07], [Vector2(13, 17), 4.0, 0.0
 ## damped at this rate per second), so fast shots follow the curves instead of
 ## ricocheting between the rails and back out of the mouth.
 @export var guide_strength: float = 14.0
-## The ball's speed is capped at this when it drops out of the far end.
-@export var exit_max_speed: float = 400.0
+## The ball leaves the far end with the speed it had on the ramp (the booster's
+## push included), aimed along the end of the track, up to this.
+@export var exit_max_speed: float = 1400.0
 @export var score_value: int = 1000
+## Lands on this upper deck (UpperDeck) at the far end instead of the playfield.
+@export var to_deck: NodePath
 @export var color: Color = Color(0.4, 0.75, 1.0):
 	set(value):
 		color = value
 		queue_redraw()
 ## Name shown in the pause menu's scoring legend.
 @export var legend_name: String = "Tunnel"
+@export_group("Look")
+## How much of the track, from the mouth, is always shown. The rest only
+## appears while a ball rides it (0 = always show the whole track).
+@export var shown_length: float = 110.0:
+	set(value):
+		shown_length = value
+		queue_redraw()
+## Over how many px the always-shown part fades out.
+@export var shown_fade: float = 90.0
+## How high the track runs: how far its shadow falls (and its posts reach) at the
+## top. Tracks to an upper deck climb all the way; the others rise and come back down.
+@export var lift_height: float = 30.0:
+	set(value):
+		lift_height = value
+		queue_redraw()
 @export_group("Booster")
 ## Push the ball along the track once it is past `booster_from`.
 @export var booster_enabled: bool = true:
@@ -110,6 +131,13 @@ var _last_along: Dictionary = {} # Ball -> speed along the track last step (guid
 ## once (it never changes), which keeps phones from redrawing hundreds of shapes
 ## per frame.
 var _fx: Node2D
+## 0 = only the first `shown_length` px show, 1 = the whole track (a ball is riding it).
+var _reveal: float = 0.0
+## Tracks to an upper deck: the deck, and how far along the track its edge is
+## (the track isn't drawn past it: under the deck it is hidden by the floor).
+var _deck: Node2D
+var _deck_edge: float = -1.0
+var _draw_count: int = 0 # centerline points drawn (all of them, or up to the deck's edge)
 
 
 func _ready() -> void:
@@ -127,7 +155,37 @@ func _ready() -> void:
 func covers(global_point: Vector2, extra: float = 0.0) -> bool:
 	if _center.size() < 2:
 		return false
-	return _distance_to_track(to_local(global_point)) < width * 0.5 + rail_thickness * 0.5 + extra
+	var p := to_local(global_point)
+	if _distance_to_track(p) >= width * 0.5 + rail_thickness * 0.5 + extra:
+		return false
+	var s: float = _track_info(p)[0]
+	return shown_at(s) > 0.5 and (_deck_edge < 0.0 or s < _deck_edge)
+
+
+## How visible the track is `s` px along it (0..1).
+func shown_at(s: float) -> float:
+	if shown_length <= 0.0 or Engine.is_editor_hint():
+		return 1.0
+	var base := 1.0 - smoothstep(shown_length, shown_length + shown_fade, s)
+	return lerpf(base, 1.0, _reveal)
+
+
+## The track's height `s` px along it: 0 on the table, 1 at the top (an upper
+## deck's level for tracks that lead to one).
+func height_along(s: float) -> float:
+	if _deck_edge > 0.0:
+		return smoothstep(0.0, _deck_edge, s)
+	var rise := minf(_length * 0.3, 140.0)
+	if rise <= 0.0:
+		return 0.0
+	return minf(smoothstep(0.0, rise, s), smoothstep(_length, _length - rise, s))
+
+
+## Height (0..1) of the track at the point nearest `global_point`.
+func height_at(global_point: Vector2) -> float:
+	if _center.size() < 2:
+		return 0.0
+	return height_along(_track_info(to_local(global_point))[0])
 
 
 func _distance_to_track(p: Vector2) -> float:
@@ -157,18 +215,29 @@ func _physics_process(delta: float) -> void:
 		if step.length_squared() < 0.0001 or step.length() > 60.0:
 			continue # not moving, or teleported
 
+		if ball.deck != null:
+			continue # up on a deck: the ramps below don't exist for it
 		if ball.ramp == null:
 			if _crosses(prev, cur, _left[0], _right[0]) and step.dot(_mouth_dir()) > 0.0 \
 					and _entry_allowed(ball.linear_velocity):
-				ball.enter_ramp(self, 1 << (rail_layer - 1), z_index + 1, ramp_damp)
+				var draw_z := z_index + 1
+				if _deck:
+					draw_z = maxi(draw_z, _deck.z_index + 2) # its end runs under the deck's floor
+				ball.enter_ramp(self, 1 << (rail_layer - 1), draw_z, ramp_damp)
 				_stall_time[ball] = 0.0
 				_last_along.erase(ball)
 				Sfx.play("ramp_enter")
 		elif ball.ramp == self:
 			var last := _center.size() - 1
 			if _crosses(prev, cur, _left[last], _right[last]) and step.dot(_exit_dir()) > 0.0:
-				ball.leave_ramp()
-				ball.set_velocity_safe(ball.linear_velocity.limit_length(exit_max_speed))
+				# Keep the momentum: same speed, pointed out of the end of the track.
+				var speed := minf(ball.linear_velocity.length(), exit_max_speed)
+				var upper := get_node_or_null(to_deck) as Node2D
+				if upper:
+					ball.enter_deck(upper)
+				else:
+					ball.leave_ramp()
+				ball.set_velocity_safe(_exit_dir() * speed)
 				GameManager.add_score(score_value * (1 + GameManager.ramp_turbo), to_global(_center[_center.size() - 1]))
 				Sfx.play("ramp_land")
 				Sfx.play("ramp_complete")
@@ -252,11 +321,44 @@ func _sample(s: float) -> Array:
 
 
 func _process(delta: float) -> void:
-	if Engine.is_editor_hint() or not booster_enabled:
+	if Engine.is_editor_hint():
+		return
+	var target := 1.0 if _has_rider() or _forced else 0.0
+	if _reveal != target and shown_length > 0.0 and not (_force_tween and _force_tween.is_running()):
+		_reveal = move_toward(_reveal, target, delta * 5.0)
+		queue_redraw()
+	if not booster_enabled:
 		return
 	_anim += delta
 	_boost_glow = maxf(0.0, _boost_glow - delta * 2.0)
 	_fx.queue_redraw() # animate the booster chevrons
+
+
+var _forced: bool = false
+var _force_tween: Tween
+
+## Show the whole track (or let it go back to normal), also while the game is
+## paused: story mode points it out, upgrade placement shows its deck.
+func set_forced(on: bool) -> void:
+	if on == _forced:
+		return
+	_forced = on
+	if _force_tween:
+		_force_tween.kill()
+	var target := 1.0 if on or _has_rider() else 0.0
+	_force_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	_force_tween.tween_method(func(v: float) -> void:
+		_reveal = v
+		queue_redraw(), _reveal, target, 0.35).set_trans(Tween.TRANS_SINE)
+
+
+## A ball is riding this track (or has ridden it up onto its deck).
+func _has_rider() -> bool:
+	for node in get_tree().get_nodes_in_group("ball"):
+		var ball := node as Ball
+		if ball and ball.in_play and (ball.ramp == self or (_deck != null and ball.deck == _deck)):
+			return true
+	return false
 
 
 func _entry_allowed(velocity: Vector2) -> bool:
@@ -310,6 +412,7 @@ func _rebuild() -> void:
 	_length = _cum[_cum.size() - 1]
 	_left = _offset(_center, width * 0.5, true)
 	_right = _offset(_center, -width * 0.5, true)
+	_find_deck_edge()
 
 	var bits := 1 << (rail_layer - 1)
 	_add_rail(_left, bits)
@@ -336,10 +439,32 @@ func _add_rail(points: PackedVector2Array, bits: int) -> void:
 	rail.physics_layers = bits
 	rail.thickness = rail_thickness
 	rail.bounce = 0.0 # dead rails: the ball slides along instead of bouncing back
-	rail.color = Color(0.85, 0.88, 0.95)
+	rail.color = RAIL_COLOR
 	rail.points = points
+	rail.visible = false # drawn by the tunnel, which fades the unridden part
 	rail.set_meta("generated", true)
 	add_child(rail)
+
+
+## For a track that leads to an upper deck: where it passes under the deck's edge.
+func _find_deck_edge() -> void:
+	_deck = null
+	_deck_edge = -1.0
+	_draw_count = _center.size()
+	if to_deck.is_empty() or not is_inside_tree():
+		return
+	_deck = get_node_or_null(to_deck) as Node2D
+	if _deck == null or not ("outline" in _deck):
+		_deck = null
+		return
+	var outline := PackedVector2Array()
+	for q in _deck.outline:
+		outline.append(to_local(_deck.to_global(q)))
+	for i in _center.size():
+		if Geometry2D.is_point_in_polygon(_center[i], outline):
+			_deck_edge = _cum[i]
+			_draw_count = i + 1
+			return
 
 
 func _smooth(pts: PackedVector2Array, steps: int) -> PackedVector2Array:
@@ -388,49 +513,92 @@ func _offset(pts: PackedVector2Array, dist: float, flare: bool = false) -> Packe
 func _draw() -> void:
 	if _center.size() < 2:
 		return
-	# Soft drop shadow on the table: layered, spreading copies offset down-right,
-	# so the track reads as raised above the playfield. Then the track itself.
-	# All of it goes out as one triangle list (a single draw call).
-	var verts := PackedVector2Array()
-	var colors := PackedColorArray()
-	var indices := PackedInt32Array()
+	var n := clampi(_draw_count, 2, _center.size())
+	var shown := PackedFloat32Array()
+	var drop := PackedFloat32Array()
+	for i in n:
+		shown.append(shown_at(_cum[i]))
+		drop.append(lift_height * height_along(_cum[i]))
+	# Soft shadow on the table straight below the track (deeper where it runs
+	# higher), then the track itself. Each goes out as one triangle list.
 	var bands := []
 	for layer in SHADOW_LAYERS:
 		bands.append([layer[0], layer[1], Color(0, 0, 0, layer[2])])
-	bands.append([Vector2.ZERO, 0.0, Color(color, 0.32)])
-	for band in bands:
-		var off: Vector2 = band[0]
-		var spread: float = band[1]
-		var col: Color = band[2]
-		for i in _center.size() - 1:
-			var n0 := (_left[i] - _right[i]).normalized() * spread
-			var n1 := (_left[i + 1] - _right[i + 1]).normalized() * spread
-			var k := verts.size()
-			verts.append_array([_left[i] + off + n0, _left[i + 1] + off + n1,
-					_right[i + 1] + off - n1, _right[i] + off - n0])
-			colors.append_array([col, col, col, col])
-			indices.append_array([k, k + 1, k + 2, k, k + 2, k + 3])
-	RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), indices, verts, colors)
-	# Track edges: a dark underside line (thickness) and a lit top line.
-	var under := _left.duplicate()
-	var under_r := _right.duplicate()
-	for i in under.size():
-		under[i] += Vector2(2, 3)
-		under_r[i] += Vector2(2, 3)
-	draw_polyline(under, Color(0, 0, 0, 0.45), 3.0, true)
-	draw_polyline(under_r, Color(0, 0, 0, 0.45), 3.0, true)
+	_draw_bands(bands, n, shown, drop)
+	# Posts holding the track up. They show along the whole track even where the
+	# track itself is hidden, so its route can be read from the table.
+	var next_post := 60.0
+	for i in n:
+		if _cum[i] < next_post:
+			continue
+		next_post = _cum[i] + 70.0
+		if drop[i] < 6.0:
+			continue
+		var foot := _center[i] + Vector2(0, drop[i])
+		draw_line(_center[i], foot, POST_COLOR, 4.0, true)
+		draw_circle(foot, 3.5, POST_COLOR.darkened(0.4))
+		draw_circle(_center[i], 3.0, Color(color, lerpf(0.75, 0.0, shown[i]))) # where the track runs
+	_draw_bands([[0.0, 0.0, Color(color, 0.32)]], n, shown, drop)
+	# Track edges: a dark underside line (thickness), then the rails.
+	var left := _left.slice(0, n)
+	var right := _right.slice(0, n)
+	var under_l := PackedVector2Array()
+	var under_r := PackedVector2Array()
+	var dark := PackedColorArray()
+	var rail := PackedColorArray()
+	for i in n:
+		under_l.append(left[i] + Vector2(0, 3))
+		under_r.append(right[i] + Vector2(0, 3))
+		dark.append(Color(0, 0, 0, 0.45 * shown[i]))
+		rail.append(Color(RAIL_COLOR, shown[i]))
+	draw_polyline_colors(under_l, dark, 3.0, true)
+	draw_polyline_colors(under_r, dark, 3.0, true)
+	draw_polyline_colors(left, rail, rail_thickness, true)
+	draw_polyline_colors(right, rail, rail_thickness, true)
 	# Chevrons at the mouth show which way the ball has to be going to get in.
 	var dir := _mouth_dir()
 	var side := dir.orthogonal() * width * 0.3
 	for k in 2:
 		var base := _center[0] + dir * (10.0 + k * 12.0)
 		draw_polyline(PackedVector2Array([base + side, base + dir * 8.0, base - side]), color, 3.0, true)
-	# Mouth and exit lips.
+	# Mouth and exit lips (a track that ends under a deck has no visible exit).
 	var last := _center.size() - 1
 	draw_line(_left[0], _right[0], Color(color, 0.9), 3.0, true)
-	draw_line(_left[last], _right[last], Color(color, 0.5), 2.0, true)
+	if _deck_edge < 0.0:
+		# The exit always shows (lip and arrows out), so you can see where the ball comes back.
+		var out := _exit_dir()
+		var out_side := out.orthogonal() * width * 0.25
+		draw_line(_left[last], _right[last], Color(color, lerpf(0.75, 0.5, shown[last])), 2.5, true)
+		for k in 2:
+			var tip := _center[last] + out * (8.0 + k * 10.0)
+			draw_polyline(PackedVector2Array([tip - out * 6.0 + out_side, tip, tip - out * 6.0 - out_side]), Color(color, 0.8 - 0.25 * k), 2.5, true)
 	if _fx:
 		_fx.queue_redraw()
+
+
+## One triangle list of track-shaped bands: [drop share, extra width, color] each.
+func _draw_bands(bands: Array, n: int, shown: PackedFloat32Array, drop: PackedFloat32Array) -> void:
+	var verts := PackedVector2Array()
+	var colors := PackedColorArray()
+	var indices := PackedInt32Array()
+	for band in bands:
+		var share: float = band[0]
+		var spread: float = band[1]
+		var col: Color = band[2]
+		for i in n - 1:
+			var n0 := (_left[i] - _right[i]).normalized() * spread
+			var n1 := (_left[i + 1] - _right[i + 1]).normalized() * spread
+			var o0 := Vector2(0, drop[i] * share)
+			var o1 := Vector2(0, drop[i + 1] * share)
+			var c0 := Color(col, col.a * shown[i])
+			var c1 := Color(col, col.a * shown[i + 1])
+			var k := verts.size()
+			verts.append_array([_left[i] + o0 + n0, _left[i + 1] + o1 + n1,
+					_right[i + 1] + o1 - n1, _right[i] + o0 - n0])
+			colors.append_array([c0, c1, c1, c0])
+			indices.append_array([k, k + 1, k + 2, k, k + 2, k + 3])
+	if not verts.is_empty():
+		RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), indices, verts, colors)
 
 
 ## Booster section: chevrons scrolling toward the exit, brighter while pushing.
@@ -448,7 +616,9 @@ func _draw_booster() -> void:
 			var p: Vector2 = sample[0]
 			var t: Vector2 = sample[1]
 			var side_v := t.orthogonal() * width * 0.28
-			var fade := clampf(minf(s - start, finish - s) / 20.0, 0.0, 1.0)
+			if _deck_edge >= 0.0 and s > _deck_edge:
+				break
+			var fade := clampf(minf(s - start, finish - s) / 20.0, 0.0, 1.0) * shown_at(s)
 			var c := Color(1.0, 0.95, 0.5).lerp(Color.WHITE, _boost_glow)
 			c.a = (0.35 + 0.55 * _boost_glow) * fade
 			_fx.draw_polyline(PackedVector2Array([p - t * 5.0 + side_v, p + t * 4.0, p - t * 5.0 - side_v]), c, 2.5, true)

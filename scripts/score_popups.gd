@@ -13,13 +13,16 @@ func _ready() -> void:
 	z_as_relative = false
 	z_index = 60 # above tunnels and the boss health bar
 	GameManager.popup_requested.connect(_on_popup_requested)
+	GameManager.popups_hidden_changed.connect(func(hidden: bool) -> void:
+		visible = not hidden
+		_items.clear()) # the ones hidden mid-flight are not brought back
 	GameManager.game_started.connect(func() -> void:
 		_items.clear()
 		queue_redraw())
 
 
 func _on_popup_requested(text: String, world_pos: Vector2, color: Color, big: bool) -> void:
-	if not GameManager.show_score_popups:
+	if not GameManager.show_score_popups or GameManager.popups_hidden:
 		return
 	_items.append({"text": text, "pos": world_pos, "color": color, "size": 24 if big else 17, "age": 0.0})
 	if _items.size() > 40:

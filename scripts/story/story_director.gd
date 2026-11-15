@@ -5,7 +5,11 @@ extends Node
 ##   1. "plain": a normal game. The center bumper looks ordinary and has a
 ##      health bar (the first Endless boss's HP).
 ##   2. "boss":  at 0 the boss reveals itself: new art, battle music, HP scaled
-##      from the player's score (StoryData.BOSS_HP_SCORE_FACTOR) and its gimmick.
+##      from the player's score (StoryData.BOSS_HP_SCORE_FACTOR, or the chapter's
+##      "boss_hp_factor") and its gimmick.
+## A chapter with a "boss_scene" opens with a "prelude" on the last chapter's
+## machine: after "phase_one_hits" hits on its bumper that table drops away and
+## the chapter's own rises in its place, where phases 1 and 2 are played.
 ## Beating the boss plays a slow-motion close-up, then the machine tilts in
 ## silence and the Journal's Victory page opens. Running out of balls opens the
 ## Defeat page. Either way the run pays coins (StoryData.COINS_*).
@@ -31,12 +35,16 @@ var _dialogue: DialogueBox
 var _result: StoryResult
 var _boss: BossBumper
 var _gimmick: SplitterBoss
+var _collector: CollectorBoss
 var _phase_one_max: float = 1.0
 var _boss_max: float = 1.0
 var _revealed: bool = false
 var _whispered: Dictionary = {}
 ## Coins already announced with a popup this run (see _coins_from_damage).
 var _coins_popped: int = 0
+## True until the first run of this visit starts: that one opens with the intro.
+## (Try again / Restart go straight to play.)
+var _fresh_visit: bool = true
 var _run: int = 0 # bumped on every (re)start: stale sequences stop
 var _fx_layer: CanvasLayer
 var _face: Control
@@ -66,18 +74,25 @@ func _ready() -> void:
 		game.nudged.connect(func(_dir: Vector2) -> void: stats["nudges"] = int(stats.get("nudges", 0)) + 1)
 
 
+func _exit_tree() -> void:
+	GameManager.popups_hidden = false # leaving mid-switch must not carry over
+
+
 # --- Run start ----------------------------------------------------------------------
 
 ## A new attempt (the level is already loaded: game.gd hears game_started first).
 func _on_run_started() -> void:
 	_run += 1
-	phase = "plain"
+	# A chapter that starts on another machine opens with a short "prelude" there.
+	phase = "prelude" if chapter.has("phase_one_hits") else "plain"
 	_revealed = false
 	_coins_popped = 0
 	_whispered.clear()
 	stats = {"damage": 0.0, "boss_hits": 0, "bumper_hits": 0, "nudges": 0, "tilts": 0,
-			"balls_lost": 0, "parts": 0, "time": 0.0, "splits": 0}
+			"balls_lost": 0, "parts": 0, "time": 0.0, "splits": 0,
+			"rearranged": 0, "showpiece_hits": 0, "gallery_hits": 0}
 	Engine.time_scale = 1.0
+	GameManager.popups_hidden = false # a restart mid-switch
 	Sfx.unsilence()
 	Sfx.end_battle_music()
 	_result.close()
@@ -89,22 +104,41 @@ func _on_run_started() -> void:
 	if is_instance_valid(_gimmick):
 		_gimmick.queue_free()
 	_gimmick = null
+	if is_instance_valid(_collector):
+		_collector.queue_free()
+	_collector = null
 	_boss = game.level.boss() if game.level else null
 	if _boss:
-		_boss.story_controlled = true
 		# A beaten boss keeps his face: the cap stays cracked on later visits.
-		_boss.art = str(chapter["art"]) if Story.is_beaten(chapter["id"]) else "plain"
-		_boss.set_hp(StoryData.PHASE_ONE_HP)
+		# (Not when the boss lives on another machine: this one is only borrowed.)
+		var own_face := Story.is_beaten(chapter["id"]) and not chapter.has("boss_scene")
+		_take_boss(_boss, str(chapter["art"]) if own_face else str(chapter.get("phase_one_art", "plain")))
+		if chapter.has("phase_one_hits"):
+			# Counted in hits: each hit takes one off, whatever the score.
+			_boss.fixed_damage = 1.0
+			_boss.set_hp(float(chapter["phase_one_hits"]))
+		else:
+			_boss.set_hp(float(chapter.get("phase_one_hp", StoryData.PHASE_ONE_HP)))
 		_phase_one_max = _boss.max_hp
-		_boss.depleted.connect(_on_boss_depleted)
-		_boss.damaged.connect(_on_boss_damaged)
 	if Story.is_beaten(chapter["id"]) and game.level:
 		game.level.modulate = chapter.get("tint", Color.WHITE)
-	if not Story.intro_seen:
-		_intro(_run) # shows the chapter banner when it ends
+	var opening := _fresh_visit
+	_fresh_visit = false
+	if opening and chapter.has("opening") and Story.intro_seen:
+		_opening(_run) # the chapter's own opening instead of Sal's handover
+	elif opening:
+		_intro(_run) # shows the chapter banner when it ends; Skip on the dialogue box
 	else:
 		_chapter_banner()
 		_whisper_later(_run, StoryData.WHISPER_START, "whisper_start")
+
+
+## Story mode runs this boss: our signals, our art.
+func _take_boss(boss: BossBumper, art: String) -> void:
+	boss.story_controlled = true
+	boss.art = art
+	boss.depleted.connect(_on_boss_depleted)
+	boss.damaged.connect(_on_boss_damaged)
 
 
 func _chapter_banner() -> void:
@@ -114,7 +148,7 @@ func _chapter_banner() -> void:
 
 func _whisper_later(run: int, text: String, voice_id: String) -> void:
 	await get_tree().create_timer(2.6, true, false, true).timeout
-	if run == _run and phase == "plain":
+	if run == _run and phase in ["plain", "prelude"]:
 		_dialogue.whisper(text, 4.0, voice_id)
 
 
@@ -174,6 +208,23 @@ func _intro(run: int) -> void:
 	_chapter_banner()
 
 
+## A later chapter's start: the ghost sets the scene.
+func _opening(run: int) -> void:
+	GameManager.choosing = true
+	GameManager.input_locked = true
+	await get_tree().create_timer(0.9, true, false, true).timeout
+	if run != _run:
+		return
+	GameManager.input_locked = false
+	_hold()
+	_dialogue.begin_scene()
+	await _dialogue.say(StoryData.GHOST, chapter["opening"], str(chapter["id"]) + "_opening")
+	if run != _run:
+		return
+	_release(false)
+	_chapter_banner()
+
+
 ## Stop the game for a scene (also blocks the pause menu and restart key).
 func _hold() -> void:
 	GameManager.choosing = true
@@ -208,10 +259,15 @@ func _process(delta: float) -> void:
 
 
 func _whisper_once(key: String) -> void:
-	if _whispered.has(key) or not StoryData.WHISPERS.has(key) or _dialogue.is_talking():
+	var own: Dictionary = chapter.get("whispers", {})
+	if _whispered.has(key) or _dialogue.is_talking():
 		return
-	_whispered[key] = true
-	_dialogue.whisper(StoryData.WHISPERS[key], 4.0, "whisper_" + key)
+	if own.has(key):
+		_whispered[key] = true
+		_dialogue.whisper(own[key], 4.0, "%s_whisper_%s" % [chapter["id"], key])
+	elif StoryData.WHISPERS.has(key):
+		_whispered[key] = true
+		_dialogue.whisper(StoryData.WHISPERS[key], 4.0, "whisper_" + key)
 
 
 func _on_part_hit(part: Node) -> void:
@@ -239,8 +295,14 @@ func _on_tilted_changed(is_tilted: bool) -> void:
 func _on_boss_damaged(amount: float) -> void:
 	if phase == "over":
 		return
-	stats["damage"] = float(stats["damage"]) + amount
 	stats["boss_hits"] = int(stats["boss_hits"]) + 1
+	if phase == "prelude" and is_instance_valid(_boss) and _boss.fixed_damage > 0.0:
+		var done := roundi(_phase_one_max - _boss.hp)
+		GameManager.popup("%d / %d" % [done, roundi(_phase_one_max)],
+				_boss.global_position + Vector2(0, -_boss.radius - 40.0), Color(1.0, 0.82, 0.3), true)
+		_pop_coins.call_deferred()
+		return # hits, not damage
+	stats["damage"] = float(stats["damage"]) + amount
 	_pop_coins.call_deferred() # after the hit has been taken off the HP
 
 
@@ -248,7 +310,9 @@ func _on_boss_damaged(amount: float) -> void:
 ## first bumper's HP and of the boss's HP that is gone.
 func _coins_from_damage(boss_beaten: bool = false) -> int:
 	var phase_one_share := 1.0
-	if not _revealed and is_instance_valid(_boss):
+	if phase in ["prelude", "switch"]:
+		phase_one_share = 0.0 # the borrowed machine's hits pay nothing
+	elif not _revealed and is_instance_valid(_boss):
 		phase_one_share = clampf(1.0 - _boss.hp / _phase_one_max, 0.0, 1.0)
 	var boss_share := 0.0
 	if boss_beaten:
@@ -276,7 +340,10 @@ func _pop_coins() -> void:
 
 func _on_boss_depleted(_info: Dictionary) -> void:
 	# Called from inside a physics callback: act on the next idle frame.
-	if phase == "plain":
+	if phase == "prelude":
+		phase = "switch"
+		_switch_table.call_deferred(_run)
+	elif phase == "plain":
 		phase = "reveal"
 		_reveal.call_deferred(_run)
 	elif phase == "boss":
@@ -302,7 +369,8 @@ func _reveal(run: int) -> void:
 	_flash.modulate.a = 0.9
 	create_tween().tween_property(_flash, "modulate:a", 0.0, 0.7)
 	_boss.art = str(chapter["art"])
-	_boss_max = maxf(roundf(GameManager.score * StoryData.BOSS_HP_SCORE_FACTOR), StoryData.BOSS_HP_MIN)
+	var factor := float(chapter.get("boss_hp_factor", StoryData.BOSS_HP_SCORE_FACTOR))
+	_boss_max = maxf(roundf(GameManager.score * factor), StoryData.BOSS_HP_MIN)
 	_boss.set_hp(_boss_max)
 	Sfx.play_battle_music()
 	if "hud" in game:
@@ -325,8 +393,196 @@ func _reveal(run: int) -> void:
 	_release(true)
 
 
+## The prelude's bumper broke: the table is swapped for the chapter's own
+## machine, whose center bumper is phase 1 proper (an ordinary-looking bumper,
+## or the boss's own face once he has been beaten).
+func _switch_table(run: int) -> void:
+	if run != _run or not is_instance_valid(_boss):
+		return
+	_hold()
+	var again := Story.is_beaten(chapter["id"])
+	Sfx.play("guard_break")
+	await _morph(run, again)
+	if run != _run or not is_instance_valid(_boss):
+		return
+	_boss.art = str(chapter["art"]) if again else "plain"
+	_boss.set_hp(float(chapter.get("phase_one_hp", StoryData.PHASE_ONE_HP)))
+	_phase_one_max = _boss.max_hp
+	phase = "plain"
+	await get_tree().create_timer(0.6, true, false, true).timeout
+	if run != _run:
+		return
+	if not again:
+		_dialogue.begin_scene()
+		await _dialogue.say(StoryData.GHOST, chapter.get("arrival", []), str(chapter["id"]) + "_arrival")
+		if run != _run:
+			return
+		await _deck_tour(run)
+		if run != _run:
+			return
+	_release(true)
+
+
+const FALL_SECONDS := 0.75
+const DARK_SECONDS := 0.6 # the empty, dark cabinet between the two tables
+const RISE_SECONDS := 1.0
+const DROP_DISTANCE := 1300.0 # past the bottom of the screen
+
+## The table is swapped for the chapter's boss machine: it shakes while the
+## reveal is told, then drops out of sight, and after a moment of darkness the
+## new one rises from the bottom of the screen. The ball is put in the new
+## table's Till (if it has one), which serves it once the fight starts.
+func _morph(run: int, again: bool) -> void:
+	var old: Level = game.level
+	var holder := old.get_parent()
+	# Shaking, under the reveal's line (a rematch just shakes for a moment).
+	Sfx.play("warning", -4.0, 0.45)
+	_dialogue.hush()
+	GameManager.popups_hidden = true # no floating scores over the switch
+	var shaking := [true]
+	_shake_while(shaking)
+	if again:
+		await get_tree().create_timer(1.2, true, false, true).timeout
+	else:
+		_dialogue.begin_scene()
+		await _dialogue.say("", [chapter["switch"]], str(chapter["id"]) + "_switch")
+	shaking[0] = false
+	if run != _run:
+		return
+	# Behind the table: an empty, dark cabinet.
+	var dark := ColorRect.new()
+	dark.color = Color(0.01, 0.01, 0.02)
+	dark.position = Vector2(-200, -200)
+	dark.size = Vector2(1000, 1600)
+	dark.z_index = -50
+	holder.add_child(dark)
+	holder.move_child(dark, 0)
+	# The table falls, the balls with it. The real balls stay where they are,
+	# hidden (out of the table they would count as drained); painted stand-ins
+	# on the table fall in their place.
+	for b: Ball in _balls_in_play():
+		if b.visible:
+			var stand_in := Node2D.new()
+			stand_in.position = old.to_local(b.global_position)
+			stand_in.z_index = 20
+			var r := b.radius
+			stand_in.draw.connect(func() -> void:
+				stand_in.draw_circle(Vector2.ZERO, r, Color(0.85, 0.87, 0.92))
+				stand_in.draw_circle(Vector2(-r * 0.3, -r * 0.3), r * 0.35, Color(1, 1, 1, 0.9)))
+			old.add_child(stand_in)
+			b.visible = false
+	Sfx.play("guard_break", -2.0, 0.6)
+	var fall := create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	fall.tween_property(old, "position:y", DROP_DISTANCE, FALL_SECONDS).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	if fall.is_running():
+		await fall.finished
+	old.visible = false # kept until the new table is in: the game still points at it
+	await get_tree().create_timer(DARK_SECONDS, true, false, true).timeout
+	if run != _run:
+		dark.queue_free()
+		return
+	# The new table rises from the bottom, the ball already in its Till.
+	var fresh := (load(str(chapter["boss_scene"])) as PackedScene).instantiate() as Level
+	var tint: Color = chapter.get("tint", Color.WHITE) if Story.is_beaten(chapter["id"]) else Color.WHITE
+	fresh.modulate = tint
+	fresh.position.y = DROP_DISTANCE
+	holder.add_child(fresh)
+	Cosmetics.apply(fresh)
+	game.level = fresh
+	holder.remove_child(old)
+	old.queue_free()
+	_boss = fresh.boss()
+	if _boss:
+		_take_boss(_boss, "plain")
+	Sfx.play("ramp_complete", -4.0, 0.5)
+	var rise := create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	rise.tween_property(fresh, "position:y", 0.0, RISE_SECONDS).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	if rise.is_running():
+		await rise.finished
+	dark.queue_free()
+	if run != _run:
+		return
+	_seat_balls(fresh)
+	GameManager.level_changed.emit(fresh) # spare parts rebuild on the new table
+	GameManager.popups_hidden = false
+	if game.has_method("_shake"):
+		game._shake(Vector2.DOWN)
+	Sfx.play("guard_break", -2.0, 0.8)
+
+
+## The ghost points out the table's second floor: it (and the ramps up to it)
+## show while he talks about it, then go back to hiding until a ball goes up.
+func _deck_tour(run: int) -> void:
+	var lines: Array = chapter.get("deck_tour", [])
+	var decks: Array = game.level.find_children("*", "UpperDeck", true, false)
+	if lines.is_empty() or decks.is_empty():
+		return
+	var shown := []
+	for deck: UpperDeck in decks:
+		shown.append(deck)
+		shown.append_array(deck.ramps())
+	for part in shown:
+		part.set_forced(true)
+	await get_tree().create_timer(0.35, true, false, true).timeout
+	if run == _run:
+		await _dialogue.say(StoryData.GHOST, lines, str(chapter["id"]) + "_deck")
+	for part in shown:
+		if is_instance_valid(part):
+			part.set_forced(false)
+
+
+## Keeps the table shaking while flag[0] is true.
+func _shake_while(flag: Array) -> void:
+	while flag[0] and is_inside_tree():
+		if game.has_method("_shake"):
+			game._shake(Vector2.RIGHT.rotated(randf() * TAU))
+		await get_tree().create_timer(0.22, true, false, true).timeout
+
+
+func _balls_in_play() -> Array:
+	var out := []
+	for node in get_tree().get_nodes_in_group("ball"):
+		var ball := node as Ball
+		if ball and ball.in_play:
+			out.append(ball)
+	return out
+
+
+## Put the balls on the new table: the first in its Till, any others in the lane.
+func _seat_balls(table: Level) -> void:
+	var till := table.find_child("Till", true, false) as BallTrap
+	var first := true
+	for node in get_tree().get_nodes_in_group("ball"):
+		var ball := node as Ball
+		if ball == null or not ball.in_play:
+			continue
+		ball.leave_ramp()
+		ball.deck = null
+		if first and till:
+			till.hold(ball) # hidden in there until it is served
+		else:
+			ball.place(table.spawn_point + Vector2(0, -30.0 if not first else 0.0))
+			ball.visible = true
+		first = false
+
+
 func _start_gimmick() -> void:
 	match str(chapter.get("gimmick", "")):
+		"collector":
+			_collector = CollectorBoss.new()
+			_collector.boss = _boss
+			_collector.level = game.level
+			_collector.game = game
+			add_child(_collector)
+			_collector.process_mode = Node.PROCESS_MODE_PAUSABLE
+			_collector.active = true
+			_collector.rearranged.connect(func() -> void:
+				stats["rearranged"] = int(stats["rearranged"]) + 1
+				_whisper_once("rearrange"))
+			_collector.marked.connect(func(kind: String) -> void: _whisper_once(kind))
+			_collector.bonus_hit.connect(func(kind: String) -> void:
+				var key := "showpiece_hits" if kind == "showpiece" else "gallery_hits"
+				stats[key] = int(stats[key]) + 1)
 		"splitter":
 			_gimmick = SplitterBoss.new()
 			_gimmick.boss = _boss
@@ -350,6 +606,8 @@ func _victory(run: int) -> void:
 	GameManager.choosing = true # no pause menu or restart key during the ending
 	if is_instance_valid(_gimmick):
 		_gimmick.active = false
+	if is_instance_valid(_collector):
+		_collector.active = false
 	var at := _boss.global_position if is_instance_valid(_boss) else Vector2(300, 400)
 	Engine.time_scale = SLOWMO_SCALE
 	if game.has_method("focus_camera"):
@@ -406,7 +664,7 @@ func _finish(won: bool) -> void:
 	if won:
 		first = Story.beat_chapter(chapter["id"])
 		coins += StoryData.COINS_FIRST_DEFEAT if first else StoryData.COINS_REPEAT_DEFEAT
-	Story.record_run(chapter["id"], GameManager.score, float(stats["damage"]))
+	var records: Dictionary = Story.record_run(chapter["id"], GameManager.score, float(stats["damage"]), float(stats["time"]), won)
 	var coin := Story.add_coins(coins)
 	Story.save()
 	_result.open({
@@ -419,6 +677,7 @@ func _finish(won: bool) -> void:
 		"stats": stats,
 		"boss_share": boss_share,
 		"revealed": _revealed,
+		"records": records,
 	})
 
 

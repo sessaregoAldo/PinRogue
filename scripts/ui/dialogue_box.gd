@@ -136,6 +136,17 @@ func say(speaker: String, lines: Array, voice_prefix: String = "", first_number:
 ## Call at the start of a conversation: Skip applies to one scene at a time.
 func begin_scene() -> void:
 	skipping = false
+	hush()
+
+
+## Fades a whisper that is still up (a scene is starting).
+func hush() -> void:
+	if _note.modulate.a <= 0.01:
+		return
+	if _note_tween:
+		_note_tween.kill()
+	_note_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	_note_tween.tween_property(_note, "modulate:a", 0.0, 0.25)
 
 
 func is_talking() -> bool:

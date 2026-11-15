@@ -11,6 +11,7 @@ const GAME_SCENE := "res://scenes/game.tscn"
 const BUTTON_SIZE := Vector2(280, 52)
 const GOLD := Color(1.0, 0.85, 0.3)
 const SOFT := Color(0.75, 0.8, 0.95)
+const DANGER := Color(0.85, 0.2, 0.2)
 ## Pulsing line under the title while the game's version starts with
 ## SPLASH_VERSION; other versions show the usual tagline.
 const SPLASH_TEXT := "Now with Story Mode!"
@@ -29,10 +30,20 @@ var _notes_corner: Button
 var _modes_page: VBoxContainer
 var _notes_page: VBoxContainer
 var _feedback_page: VBoxContainer
+var _reset_page: VBoxContainer
+var _reset_button: Button
+var _reset_yes: Button
+var _reset_cancel: Button
+var _gear: Button
+## The page the gear opened Options from (Back returns there).
+var _options_from: Control
+const GEAR_SIZE := Vector2(48, 48)
 var _feedback: FeedbackPanel
 var _reports_page: VBoxContainer
 var _reports: FeedbackViewer
 var _splash: Label
+## The table shown behind the menu.
+var _background_level: Level
 var _story_page: VBoxContainer
 var _coin_badge: CoinBadge
 var _cosmetics_page: VBoxContainer
@@ -40,6 +51,10 @@ var _cosmetics: CosmeticsPanel
 var _story_line: Label
 var _story_play: Button
 var _story_status: Label
+## Story page: the chapter picked with the arrows (-1 = the next one to play).
+var _story_pick: int = -1
+var _story_prev: Button
+var _story_next: Button
 var _records_page: VBoxContainer
 var _records_title: Label
 var _records: LeaderboardPanel
@@ -137,6 +152,8 @@ func _show_page(page: Control) -> void:
 	for p in _pages:
 		p.visible = p == page
 	_notes_corner.visible = page == _main_page
+	if _gear:
+		_gear.get_child(0).queue_redraw() # gold while Options is open
 	# Story pages: the coin count sits in the top-right corner.
 	_coin_badge.visible = page in [_story_page, _workshop_page, _cosmetics_page, _journal_page, _records_page]
 	_cosmetics.preview.visible = page == _cosmetics_page
@@ -175,6 +192,8 @@ func _show_page(page: Control) -> void:
 	elif page == _pick_page:
 		_show_pick(_pick_index)
 		_pick_play.grab_focus()
+	elif page == _reset_page:
+		_reset_cancel.grab_focus() # Cancel first: a stray Enter keeps the save
 	elif page == _controls_page:
 		_fill_controls()
 		_controls_ready_at = Time.get_ticks_msec() / 1000.0 + 0.35
@@ -195,8 +214,71 @@ func _back() -> void:
 		_show_page(_story_page)
 	elif _story_page.visible:
 		_show_page(_modes_page)
+	elif _reset_page.visible:
+		_show_page(_options_page)
+	elif _options_page.visible:
+		_show_page(_options_from if is_instance_valid(_options_from) else _main_page)
 	else:
 		_show_page(_main_page)
+
+
+## The gear: opens Options from any page, and goes back where it was when
+## pressed again.
+func _toggle_options() -> void:
+	if _options_page.visible or _reset_page.visible:
+		Sfx.save_settings()
+		_click_to(_options_from if is_instance_valid(_options_from) else _main_page)
+		return
+	for p in _pages:
+		if p.visible:
+			_options_from = p
+	_click_to(_options_page)
+
+
+## A gear: eight teeth around a ring, gold while it's open or pointed at.
+func _draw_gear(icon: Control) -> void:
+	var lit := _options_page.visible or _reset_page.visible or _gear.is_hovered()
+	var col := GOLD if lit else Color(SOFT, 0.9)
+	var c := icon.size * 0.5
+	var outer := 15.0
+	var inner := 11.5
+	var pts := PackedVector2Array()
+	for i in 8:
+		var a := TAU * i / 8.0
+		for step: Array in [[-0.3, inner], [-0.17, outer], [0.17, outer], [0.3, inner]]:
+			pts.append(c + Vector2.from_angle(a + float(step[0])) * float(step[1]))
+	icon.draw_colored_polygon(pts, col)
+	icon.draw_circle(c, 5.0, Color(0.1, 0.11, 0.2))
+
+
+## Confirmed on the Reset Progress page: back to a first visit, then Options.
+func _do_reset() -> void:
+	Story.reset_progress()
+	Sfx.play("guard_break", -6.0, 0.8)
+	_show_page(_options_page)
+	_reset_button.text = "Story progress reset"
+	_reset_button.disabled = true
+	get_tree().create_timer(2.0).timeout.connect(func() -> void:
+		if is_instance_valid(_reset_button):
+			_reset_button.text = "Reset Story Progress"
+			_reset_button.disabled = false)
+
+
+## A red button, for things that can't be undone.
+func _danger(b: Button) -> void:
+	for state: String in ["normal", "hover", "pressed", "focus", "disabled"]:
+		var box := StyleBoxFlat.new()
+		box.bg_color = {"normal": DANGER.darkened(0.35), "hover": DANGER.darkened(0.15), "pressed": DANGER.darkened(0.5),
+				"focus": DANGER.darkened(0.35), "disabled": DANGER.darkened(0.7)}[state]
+		box.set_corner_radius_all(6)
+		if state == "focus":
+			box.draw_center = false
+			box.set_border_width_all(2)
+			box.border_color = Color.WHITE
+		b.add_theme_stylebox_override(state, box)
+	b.add_theme_color_override("font_color", Color.WHITE)
+	b.add_theme_color_override("font_hover_color", Color.WHITE)
+	b.add_theme_color_override("font_disabled_color", Color(1, 1, 1, 0.6))
 
 
 func _pick_mode(mode: String) -> void:
@@ -232,29 +314,55 @@ func _cycle_board(step: int) -> void:
 	_show_board(_board_index + step)
 
 
+## Story progress changed (e.g. a cosmetic was bought): re-dress the table behind the menu.
+func _on_story_changed() -> void:
+	if is_instance_valid(_background_level):
+		Cosmetics.apply(_background_level)
+
+
 func _splash_active() -> bool:
 	return str(ProjectSettings.get_setting("application/config/version", "")).begins_with(SPLASH_VERSION)
 
 
 # --- Story mode ---------------------------------------------------------------------
 
-## The chapter the Story page's play button starts: the first one not beaten
-## yet, or the last one again when everything is beaten.
+## The chapter the Story page's play button starts: the one picked with the
+## arrows, else the first one not beaten yet (the last one when all are).
 func _story_chapter() -> int:
+	var last_open := _story_last_open()
+	if _story_pick >= 0 and _story_pick <= last_open:
+		return _story_pick
+	return last_open
+
+
+## The furthest chapter that can be played: the first not beaten (or the last).
+func _story_last_open() -> int:
 	var next := Story.next_chapter()
 	return next if next >= 0 else StoryData.CHAPTERS.size() - 1
+
+
+## The Story page's arrows: step through the chapters played so far.
+func _step_story(step: int) -> void:
+	Sfx.play("click")
+	_story_pick = clampi(_story_chapter() + step, 0, _story_last_open())
+	_fill_story()
 
 
 func _fill_story() -> void:
 	var index := _story_chapter()
 	var ch := StoryData.chapter(index)
 	var all_beaten := Story.next_chapter() < 0
+	var choices := Story.intro_seen and _story_last_open() > 0
+	_story_prev.modulate.a = 1.0 if choices else 0.0
+	_story_next.modulate.a = 1.0 if choices else 0.0
+	_story_prev.disabled = not choices or index <= 0
+	_story_next.disabled = not choices or index >= _story_last_open()
 	if not Story.intro_seen:
 		_story_play.text = "Begin"
 		_story_status.text = "A pinball machine, bought from a man named Sal."
 		_story_line.text = ""
 	else:
-		_story_play.text = ("Replay Chapter %d" if all_beaten else "Chapter %d") % int(ch["number"])
+		_story_play.text = ("Replay Chapter %d" if Story.is_beaten(ch["id"]) else "Chapter %d") % int(ch["number"])
 		_story_status.text = "%s%s" % [ch["title"], "  ·  beaten" if Story.is_beaten(ch["id"]) else ""]
 		var line: String = StoryData.HUB_LINE_START
 		for c: Dictionary in StoryData.CHAPTERS:
@@ -446,9 +554,9 @@ func _build_background() -> void:
 	add_child(level)
 	# The table behind the menu wears the player's cosmetics, and changes with them.
 	Cosmetics.apply(level)
-	Story.changed.connect(func() -> void:
-		if is_instance_valid(level):
-			Cosmetics.apply(level))
+	_background_level = level
+	# A method (not a lambda): the connection ends with the menu.
+	Story.changed.connect(_on_story_changed)
 
 
 func _build_ui() -> void:
@@ -477,7 +585,6 @@ func _build_ui() -> void:
 		_label(_main_page, "a roguelike pinball", 18, SOFT)
 	_spacer(_main_page, 24)
 	_start_button = _button(_main_page, "Start Run", func() -> void: _click_to(_modes_page))
-	_button(_main_page, "Options", func() -> void: _click_to(_options_page))
 	_button(_main_page, "Leaderboard", func() -> void: _click_to(_leaderboard_page))
 	_button(_main_page, "Feedback", func() -> void: _click_to(_feedback_page))
 	if LevelRegistry.count() > 2:
@@ -491,6 +598,20 @@ func _build_ui() -> void:
 	_settings = SettingsPanel.new()
 	_options_page.add_child(_settings)
 	_button(_options_page, "Back", _back)
+	_spacer(_options_page, 18)
+	_reset_button = _button(_options_page, "Reset Story Progress", func() -> void: _click_to(_reset_page))
+	_danger(_reset_button)
+
+	# Reset progress: asks first.
+	_reset_page = _page(holder)
+	_label(_reset_page, "RESET STORY PROGRESS?", 40, DANGER.lightened(0.3))
+	var warn := _label(_reset_page, "Story chapters, unlocked machines, coins, Workshop parts and cosmetics go back to a first visit.\nYour settings and leaderboard scores are kept.\n\nThis cannot be undone.", 18, SOFT)
+	warn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	warn.custom_minimum_size = Vector2(440, 0)
+	_spacer(_reset_page, 8)
+	_reset_yes = _button(_reset_page, "Yes, reset", _do_reset)
+	_danger(_reset_yes)
+	_reset_cancel = _button(_reset_page, "Cancel", _back)
 
 	# Leaderboard
 	_leaderboard_page = _page(holder)
@@ -543,6 +664,7 @@ func _build_ui() -> void:
 	_parts_scroll.custom_minimum_size = Vector2(480, 640)
 	_parts_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_parts_scroll.add_child(_build_spare_parts())
+	TouchScroll.setup(_parts_scroll)
 	_machines_page.add_child(_parts_scroll)
 	_button(_machines_page, "Back", _back)
 
@@ -579,6 +701,7 @@ func _build_ui() -> void:
 	_notes_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_notes_page.add_child(_notes_scroll)
 	_notes_scroll.add_child(_build_patch_notes())
+	TouchScroll.setup(_notes_scroll)
 	_button(_notes_page, "Back", _back)
 
 	# Story mode: hub, Journal and Workshop
@@ -586,7 +709,25 @@ func _build_ui() -> void:
 	_label(_story_page, "STORY", 40, GOLD)
 	_spacer(_story_page, 4)
 	_story_play = _button(_story_page, "Begin", _start_story)
-	_story_status = _label(_story_page, "", 16, SOFT)
+	# Chapter title between two arrows (shown once a second chapter is open).
+	var chapter_row := HBoxContainer.new()
+	chapter_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	chapter_row.add_theme_constant_override("separation", 12)
+	_story_page.add_child(chapter_row)
+	_story_prev = Button.new()
+	_story_prev.text = "<"
+	_story_prev.custom_minimum_size = Vector2(52, 40)
+	_story_prev.add_theme_font_size_override("font_size", 20)
+	_story_prev.pressed.connect(_step_story.bind(-1))
+	chapter_row.add_child(_story_prev)
+	_story_status = _label(chapter_row, "", 16, SOFT)
+	_story_status.custom_minimum_size = Vector2(300, 0)
+	_story_next = Button.new()
+	_story_next.text = ">"
+	_story_next.custom_minimum_size = Vector2(52, 40)
+	_story_next.add_theme_font_size_override("font_size", 20)
+	_story_next.pressed.connect(_step_story.bind(1))
+	chapter_row.add_child(_story_next)
 	_spacer(_story_page, 4)
 	_button(_story_page, "Journal", func() -> void: _click_to(_journal_page))
 	_button(_story_page, "Workshop", func() -> void: _click_to(_workshop_page))
@@ -735,6 +876,35 @@ func _build_ui() -> void:
 		_notes_corner.add_theme_stylebox_override(state, outline)
 	_notes_corner.pressed.connect(func() -> void: _click_to(_notes_page))
 	ui.add_child(_notes_corner)
+
+	# Settings: a square gear button, always in the top-left corner.
+	_gear = Button.new()
+	_gear.tooltip_text = "Options"
+	_gear.position = Vector2(10, 10)
+	_gear.size = GEAR_SIZE
+	_gear.custom_minimum_size = GEAR_SIZE
+	for state: String in ["normal", "hover", "pressed", "focus"]:
+		var gear_box := StyleBoxFlat.new()
+		gear_box.bg_color = Color(0.1, 0.11, 0.2, 0.85) if state != "pressed" else Color(0.2, 0.18, 0.1, 0.95)
+		gear_box.border_color = Color(SOFT, 0.45) if state == "normal" else GOLD
+		gear_box.set_border_width_all(2)
+		gear_box.set_corner_radius_all(8)
+		if state == "focus":
+			gear_box.draw_center = false
+		_gear.add_theme_stylebox_override(state, gear_box)
+	var icon := Control.new()
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon.set_anchors_preset(Control.PRESET_FULL_RECT)
+	icon.draw.connect(func() -> void: _draw_gear(icon))
+	_gear.add_child(icon)
+	icon.queue_redraw.call_deferred() # once the starting page is chosen
+	_gear.mouse_entered.connect(icon.queue_redraw)
+	_gear.mouse_exited.connect(icon.queue_redraw)
+	_gear.pressed.connect(_toggle_options)
+	ui.add_child(_gear)
+	# Keyboard: up from the top of the main list reaches it, down comes back.
+	_start_button.focus_neighbor_top = _start_button.get_path_to(_gear)
+	_gear.focus_neighbor_bottom = _gear.get_path_to(_start_button)
 
 	# Fade overlay for transitions.
 	var fade_layer := CanvasLayer.new()

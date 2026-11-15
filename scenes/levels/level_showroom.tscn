@@ -1,0 +1,263 @@
+[gd_scene load_steps=16 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/levels/level_base.tscn" id="1_base"]
+[ext_resource type="Script" path="res://scripts/wall.gd" id="2_wall"]
+[ext_resource type="PackedScene" path="res://scenes/bumper.tscn" id="3_bumper"]
+[ext_resource type="PackedScene" path="res://scenes/boss_bumper.tscn" id="4_boss"]
+[ext_resource type="PackedScene" path="res://scenes/slingshot.tscn" id="5_sling"]
+[ext_resource type="Script" path="res://scripts/rollover.gd" id="6_rollover"]
+[ext_resource type="PackedScene" path="res://scenes/tunnel.tscn" id="9_tunnel"]
+[ext_resource type="Script" path="res://scripts/spinner.gd" id="11_spinner"]
+[ext_resource type="Script" path="res://scripts/saucer.gd" id="12_saucer"]
+[ext_resource type="Script" path="res://scripts/ball_trap.gd" id="14_trap"]
+[ext_resource type="Script" path="res://scripts/trap_exit.gd" id="15_exit"]
+[ext_resource type="Script" path="res://scripts/sequence_lights.gd" id="16_seq"]
+[ext_resource type="Script" path="res://scripts/upper_deck.gd" id="17_deck"]
+[ext_resource type="Script" path="res://scripts/deck_drop.gd" id="18_drop"]
+[ext_resource type="PackedScene" path="res://scenes/flipper.tscn" id="19_flip"]
+
+[node name="LevelShowroom" instance=ExtResource("1_base")]
+level_name = "Showroom"
+description = "The collector's machine. A lift climbs the right wall to a velvet gallery across the top, with its own flippers, and its drop hole lets the ball fall onto the boss. Gold coin lane on the left, the Till in the middle."
+art_rings = PackedVector3Array(280, 340, 70)
+art_title = "SHOWROOM"
+
+[node name="CoinLaneWall" type="StaticBody2D" parent="Walls"]
+script = ExtResource("2_wall")
+points = PackedVector2Array(76, 390, 76, 555)
+bounce = 0.25
+color = Color(0.62, 0.55, 0.95, 1)
+
+[node name="AwningLeft" type="StaticBody2D" parent="Walls"]
+script = ExtResource("2_wall")
+points = PackedVector2Array(175, 500, 232, 532)
+bounce = 0.45
+color = Color(1, 0.75, 0.35, 1)
+
+[node name="AwningRight" type="StaticBody2D" parent="Walls"]
+script = ExtResource("2_wall")
+points = PackedVector2Array(385, 500, 328, 532)
+bounce = 0.45
+color = Color(1, 0.75, 0.35, 1)
+
+[node name="CoinSpinner" type="Area2D" parent="."]
+position = Vector2(48, 460)
+script = ExtResource("11_spinner")
+width = 46.0
+legend_name = "Coin spinner"
+color = Color(1, 0.82, 0.3, 1)
+
+[node name="CoinKicker" parent="." instance=ExtResource("5_sling")]
+corner_a = Vector2(22, 625)
+corner_b = Vector2(80, 680)
+corner_c = Vector2(22, 680)
+kick_strength = 950.0
+kick_angle_jitter_deg = 4.0
+keep_tangent = 0.2
+score_value = 50
+legend_name = "Coin kicker"
+color = Color(1, 0.82, 0.3, 1)
+
+[node name="Till" type="Area2D" parent="."]
+position = Vector2(280, 565)
+script = ExtResource("14_trap")
+radius = 20.0
+legend_name = "The Till"
+color = Color(1, 0.82, 0.3, 1)
+
+[node name="ExitLeft" type="Node2D" parent="Till"]
+position = Vector2(-130, -110)
+rotation = 0.55
+script = ExtResource("15_exit")
+color = Color(0.8, 0.92, 1, 1)
+
+[node name="ExitRight" type="Node2D" parent="Till"]
+position = Vector2(130, -110)
+rotation = -0.55
+script = ExtResource("15_exit")
+color = Color(0.8, 0.92, 1, 1)
+
+[node name="ExitTop" type="Node2D" parent="Till"]
+position = Vector2(0, -385)
+rotation = 3.14159
+script = ExtResource("15_exit")
+color = Color(0.8, 0.92, 1, 1)
+
+[node name="CaseLeft" type="Area2D" parent="."]
+position = Vector2(125, 330)
+script = ExtResource("12_saucer")
+eject_velocity = Vector2(460, -90)
+legend_name = "Display case"
+color = Color(0.8, 0.95, 1, 1)
+
+[node name="CaseRight" type="Area2D" parent="."]
+position = Vector2(435, 330)
+script = ExtResource("12_saucer")
+eject_velocity = Vector2(-460, -90)
+legend_name = "Display case"
+color = Color(0.8, 0.95, 1, 1)
+
+[node name="SequencePads" type="Node2D" parent="."]
+script = ExtResource("16_seq")
+pads = PackedVector2Array(558, 236, 548, 182, 527, 136, 496, 101)
+legend_name = "Launch sequence"
+
+[node name="LightLeft" type="Area2D" parent="Rollovers"]
+position = Vector2(215, 435)
+script = ExtResource("6_rollover")
+legend_name = "Showcase light"
+
+[node name="LightMid" type="Area2D" parent="Rollovers"]
+position = Vector2(280, 450)
+script = ExtResource("6_rollover")
+legend_name = "Showcase light"
+
+[node name="LightRight" type="Area2D" parent="Rollovers"]
+position = Vector2(345, 435)
+script = ExtResource("6_rollover")
+legend_name = "Showcase light"
+
+[node name="Bumpers" type="Node2D" parent="."]
+
+[node name="BossBumper" parent="Bumpers" instance=ExtResource("4_boss")]
+position = Vector2(280, 340)
+radius = 36.0
+kick_strength = 800.0
+legend_name = "Boss bumper"
+color = Color(0.9, 0.16, 0.22, 1)
+hit_pitch = 0.7
+
+[node name="BumperLeft" parent="Bumpers" instance=ExtResource("3_bumper")]
+position = Vector2(185, 265)
+
+[node name="BumperRight" parent="Bumpers" instance=ExtResource("3_bumper")]
+position = Vector2(375, 265)
+
+[node name="MiniLeft" parent="Bumpers" instance=ExtResource("3_bumper")]
+position = Vector2(190, 672)
+radius = 16.0
+kick_strength = 600.0
+score_value = 50
+legend_name = "Mini bumper"
+color = Color(0.25, 0.95, 0.8, 1)
+
+[node name="MiniRight" parent="Bumpers" instance=ExtResource("3_bumper")]
+position = Vector2(370, 672)
+radius = 16.0
+kick_strength = 600.0
+score_value = 50
+legend_name = "Mini bumper"
+color = Color(0.25, 0.95, 0.8, 1)
+
+[node name="Gallery" type="Node2D" parent="."]
+z_index = 8
+script = ExtResource("17_deck")
+outline = PackedVector2Array(82, 107.6, 88.1, 101.2, 122.1, 76.4, 161.6, 56.2, 205.2, 41.3, 251.9, 32.1, 300, 29, 348.1, 32.1, 394.8, 41.3, 438.4, 56.2, 477.9, 76.4, 478, 76.5, 478, 190, 300, 240, 260, 240, 82, 190)
+floor_color = Color(0.3, 0.08, 0.15, 1)
+
+[node name="Rim" type="StaticBody2D" parent="Gallery"]
+script = ExtResource("2_wall")
+points = PackedVector2Array(300, 240, 478, 190, 478, 80.2, 476.3, 79, 437.3, 58.9, 394, 44.2, 347.7, 35, 300, 32, 252.3, 35, 206, 44.2, 162.7, 58.9, 123.7, 79, 90.1, 103.5, 82, 112, 82, 190, 260, 240)
+thickness = 6.0
+bounce = 0.35
+color = Color(1, 0.8, 0.35, 1)
+
+[node name="B1" parent="Gallery" instance=ExtResource("3_bumper")]
+position = Vector2(180, 128)
+radius = 18.0
+kick_strength = 620.0
+score_value = 150
+legend_name = "Gallery bumper"
+color = Color(1, 0.75, 0.35, 1)
+
+[node name="B2" parent="Gallery" instance=ExtResource("3_bumper")]
+position = Vector2(280, 82)
+radius = 18.0
+kick_strength = 620.0
+score_value = 150
+legend_name = "Gallery bumper"
+color = Color(1, 0.75, 0.35, 1)
+
+[node name="B3" parent="Gallery" instance=ExtResource("3_bumper")]
+position = Vector2(380, 128)
+radius = 18.0
+kick_strength = 620.0
+score_value = 150
+legend_name = "Gallery bumper"
+color = Color(1, 0.75, 0.35, 1)
+
+[node name="KickLeft" parent="Gallery" instance=ExtResource("5_sling")]
+corner_a = Vector2(85.0, 168.0)
+corner_b = Vector2(150, 205.99)
+corner_c = Vector2(85.0, 187.73)
+kick_strength = 700.0
+score_value = 75
+legend_name = "Gallery kicker"
+color = Color(1, 0.75, 0.35, 1)
+
+[node name="KickRight" parent="Gallery" instance=ExtResource("5_sling")]
+corner_a = Vector2(475.0, 168.0)
+corner_b = Vector2(410.0, 205.99)
+corner_c = Vector2(475.0, 187.73)
+kick_strength = 700.0
+score_value = 75
+legend_name = "Gallery kicker"
+color = Color(1, 0.75, 0.35, 1)
+
+[node name="LightA" type="Area2D" parent="Gallery"]
+position = Vector2(220, 180)
+script = ExtResource("6_rollover")
+group_name = &"gallery"
+legend_name = "Gallery light"
+group_bonus = 4000
+grants_powerup = false
+bonus_step = 2000
+sets_per_step = 2
+color = Color(1, 0.8, 0.35, 1)
+
+[node name="LightB" type="Area2D" parent="Gallery"]
+position = Vector2(340, 180)
+script = ExtResource("6_rollover")
+group_name = &"gallery"
+legend_name = "Gallery light"
+group_bonus = 4000
+grants_powerup = false
+bonus_step = 2000
+sets_per_step = 2
+color = Color(1, 0.8, 0.35, 1)
+
+[node name="Drop" type="Area2D" parent="Gallery"]
+position = Vector2(280, 230)
+script = ExtResource("18_drop")
+
+[node name="FlipLeft" parent="Gallery" instance=ExtResource("19_flip")]
+position = Vector2(168.92, 218.57)
+side = 0
+length = 68.0
+base_radius = 7.0
+tip_radius = 7.0
+rest_angle_deg = 15.690
+active_angle_deg = -25.0
+
+[node name="FlipRight" parent="Gallery" instance=ExtResource("19_flip")]
+position = Vector2(391.08, 218.57)
+side = 1
+length = 68.0
+base_radius = 7.0
+tip_radius = 7.0
+rest_angle_deg = 15.690
+active_angle_deg = -25.0
+
+[node name="Lift" parent="." instance=ExtResource("9_tunnel")]
+z_index = 6
+path = PackedVector2Array(474, 578, 489, 510, 493, 440, 485, 350, 470, 265, 458, 200, 440, 148, 418, 112)
+width = 44.0
+entrance_posts = false
+min_entry_speed = 250.0
+entry_angle_deg = 60.0
+booster_from = 0.25
+score_value = 1000
+to_deck = NodePath("../Gallery")
+color = Color(1, 0.6, 0.3, 1)
+legend_name = "Gallery lift"
+

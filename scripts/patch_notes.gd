@@ -5,6 +5,26 @@ extends RefCounted
 
 const NOTES: Array[Dictionary] = [
 	{
+		"version": "0.14.2",
+		"name": "Upstairs",
+		"date": "Nov 14, 2026",
+		"notes": [
+			"Story Mode chapter 2 is here. Beat chapter 1 and the machine has more to show you.",
+			"The Story menu lets you go back and replay any chapter you've reached.",
+			"A new machine with a second floor, reached by a lift. The floor stays out of the way until the ball goes up there, then the view leans in. Earn it in Story Mode to play it in Endless.",
+			"Ramps show where they lead: their supports and exits are always visible, and the whole ramp appears while the ball rides it.",
+			"Placing a score multiplier on a second-floor part brings that floor into view while it's highlighted.",
+			"Options is now a gear button in the top-left corner of every menu page.",
+			"New Reset Story Progress button in Options, to start Story Mode over from the very beginning.",
+			"Story runs are timed. The result page shows your run time, and the Journal keeps your best run's time and your fastest win.",
+			"Posting a story run now shows that chapter's leaderboard. Leaving a story run always brings you back to the Story menu.",
+			"Story leaderboards can be ranked by fastest win as well as by highest score.",
+			"Ramps now fire the ball out with all the speed it built up inside, instead of letting it dribble out of the end.",
+			"Each chapter opens with its intro again. Tap Skip if you've seen it.",
+			"Lists scroll properly on phones when you drag across cards and buttons.",
+		],
+	},
+	{
 		"version": "0.14.1",
 		"name": "Fresh Paint",
 		"date": "Nov 13, 2026",

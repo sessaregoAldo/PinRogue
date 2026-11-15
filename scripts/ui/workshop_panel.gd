@@ -27,6 +27,7 @@ func _init() -> void:
 	_scroll.custom_minimum_size = Vector2(WIDTH, 620)
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	add_child(_scroll)
+	TouchScroll.setup(_scroll)
 	_list = VBoxContainer.new()
 	_list.add_theme_constant_override("separation", 8)
 	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -103,6 +104,8 @@ func _row(part: Dictionary, owned: bool) -> PanelContainer:
 
 
 func _buy(part_id: String) -> void:
+	if TouchScroll.dragged(_scroll):
+		return # scrolling past a Buy button must never buy it
 	if Story.buy(part_id):
 		Sfx.play("powerup")
 		refresh()

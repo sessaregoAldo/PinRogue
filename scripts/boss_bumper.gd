@@ -35,8 +35,14 @@ signal damaged(amount: float)
 
 ## Story mode: the StoryDirector decides what happens at 0 HP.
 var story_controlled: bool = false
+## Story mode: (ball) -> damage multiplier for this hit (a boss gimmick's bonus).
+var hit_multiplier: Callable = Callable()
+## Story mode: when above 0, every hit deals exactly this (a phase counted in hits).
+## The health bar then shows one segment per hit.
+var fixed_damage: float = 0.0
 ## Look: "" = the health dial; "plain" = an ordinary bumper with a health bar
-## above it (story phase 1); "splitter" = the dial, cracked down the middle.
+## above it (story phase 1); "splitter" = the dial, cracked down the middle;
+## "collector" = the dial in a gold, coin-milled rim with a jeweller's loupe.
 var art: String = "":
 	set(value):
 		art = value
@@ -56,16 +62,23 @@ func _ready() -> void:
 	_shown_hp = hp
 
 
-func _after_hit(_ball: Ball) -> void:
+func _after_hit(ball: Ball) -> void:
 	if hp <= 0:
 		return
 	var damage: float = GameManager.score if damage_mode == DamageMode.CURRENT_SCORE else float(score_value)
-	damage = maxf(roundf(damage * GameManager.boss_damage_mult), 1.0)
+	if fixed_damage > 0.0:
+		damage = fixed_damage
+	else:
+		var bonus := 1.0
+		if hit_multiplier.is_valid():
+			bonus = float(hit_multiplier.call(ball))
+		damage = maxf(roundf(damage * GameManager.boss_damage_mult * bonus), 1.0)
 	var total_damage := (max_hp - hp) + damage # includes the overkill of this hit
 	hp = maxf(0.0, hp - damage)
 	_hurt = 1.0
-	GameManager.popup("-%s HP" % GameManager.format_short(damage),
-			global_position + Vector2(0, -radius - 16), Color(1.0, 0.35, 0.3), true)
+	if fixed_damage <= 0.0:
+		GameManager.popup("-%s HP" % GameManager.format_short(damage),
+				global_position + Vector2(0, -radius - 16), Color(1.0, 0.35, 0.3), true)
 	damaged.emit(damage)
 	if hp <= 0.0:
 		var info := { # GameManager adds "next_max_hp"
@@ -101,15 +114,19 @@ func _draw() -> void:
 	if art == "plain":
 		_draw_plain()
 		return
-	var fill := color.lerp(Color.WHITE, _flash * 0.7)
-	draw_circle(Vector2.ZERO, radius + _flash * 6.0, color.darkened(0.5))
+	# The Collector is all coin: an old-gold body instead of the boss red.
+	var body := Color(0.45, 0.33, 0.12) if art == "collector" else color
+	var fill := body.lerp(Color.WHITE, _flash * 0.7)
+	draw_circle(Vector2.ZERO, radius + _flash * 6.0, body.darkened(0.5))
 	draw_circle(Vector2.ZERO, radius, fill)
 
 	# Health dial: dark disc = lost health, colored slice = remaining health.
 	var r := radius * dial_ratio
-	draw_circle(Vector2.ZERO, r, color.darkened(0.78))
+	# The Collector's dial is emerald, so he reads apart from the plain bumper and the Splitter.
+	var core := Color(0.1, 0.72, 0.42) if art == "collector" else color
+	draw_circle(Vector2.ZERO, r, core.darkened(0.78))
 	var ratio := clampf(_shown_hp / float(max_hp), 0.0, 1.0)
-	var health_color := color.lightened(0.35).lerp(Color.WHITE, _hurt * 0.5)
+	var health_color := core.lightened(0.35).lerp(Color.WHITE, _hurt * 0.5)
 	if ratio >= 0.999:
 		draw_circle(Vector2.ZERO, r, health_color)
 	elif ratio > 0.0:
@@ -120,13 +137,22 @@ func _draw() -> void:
 			var angle := -PI * 0.5 + TAU * ratio * float(i) / segments
 			pts.append(Vector2.from_angle(angle) * r)
 		draw_colored_polygon(pts, health_color)
-	draw_arc(Vector2.ZERO, r, 0.0, TAU, 48, Color(color.lightened(0.6), 0.7), 1.5, true)
+	draw_arc(Vector2.ZERO, r, 0.0, TAU, 48, Color(core.lightened(0.6), 0.7), 1.5, true)
 	draw_arc(Vector2.ZERO, radius, 0.0, TAU, 48, Color.WHITE, 2.0, true)
 
 	if art == "splitter":
 		_draw_crack()
+		if fixed_damage > 0.0:
+			var broken := hp <= 0.0
+			_draw_hit_cracks(roundi((max_hp - hp) / fixed_damage) + (1 if broken else 0))
+			if broken: # the cap gives way: its old crack opens up
+				var crack := crack_points(radius)
+				draw_polyline(crack, Color(0, 0, 0, 1.0), 10.0, true)
+				draw_polyline(crack, Color(1.0, 0.55, 0.25, 0.9), 2.0, true)
+	elif art == "collector":
+		_draw_collector()
 
-	if show_hp_number:
+	if show_hp_number and fixed_damage <= 0.0: # a phase counted in hits shows cracks, not numbers
 		var font := ThemeDB.fallback_font
 		var text := GameManager.format_short(hp) if not Engine.is_editor_hint() else _short_number(hp)
 		var pos := Vector2(-r, 5)
@@ -156,6 +182,46 @@ func _draw_crack() -> void:
 	draw_polyline(crack, Color(1, 1, 1, 0.85), 1.5, true)
 
 
+## Fresh cracks for a phase counted in hits: one more per hit, each running in
+## from the rim, the last ones splitting the cap apart.
+const HIT_CRACKS := [
+	[1.95, [Vector2(0.62, 0.0), Vector2(0.4, 0.12), Vector2(0.22, -0.05)]],
+	[0.55, [Vector2(0.7, 0.1), Vector2(0.42, -0.08), Vector2(0.15, 0.06)]],
+	[3.75, [Vector2(0.75, -0.06), Vector2(0.5, 0.1), Vector2(0.3, -0.04), Vector2(0.05, 0.03)]],
+	[2.85, [Vector2(0.7, 0.08), Vector2(0.45, -0.1), Vector2(0.2, 0.05)]],
+]
+
+func _draw_hit_cracks(count: int) -> void:
+	for i in mini(count, HIT_CRACKS.size()):
+		var angle: float = HIT_CRACKS[i][0]
+		var pts := PackedVector2Array([Vector2.from_angle(angle) * radius])
+		for p: Vector2 in HIT_CRACKS[i][1]:
+			# p.x: distance from the center (share of the radius); p.y: sideways kink.
+			pts.append((Vector2.from_angle(angle) * p.x + Vector2.from_angle(angle + PI * 0.5) * p.y) * radius)
+		draw_polyline(pts, Color(0, 0, 0, 0.9), 4.0, true)
+		draw_polyline(pts, Color(1, 1, 1, 0.8), 1.2, true)
+		# A chip knocked out where the crack meets the rim.
+		var rim := Vector2.from_angle(angle) * radius
+		draw_colored_polygon(PackedVector2Array([rim + Vector2.from_angle(angle + 1.9) * 7.0, rim,
+				rim + Vector2.from_angle(angle - 1.9) * 7.0]), Color(0, 0, 0, 0.7))
+
+
+## Story art "collector": a gold rim milled like a coin's edge, and a loupe.
+func _draw_collector() -> void:
+	var gold := Color(1.0, 0.8, 0.32)
+	draw_arc(Vector2.ZERO, radius - 2.0, 0.0, TAU, 48, gold, 4.0, true)
+	for i in 40:
+		var dir := Vector2.from_angle(TAU * i / 40.0)
+		draw_line(dir * (radius - 4.0), dir * (radius + 1.0), gold.darkened(0.35), 1.5)
+	var loupe := Vector2(radius * 0.52, -radius * 0.5)
+	draw_circle(loupe, radius * 0.26, Color(0.85, 0.95, 1.0, 0.35))
+	draw_arc(loupe, radius * 0.26, 0.0, TAU, 24, gold, 2.5, true)
+	draw_arc(loupe + Vector2(-radius * 0.05, -radius * 0.05), radius * 0.15, PI * 1.1, PI * 1.5, 8, Color(1, 1, 1, 0.8), 1.5, true)
+	# Its chain, hanging down the bumper's side.
+	draw_polyline(PackedVector2Array([loupe + Vector2(radius * 0.2, radius * 0.17), Vector2(radius * 0.86, radius * 0.1),
+			Vector2(radius * 0.8, radius * 0.5)]), gold.darkened(0.2), 1.5, true)
+
+
 ## Story art "plain": looks like any pop bumper, with a health bar above it.
 func _draw_plain() -> void:
 	var base := Palette.BUMPER if Engine.is_editor_hint() else Cosmetics.bumper_color()
@@ -171,6 +237,13 @@ func _draw_plain() -> void:
 	draw_rect(bar, Color(0.18, 0.2, 0.3))
 	var health := Color(0.4, 0.95, 0.5).lerp(Color(1.0, 0.3, 0.3), 1.0 - ratio).lerp(Color.WHITE, _hurt * 0.5)
 	draw_rect(Rect2(bar.position, Vector2(bar.size.x * ratio, bar.size.y)), health)
+	if fixed_damage > 0.0:
+		# Counted in hits: one segment per hit, no number.
+		var hits := roundi(max_hp / fixed_damage)
+		for i in range(1, hits):
+			var x := bar.position.x + bar.size.x * float(i) / hits
+			draw_line(Vector2(x, bar.position.y), Vector2(x, bar.end.y), Color(0, 0, 0, 0.9), 2.0)
+		return
 	if show_hp_number and not Engine.is_editor_hint():
 		var font := ThemeDB.fallback_font
 		var text := GameManager.format_short(hp)

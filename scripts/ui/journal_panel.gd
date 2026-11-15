@@ -80,6 +80,7 @@ func _init() -> void:
 	_scroll.custom_minimum_size = Vector2(WIDTH - 40.0, 560)
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	paper.add_child(_scroll)
+	TouchScroll.setup(_scroll)
 	_page = VBoxContainer.new()
 	_page.add_theme_constant_override("separation", 10)
 	_page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -144,14 +145,18 @@ func _fill_bosses() -> void:
 			_add(str(ch["boss"]), 24, RED_INK)
 			_add(str(ch["hint"]), 15, FADED)
 			_add(str(ch["journal"]), 17)
-			var best: Dictionary = Story.best.get(ch["id"], {})
-			if not best.is_empty():
-				_add("Best run: score %s, damage dealt %s" % [
-						GameManager.format_number(float(best.get("score", 0.0))),
-						GameManager.format_number(float(best.get("damage", 0.0)))], 15, FADED)
 		else:
 			_add("? ? ?", 24, RED_INK)
 			_add("Someone from his past, still inside the machine.", 16, FADED)
+		var best: Dictionary = Story.best.get(ch["id"], {})
+		if not best.is_empty():
+			var line := "Best run: score %s in %s, damage dealt %s" % [
+					GameManager.format_number(float(best.get("score", 0.0))),
+					Story.clock(float(best.get("time", 0.0))),
+					GameManager.format_number(float(best.get("damage", 0.0)))]
+			if float(best.get("fastest_win", 0.0)) > 0.0:
+				line += "\nFastest win: " + Story.clock(float(best["fastest_win"]))
+			_add(line, 15, FADED)
 		_page.add_child(rule())
 	_add("Runs played: %d" % Story.attempts, 15, FADED)
 

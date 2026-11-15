@@ -17,6 +17,14 @@ extends Area2D
 ## Which kind of pick: "minor" (the inlane lights behind the bottom slingshots)
 ## or "major" (the machine's own lights near the boss).
 @export_enum("major", "minor") var powerup_tier: String = "major"
+## Every `sets_per_step` completed sets raise the group's bonus by this much
+## (0 = the bonus never changes). Small dots under each rollover count the sets
+## toward the next raise.
+@export var bonus_step: int = 0
+@export_range(1, 9) var sets_per_step: int = 2
+
+## Sets completed so far, per group (shared by its rollovers; reset with the table).
+static var _sets: Dictionary = {}
 
 var lit: bool = false
 var _flash: float = 0.0
@@ -34,8 +42,10 @@ func _ready() -> void:
 	add_child(cs)
 	body_entered.connect(_on_body_entered)
 	if not Engine.is_editor_hint():
+		_sets.erase(group_name) # a fresh table starts the count again
 		GameManager.game_started.connect(func() -> void:
 			lit = false
+			_sets.erase(group_name)
 			queue_redraw())
 
 
@@ -59,7 +69,9 @@ func _on_body_entered(body: Node) -> void:
 		var other := node as Rollover
 		if other and not other.lit:
 			return
-	GameManager.add_score(group_bonus, global_position + Vector2(0, -26))
+	var done: int = _sets.get(group_name, 0)
+	GameManager.add_score(group_bonus + bonus_step * (done / sets_per_step), global_position + Vector2(0, -26))
+	_sets[group_name] = done + 1
 	Sfx.play("ramp_complete")
 	if grants_powerup:
 		GameManager.request_powerup_choice(powerup_tier)
@@ -77,3 +89,8 @@ func _draw() -> void:
 		draw_circle(Vector2.ZERO, r + 4.0, Color(color, 0.25))
 	draw_circle(Vector2.ZERO, r, color if on else color.darkened(0.75))
 	draw_arc(Vector2.ZERO, r, 0.0, TAU, 20, color.darkened(0.3), 1.5, true)
+	if bonus_step > 0 and sets_per_step > 1:
+		var done: int = _sets.get(group_name, 0) % sets_per_step
+		for i in sets_per_step:
+			var x := (i - (sets_per_step - 1) * 0.5) * 7.0
+			draw_circle(Vector2(x, r + 7.0), 2.2, color if i < done else color.darkened(0.7))

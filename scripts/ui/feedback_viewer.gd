@@ -32,6 +32,7 @@ var _list_scroll: ScrollContainer
 var _list_status: Label
 var _detail_view: VBoxContainer
 var _detail_box: VBoxContainer
+var _detail_scroll: ScrollContainer
 
 
 func _init() -> void:
@@ -192,6 +193,7 @@ func _build_list_view() -> void:
 	_list_scroll.custom_minimum_size = Vector2(WIDTH, 640)
 	_list_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_list_view.add_child(_list_scroll)
+	TouchScroll.setup(_list_scroll)
 	_list_box = VBoxContainer.new()
 	_list_box.add_theme_constant_override("separation", 8)
 	_list_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -290,6 +292,8 @@ func _build_detail_view() -> void:
 	scroll.custom_minimum_size = Vector2(WIDTH, 600)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_detail_view.add_child(scroll)
+	TouchScroll.setup(scroll)
+	_detail_scroll = scroll
 	_detail_box = VBoxContainer.new()
 	_detail_box.add_theme_constant_override("separation", 10)
 	_detail_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -297,6 +301,8 @@ func _build_detail_view() -> void:
 
 
 func _open(entry: Dictionary) -> void:
+	if TouchScroll.dragged(_list_scroll):
+		return # the finger was scrolling the list, not tapping Open
 	Sfx.play("click")
 	_open_entry = entry
 	for child in _detail_box.get_children():
@@ -353,6 +359,8 @@ func _open(entry: Dictionary) -> void:
 
 ## First press asks to confirm (for a few seconds), the second deletes for good.
 func _delete(entry: Dictionary, button: Button) -> void:
+	if TouchScroll.dragged(_list_scroll) or TouchScroll.dragged(_detail_scroll):
+		return # a scroll, not a tap
 	if _busy:
 		return
 	Sfx.play("click")

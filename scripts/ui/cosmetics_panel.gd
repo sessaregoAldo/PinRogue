@@ -34,6 +34,7 @@ func _init() -> void:
 	_scroll.custom_minimum_size = Vector2(WIDTH, 560)
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	add_child(_scroll)
+	TouchScroll.setup(_scroll)
 	_list = VBoxContainer.new()
 	_list.add_theme_constant_override("separation", 8)
 	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -148,6 +149,8 @@ func _tile_label(text: String, font_size: int, color: Color, y: float) -> Label:
 
 
 func _select(group: String, it: Dictionary) -> void:
+	if TouchScroll.dragged(_scroll):
+		return
 	Sfx.play("click")
 	_selected_group = group
 	_selected = it

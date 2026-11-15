@@ -9,7 +9,7 @@ const GHOST_UNKNOWN := "???"
 const SAL := "Sal"
 
 ## HP of the ordinary-looking bumper the boss hides behind (phase 1). Twice the
-## first Endless boss.
+## first Endless boss. A chapter can set its own ("phase_one_hp").
 const PHASE_ONE_HP := 200000.0
 ## Boss HP at the reveal = the player's score x this. Endless scales by x12, so
 ## 192 is sixteen times harder.
@@ -34,8 +34,8 @@ const BEATEN_RESET := 2
 
 ## Spare parts every story run can offer from the start.
 const STARTING_PARTS: Array[String] = ["extra_ball", "outlane_guards", "steady_hands", "multiplier", "boss_crusher"]
-## Workshop prices (coins) for the rest. Turbo Ramps isn't sold yet: no story
-## machine has ramps so far (it would never be offered).
+## Workshop prices (coins) for the rest. Turbo Ramps isn't sold yet: the only
+## story ramp so far is the Showroom's lift, in chapter 2.
 const PART_PRICES := {
 	"bouncy_ball": 40,
 	"gap_guard": 45,
@@ -113,6 +113,73 @@ const CHAPTERS: Array[Dictionary] = [
 		"tint": Color(0.86, 0.93, 1.0),
 		"hub_line": "One piece of the past put down. I feel lighter. Is that possible, for a man with no weight?",
 	},
+	{
+		"id": "collector",
+		"number": 2,
+		"title": "The Client",
+		"boss": "The Collector",
+		# A prelude on the last chapter's machine: after "phase_one_hits" hits on
+		# its center bumper the table drops away and "boss_scene" (which beating
+		# the chapter unlocks) rises in its place. There phase 1 ("phase_one_hp")
+		# and the boss are played as in chapter 1.
+		"scene": "res://scenes/levels/level_twin_lifts.tscn",
+		"boss_scene": "res://scenes/levels/level_showroom.tscn",
+		"phase_one_hits": 3,
+		# The prelude's bumper is the beaten Splitter: it cracks a little more with each hit.
+		"phase_one_art": "splitter",
+		# A bit harder than chapter 1 (200K, score x192).
+		"phase_one_hp": 250000.0,
+		"boss_hp_factor": 240.0,
+		"gimmick": "collector",
+		"art": "collector",
+		# Played instead of Sal's handover when the chapter starts.
+		"opening": [
+			"The Splitter's table again. Don't let her fool you. She's been restless since you put him down.",
+			"Clanking in the night. Pieces I don't remember making, rolling about inside her like loose change.",
+			"Give his old cap a few knocks. Something under there is waiting for a customer.",
+		],
+		# Narration while the prelude's table shakes, before it drops away.
+		"switch": "The table shudders under your hands. Bolts rattle loose, and somewhere underneath, something lets go.",
+		# The ghost, once the new table has risen (the deck tour follows).
+		"arrival": [
+			"Oh, I know this table. I drew this table, on the back of an invoice, for Ambrose Pell. I never built it.",
+			"Center bumper first, same as before. Whatever's waiting under that one, I'd like a look at it.",
+		],
+		"reveal": "The bumper's cap flips over like a coin on a counter. The other side is gold, with a jeweller's loupe screwed into it.",
+		"briefing": [
+			"Pell. Of course it's Pell. He ran the arcade on the old pier. Forty machines, and every one of them mine. My best client. Toward the end, my only one.",
+			"He wanted one machine that could be every machine. So I made her pieces lift out and swap between nights. A Tuesday machine, a Saturday machine. He paid for the finished one in advance.",
+			"He never got it. And I never built her to swap them by herself. I would very much like to know who did.",
+			"He can't keep his eyes off a fine piece. When the ball comes out of the Till's sparkling door, he stops to admire it: hit him then. And anything that falls on him from the gallery up top hurts twice over.",
+		],
+		# Said while the table's second floor (and the ramps up to it) are shown.
+		"deck_tour": [
+			"And that's the gallery, up there. A second floor. Pell kept his best pieces where the public could see them and not touch them.",
+			"You'll only see it while the ball's up there. Ride the lift on the right to reach it. It has flippers of its own, and a hole that drops the ball straight down onto the center bumper.",
+		],
+		"hint": "A ball out of the Till's sparkling exit deals triple damage on its next hit. One dropped from the gallery onto him deals double. At two-thirds and one-third health the table rearranges itself.",
+		"whispers": {
+			"rearrange": "There, she's moving again. Pieces sliding about with nobody's hands on them. I never built that.",
+			"showpiece": "The sparkling door! He's admiring it. Hit him now!",
+			"gallery": "Straight down from the gallery. He never could resist looking up.",
+		},
+		# Extra lines on the result page: [label, stats key].
+		"stat_rows": [["Rearrangements", "rearranged"], ["Showpiece hits", "showpiece_hits"], ["Gallery hits", "gallery_hits"]],
+		"defeat": [
+			"He always did outlast me in a shop. He'd just stand there, looking, until I named a lower price.",
+			"Take the coins. He'd want you to have something for your trouble. He'd want a receipt, too.",
+		],
+		"victory": [
+			"There. He's still. Looking at something, I think. He always had that look when a machine was finished.",
+			"I owed him a table. I suppose this is it. I hope it was what he wanted.",
+		],
+		"journal": "Ambrose Pell bought my first machine when nobody else would, and my fortieth when nobody else could afford one. He ran the arcade at the end of the pier and paid me in advance, always, so I'd never have to choose between a commission and a meal.
+
+He asked for one more. One table that could be every table. I took his money and I drew it, and drew it again, and never finished it. The pier closed. He waited anyway. Somebody, it seems, finished it for him. I don't think it was me.",
+		"machine_change": "Her lights keep a little of the Showroom's gold, and now and then, late at night, something inside her shifts.",
+		"tint": Color(1.0, 0.95, 0.84),
+		"hub_line": "Two old debts settled. But she rebuilt herself in front of us, and I never taught her that. Somebody has been working on her besides me.",
+	},
 ]
 
 ## The ghost's line on the Story menu before anything is beaten.
@@ -157,8 +224,18 @@ static func voice_lines() -> Array[Dictionary]:
 		out.append({"id": "whisper_" + key, "speaker": GHOST, "text": WHISPERS[key]})
 	for ch: Dictionary in CHAPTERS:
 		var id: String = ch["id"]
+		if ch.has("opening"):
+			add.call(id + "_opening", GHOST, ch["opening"])
+		for key: String in ch.get("whispers", {}):
+			out.append({"id": "%s_whisper_%s" % [id, key], "speaker": GHOST, "text": ch["whispers"][key]})
+		if ch.has("switch"):
+			add.call(id + "_switch", "Narration", [ch["switch"]])
+		if ch.has("arrival"):
+			add.call(id + "_arrival", GHOST, ch["arrival"])
 		add.call(id + "_reveal", "Narration", [ch["reveal"]])
 		add.call(id + "_briefing", GHOST, ch["briefing"])
+		if ch.has("deck_tour"):
+			add.call(id + "_deck", GHOST, ch["deck_tour"])
 		add.call(id + "_again", GHOST, [REMATCH_LINE, ch["hint"]])
 		add.call(id + "_defeat", GHOST, ch["defeat"])
 		add.call(id + "_victory", GHOST, ch["victory"])

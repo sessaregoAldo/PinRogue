@@ -20,7 +20,8 @@ var beaten: Array[String] = []
 var unlocked: Array[String] = []
 ## Strange coins collected: [{year, text}], newest last.
 var coin_tray: Array = []
-## Best run per chapter id: {score, damage}.
+## Best run per chapter id: {score, damage, time (seconds, of the best-score
+## run), fastest_win (seconds, 0 = not won yet)}.
 var best: Dictionary = {}
 var attempts: int = 0
 var _saved_beaten_reset: int = 0
@@ -51,7 +52,10 @@ func load_save() -> void:
 	coins_earned = int(cfg.get_value("story", "coins_earned", coins))
 	intro_seen = bool(cfg.get_value("story", "intro_seen", false))
 	for id in cfg.get_value("story", "beaten", []):
-		beaten.append(str(id))
+		var chapter_id := str(id)
+		if chapter_id == "merchant":
+			chapter_id = "collector" # chapter 2's boss was renamed (0.14.2, before release)
+		beaten.append(chapter_id)
 	for id in cfg.get_value("story", "unlocked", []):
 		unlocked.append(str(id))
 	var tray: Variant = cfg.get_value("story", "coin_tray", [])
@@ -95,6 +99,24 @@ func save() -> void:
 	changed.emit()
 
 
+## Options > Reset Progress: back to a first visit. Story chapters (and the
+## machines they unlock), coins, the coin tray, Workshop parts, cosmetics, story
+## records and the intro all go. Settings and leaderboard scores are kept.
+func reset_progress() -> void:
+	coins = 0
+	coins_earned = 0
+	intro_seen = false
+	beaten = []
+	unlocked = []
+	coin_tray = []
+	best = {}
+	attempts = 0
+	cosmetics_owned = []
+	cosmetics_equipped = {}
+	return_to_hub = false
+	save()
+
+
 # --- Chapters -----------------------------------------------------------------------
 
 func is_beaten(chapter_id: String) -> bool:
@@ -117,13 +139,28 @@ func beat_chapter(chapter_id: String) -> bool:
 	return true
 
 
-func record_run(chapter_id: String, score: float, damage: float) -> void:
+## Returns what the run beat: {best_score, fastest_win} (true when it is a new record).
+func record_run(chapter_id: String, score: float, damage: float, seconds: float, won: bool) -> Dictionary:
 	attempts += 1
 	var old: Dictionary = best.get(chapter_id, {})
+	var best_score := score > float(old.get("score", 0.0))
+	var old_fastest := float(old.get("fastest_win", 0.0))
+	var fastest := won and (old_fastest <= 0.0 or seconds < old_fastest)
 	best[chapter_id] = {
-		"score": maxf(score, float(old.get("score", 0.0))),
+		"score": score if best_score else float(old.get("score", 0.0)),
+		"time": seconds if best_score else float(old.get("time", 0.0)),
 		"damage": maxf(damage, float(old.get("damage", 0.0))),
+		"fastest_win": seconds if fastest else old_fastest,
 	}
+	return {"best_score": best_score, "fastest_win": fastest}
+
+
+## "3:42" (or "1:02:05" past an hour).
+static func clock(seconds: float) -> String:
+	var s := maxi(0, int(seconds))
+	if s >= 3600:
+		return "%d:%02d:%02d" % [s / 3600, (s / 60) % 60, s % 60]
+	return "%d:%02d" % [s / 60, s % 60]
 
 
 # --- Cosmetics ----------------------------------------------------------------------

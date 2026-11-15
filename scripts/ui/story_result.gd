@@ -26,6 +26,12 @@ var _board: String = ""
 var _score: float = 0.0
 var _won: bool = false
 var _posted: bool = false
+var _time: float = -1.0
+var _paper: PanelContainer
+# Shown in place of the journal page once the run is posted.
+var _board_view: PanelContainer
+var _board_title: Label
+var _board_panel: LeaderboardPanel
 
 
 func _ready() -> void:
@@ -54,10 +60,38 @@ func _ready() -> void:
 	var paper := PanelContainer.new()
 	paper.add_theme_stylebox_override("panel", JournalPanel.paper_style())
 	col.add_child(paper)
+	_paper = paper
+	_board_view = PanelContainer.new()
+	var dark := StyleBoxFlat.new()
+	dark.bg_color = Color(0.06, 0.07, 0.13, 0.97)
+	dark.border_color = Color(1.0, 0.85, 0.3, 0.6)
+	dark.set_border_width_all(2)
+	dark.set_corner_radius_all(6)
+	dark.content_margin_left = 20
+	dark.content_margin_right = 20
+	dark.content_margin_top = 18
+	dark.content_margin_bottom = 18
+	_board_view.add_theme_stylebox_override("panel", dark)
+	_board_view.custom_minimum_size = Vector2(WIDTH, 0)
+	_board_view.visible = false
+	col.add_child(_board_view)
+	var board_col := VBoxContainer.new()
+	board_col.add_theme_constant_override("separation", 12)
+	_board_view.add_child(board_col)
+	_board_title = Label.new()
+	_board_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_board_title.add_theme_font_size_override("font_size", 26)
+	_board_title.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+	board_col.add_child(_board_title)
+	_board_panel = LeaderboardPanel.new()
+	var board_center := CenterContainer.new()
+	board_center.add_child(_board_panel)
+	board_col.add_child(board_center)
 	_scroll = ScrollContainer.new()
 	_scroll.custom_minimum_size = Vector2(WIDTH - 40.0, 730)
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	paper.add_child(_scroll)
+	TouchScroll.setup(_scroll)
 	_page = VBoxContainer.new()
 	_page.add_theme_constant_override("separation", 9)
 	_page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -120,7 +154,7 @@ func _post() -> void:
 	_post_button.disabled = true
 	_post_status.text = "Posting..."
 	Sfx.play("click")
-	var res: Dictionary = await Leaderboard.submit(player_name, _score, _won, _board)
+	var res: Dictionary = await Leaderboard.submit(player_name, _score, _won, _board, _time)
 	if not is_open():
 		return
 	if res["error"] != "":
@@ -132,6 +166,21 @@ func _post() -> void:
 	var where := "this chapter's board" if res["online"] else "this device's board"
 	_post_status.text = ("Posted! You are #%d on %s." % [rank, where]) if rank > 0 else "Posted to %s!" % where
 	Sfx.play("ramp_complete")
+	_show_board()
+
+
+## After posting: the chapter's leaderboard replaces the journal page.
+func _show_board() -> void:
+	_paper.visible = false
+	_entry_row.visible = false
+	_board_view.visible = true
+	var ch := StoryData.chapter(0)
+	for c: Dictionary in StoryData.CHAPTERS:
+		if c["id"] == _board:
+			ch = c
+	_board_title.text = "CHAPTER %d LEADERBOARD" % int(ch["number"])
+	_board_panel.board = _board
+	_board_panel.refresh()
 
 
 func close() -> void:
@@ -160,6 +209,8 @@ func is_open() -> bool:
 func open(data: Dictionary) -> void:
 	for child in _page.get_children() + _buttons.get_children():
 		child.queue_free()
+	_paper.visible = true
+	_board_view.visible = false
 	_scroll.scroll_vertical = 0
 	var won: bool = data["won"]
 	var ch: Dictionary = data["chapter"]
@@ -169,6 +220,15 @@ func open(data: Dictionary) -> void:
 	var who := str(ch["boss"]) if data["revealed"] else str(ch["title"])
 	var sub := _ink("Chapter %d  ·  %s" % [int(ch["number"]), who], 17, JournalPanel.FADED)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	# The run's time, with the record it set (if any).
+	var records: Dictionary = data.get("records", {})
+	var time_text := "Run time  " + Story.clock(float(st.get("time", 0.0)))
+	if records.get("fastest_win", false):
+		time_text += "   ·   fastest win!"
+	elif records.get("best_score", false):
+		time_text += "   ·   new best score!"
+	var time_label := _ink(time_text, 20, JournalPanel.RED_INK)
+	time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var closing: Array = ch["victory"] if won else ch["defeat"]
 	_voice_queue.clear()
 	for i in closing.size():
@@ -186,7 +246,6 @@ func open(data: Dictionary) -> void:
 	grid.add_theme_constant_override("h_separation", 24)
 	grid.add_theme_constant_override("v_separation", 3)
 	_page.add_child(grid)
-	var seconds := int(float(st.get("time", 0.0)))
 	var rows := [
 		["Score", GameManager.format_number(float(data["score"]))],
 		["Damage dealt", GameManager.format_number(float(st.get("damage", 0.0)))],
@@ -196,10 +255,12 @@ func open(data: Dictionary) -> void:
 		["Tilts", str(int(st.get("tilts", 0)))],
 		["Balls lost", str(int(st.get("balls_lost", 0)))],
 		["Spare parts taken", str(int(st.get("parts", 0)))],
-		["Time played", "%d:%02d" % [seconds / 60, seconds % 60]],
+		["Run time", Story.clock(float(st.get("time", 0.0)))],
 	]
 	if data["revealed"]:
 		rows.insert(2, ["Boss health removed", "%d%%" % roundi(float(data["boss_share"]) * 100.0)])
+		for extra: Array in ch.get("stat_rows", []): # the chapter's own numbers
+			rows.insert(rows.size() - 1, [extra[0], str(int(st.get(extra[1], 0)))])
 	for row: Array in rows:
 		grid.add_child(JournalPanel.ink_label(row[0], 16, JournalPanel.FADED, 200.0))
 		grid.add_child(JournalPanel.ink_label(row[1], 16, JournalPanel.INK, 200.0))
@@ -215,6 +276,7 @@ func open(data: Dictionary) -> void:
 		_button("Story menu", func() -> void: menu_pressed.emit())
 	_board = str(ch["id"])
 	_score = float(data["score"])
+	_time = float((data["stats"] as Dictionary).get("time", -1.0))
 	_won = won
 	_posted = false
 	_entry_row.visible = _score > 0.0

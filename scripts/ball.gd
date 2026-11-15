@@ -8,6 +8,8 @@ extends RigidBody2D
 const LAYER_TABLE := 1 # physics layer 1: playfield
 const LAYER_BALL := 2 # physics layer 2: ball on the playfield
 const LAYER_BALL_RAISED := 4 # physics layer 3: ball riding a tunnel
+const LAYER_DECK := 256 # physics layer 9: upper deck parts (UpperDeck)
+const LAYER_BALL_DECK := 512 # physics layer 10: ball on an upper deck
 
 @export var radius: float = 10.0
 @export var max_speed: float = 2200.0
@@ -21,6 +23,8 @@ const TYPICAL_SURFACE_BOUNCE := 0.25
 var in_play: bool = false
 ## The tunnel the ball is currently riding, or null when it's on the playfield.
 var ramp: Tunnel = null
+## The upper deck the ball is on (UpperDeck), or null.
+var deck: Node2D = null
 
 ## How quickly the ball fades to an outline when it goes under an overpass.
 @export var behind_fade_speed: float = 14.0
@@ -125,8 +129,8 @@ func _process(delta: float) -> void:
 
 ## True when a tunnel above the ball's current level covers it.
 func _is_behind_overpass() -> bool:
-	if not in_play:
-		return false
+	if not in_play or deck != null:
+		return false # nothing is above the upper deck
 	for node in get_tree().get_nodes_in_group("tunnels"):
 		var tunnel := node as Tunnel
 		if tunnel == null or tunnel == ramp:
@@ -138,8 +142,22 @@ func _is_behind_overpass() -> bool:
 	return false
 
 
+## How high the ball is: 0 on the playfield, 1 at the top of a ramp or on an upper deck.
+func height() -> float:
+	if deck != null:
+		return 1.0
+	if ramp != null:
+		return ramp.height_at(global_position)
+	return 0.0
+
+
+## Drawn bigger the higher it is (closer to the glass).
 func _visual_radius() -> float:
-	return radius * 1.12 if ramp != null else radius
+	if deck != null:
+		return radius * 1.3
+	if ramp != null:
+		return radius * (1.05 + 0.25 * ramp.height_at(global_position))
+	return radius
 
 
 func _draw() -> void:
@@ -148,9 +166,12 @@ func _draw() -> void:
 		return
 	draw_set_transform(Vector2.ZERO, -global_rotation)
 	var r := _visual_radius()
-	if ramp != null:
-		# Raised: cast a shadow on the board below and look slightly bigger (closer).
-		draw_circle(Vector2(8, 10), radius, Color(0, 0, 0, 0.35 * alpha))
+	if deck != null:
+		# On a deck: a short shadow on the deck's floor.
+		draw_circle(Vector2(0, 7), radius, Color(0, 0, 0, 0.45 * alpha))
+	elif ramp != null:
+		# On a ramp: the shadow falls straight down onto the table, further the higher it rides.
+		draw_circle(Vector2(0, 4 + ramp.lift_height * ramp.height_at(global_position)), radius, Color(0, 0, 0, 0.35 * alpha))
 	draw_circle(Vector2.ZERO, r, Color(color, alpha))
 	draw_circle(Vector2(-r * 0.35, -r * 0.35), r * 0.35, Color(1, 1, 1, 0.8 * alpha))
 	draw_arc(Vector2.ZERO, r, 0.0, TAU, 24, Color(0.4, 0.42, 0.5, alpha), 1.5, true)
@@ -171,6 +192,24 @@ func enter_ramp(tunnel: Tunnel, rail_bits: int, draw_z: int, damp: float) -> voi
 	_ramp_bits = rail_bits
 	z_index = draw_z
 	linear_damp = damp
+	_apply_layers()
+
+
+## Put the ball on an upper deck: it now only touches that deck's parts (and
+## other balls up there) and is drawn above it. Called by UpperDeck / Tunnel.
+func enter_deck(upper: Node2D) -> void:
+	ramp = null
+	_ramp_bits = 0
+	deck = upper
+	z_index = upper.z_index + 2
+	linear_damp = 0.0
+	_apply_layers()
+
+
+## Back down to the playfield (the deck's drop holes call this).
+func leave_deck() -> void:
+	deck = null
+	z_index = 0
 	_apply_layers()
 
 
@@ -223,6 +262,7 @@ func _do_place(pos: Vector2, vel: Vector2) -> void:
 	_collision_hold = -1 # collisions stay off until the teleport has happened + 2 frames
 	if freeze:
 		global_position = pos
+	deck = null
 	leave_ramp()
 	_set_frozen(false)
 	teleport(pos)
@@ -241,6 +281,9 @@ func _apply_layers() -> void:
 	if freeze or _collision_hold != 0:
 		collision_layer = 0
 		collision_mask = 0
+	elif deck != null:
+		collision_layer = LAYER_BALL_DECK
+		collision_mask = LAYER_DECK | LAYER_BALL_DECK
 	elif ramp != null:
 		collision_layer = LAYER_BALL_RAISED
 		collision_mask = _ramp_bits | LAYER_BALL_RAISED

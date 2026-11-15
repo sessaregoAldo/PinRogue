@@ -239,6 +239,8 @@ func fade_in() -> void:
 
 ## Fade to black, then go to the main menu.
 func go_to_main_menu() -> void:
+	if GameManager.game_mode == "story":
+		Story.return_to_hub = true # story runs go back to the chapter list
 	Engine.time_scale = 1.0 # the tutorial freezes the clock; the fade needs it running
 	get_tree().paused = false
 	GameManager.choosing = false

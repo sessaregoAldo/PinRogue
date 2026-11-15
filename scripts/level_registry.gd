@@ -15,6 +15,7 @@ const PATHS: Array[String] = [
 	"res://scenes/levels/level_pinwheel.tscn",
 	"res://scenes/levels/level_gauntlet.tscn",
 	"res://scenes/levels/level_twin_lifts.tscn",
+	"res://scenes/levels/level_showroom.tscn",
 ]
 
 ## Machine path -> what unlocks it: {chapter (story chapter id), text (shown in the menus)}.
@@ -22,6 +23,10 @@ const LOCKS := {
 	"res://scenes/levels/level_twin_lifts.tscn": {
 		"chapter": "splitter",
 		"text": "Locked. Beat The Splitter in Story Mode to unlock this machine.",
+	},
+	"res://scenes/levels/level_showroom.tscn": {
+		"chapter": "collector",
+		"text": "Locked. Beat The Collector in Story Mode to unlock this machine.",
 	},
 }
 
