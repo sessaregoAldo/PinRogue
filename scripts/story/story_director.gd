@@ -394,8 +394,8 @@ func _reveal(run: int) -> void:
 
 
 ## The prelude's bumper broke: the table is swapped for the chapter's own
-## machine, whose center bumper is phase 1 proper (an ordinary-looking bumper,
-## or the boss's own face once he has been beaten).
+## machine, whose center bumper is phase 1 proper: an ordinary-looking bumper,
+## even on a replay (the reveal turns it into the boss).
 func _switch_table(run: int) -> void:
 	if run != _run or not is_instance_valid(_boss):
 		return
@@ -405,7 +405,7 @@ func _switch_table(run: int) -> void:
 	await _morph(run, again)
 	if run != _run or not is_instance_valid(_boss):
 		return
-	_boss.art = str(chapter["art"]) if again else str(chapter.get("plain_art", "plain"))
+	_boss.art = str(chapter.get("plain_art", "plain"))
 	_boss.set_hp(float(chapter.get("phase_one_hp", StoryData.PHASE_ONE_HP)))
 	_phase_one_max = _boss.max_hp
 	phase = "plain"
@@ -493,8 +493,9 @@ func _morph(run: int, again: bool) -> void:
 	old.queue_free()
 	_boss = fresh.boss()
 	if _boss:
-		# Rises already looking as it will be fought (no health bar flashing by).
-		_take_boss(_boss, str(chapter["art"]) if again else str(chapter.get("plain_art", "plain")))
+		# Rises already looking as it will be fought: the plain blue bumper, even on a
+		# replay (the reveal still flips it), with no health bar flashing by.
+		_take_boss(_boss, str(chapter.get("plain_art", "plain")))
 		_boss.set_hp(float(chapter.get("phase_one_hp", StoryData.PHASE_ONE_HP)))
 	Sfx.play("ramp_complete", -4.0, 0.5)
 	var rise := create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)

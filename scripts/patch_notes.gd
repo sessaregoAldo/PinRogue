@@ -5,6 +5,14 @@ extends RefCounted
 
 const NOTES: Array[Dictionary] = [
 	{
+		"version": "0.15.4",
+		"name": "Poker Face",
+		"date": "Nov 14, 2026",
+		"notes": [
+			"Replaying Story chapter 2 no longer gives the game away early: the second machine's bumper looks ordinary until the reveal, as it did the first time.",
+		],
+	},
+	{
 		"version": "0.15.3",
 		"name": "Proper Name",
 		"date": "Nov 14, 2026",
