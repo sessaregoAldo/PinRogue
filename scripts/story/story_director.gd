@@ -42,14 +42,13 @@ var _revealed: bool = false
 var _whispered: Dictionary = {}
 ## Coins already announced with a popup this run (see _coins_from_damage).
 var _coins_popped: int = 0
-## True until the first run of this visit starts: that one opens with the intro.
-## (Try again / Restart go straight to play.)
-var _fresh_visit: bool = true
 var _run: int = 0 # bumped on every (re)start: stale sequences stop
 var _fx_layer: CanvasLayer
-var _face: Control
-var _face_alpha: float = 0.0
-var _face_on: bool = false
+## Intro: the table goes dark and an eye opens in the middle of it.
+var _blackout: ColorRect
+var _eye: Control
+var _eye_open: float = 0.0 # 0 = lids shut, 1 = wide open
+var _eye_time: float = 0.0
 var _flash: ColorRect
 var _journal_card: PanelContainer
 
@@ -96,8 +95,8 @@ func _on_run_started() -> void:
 	Sfx.unsilence()
 	Sfx.end_battle_music()
 	_result.close()
-	_face_on = false
-	_face.visible = false
+	_blackout.visible = false
+	_eye.visible = false
 	_journal_card.visible = false
 	if game.has_method("reset_camera"):
 		game.reset_camera(0.0)
@@ -122,12 +121,14 @@ func _on_run_started() -> void:
 		_phase_one_max = _boss.max_hp
 	if Story.is_beaten(chapter["id"]) and game.level:
 		game.level.modulate = chapter.get("tint", Color.WHITE)
-	var opening := _fresh_visit
-	_fresh_visit = false
-	if opening and chapter.has("opening") and Story.intro_seen:
-		_opening(_run) # the chapter's own opening instead of Sal's handover
-	elif opening:
-		_intro(_run) # shows the chapter banner when it ends; Skip on the dialogue box
+	# Every run opens with its scene, replays and retries too (Skip is the
+	# player's call): the prologue the first time (or when asked for from the
+	# journal), otherwise the chapter's own opening.
+	if GameManager.story_prologue or not Story.intro_seen:
+		GameManager.story_prologue = false
+		_intro(_run) # shows the chapter banner when it ends
+	elif chapter.has("opening"):
+		_opening(_run)
 	else:
 		_chapter_banner()
 		_whisper_later(_run, StoryData.WHISPER_START, "whisper_start")
@@ -152,7 +153,7 @@ func _whisper_later(run: int, text: String, voice_id: String) -> void:
 		_dialogue.whisper(text, 4.0, voice_id)
 
 
-## First ever story run: Sal hands the machine over, the face, the Journal.
+## First ever story run: Sal hands the machine over, the eye, the Journal.
 func _intro(run: int) -> void:
 	# Let the scene's fade-in finish before pausing (the fade would freeze black),
 	# with the controls locked meanwhile.
@@ -167,15 +168,11 @@ func _intro(run: int) -> void:
 	await _dialogue.say(StoryData.SAL, StoryData.INTRO_SAL, "intro_sal")
 	if run != _run:
 		return
-	if not _dialogue.skipping: # Skip also skips the face and the Journal sliding out
-		# Power on: a face flickers in the glass.
-		Sfx.play("warning", -4.0, 0.5)
-		_face.visible = true
-		_face_on = true
-		await get_tree().create_timer(2.4, true, false, true).timeout
+	if not _dialogue.skipping: # Skip also skips the eye and the Journal sliding out
+		# Power on: everything goes black, and after a moment an eye opens.
+		await _eye_scene(run)
 		if run != _run:
 			return
-		_face_on = false
 		# The Journal slides out.
 		_journal_card.visible = true
 		_journal_card.modulate.a = 1.0
@@ -197,15 +194,45 @@ func _intro(run: int) -> void:
 		return
 	var fade := create_tween()
 	fade.tween_property(_journal_card, "modulate:a", 0.0, 0.5)
-	fade.parallel().tween_property(_face, "modulate:a", 0.0, 0.5)
 	fade.tween_callback(func() -> void:
-		_journal_card.visible = false
-		_face.visible = false
-		_face.modulate.a = 1.0)
+		_journal_card.visible = false)
 	Story.intro_seen = true
 	Story.save()
 	_release(false)
 	_chapter_banner()
+
+
+## The machine wakes: the screen fades to black, a dark eye opens in the
+## middle, looks around, closes, and the table comes back.
+func _eye_scene(run: int) -> void:
+	Sfx.play("warning", -8.0, 0.4)
+	_blackout.visible = true
+	_blackout.modulate.a = 0.0
+	var dark := create_tween()
+	dark.tween_property(_blackout, "modulate:a", 1.0, 0.9).set_ease(Tween.EASE_IN)
+	await dark.finished
+	await get_tree().create_timer(0.8, true, false, true).timeout
+	if run != _run:
+		return
+	_eye_open = 0.0
+	_eye_time = 0.0
+	_eye.visible = true
+	Sfx.play("ramp_enter", -6.0, 0.35)
+	var lids := create_tween()
+	lids.tween_method(func(v: float) -> void: _eye_open = v, 0.0, 1.0, 1.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	await lids.finished
+	await get_tree().create_timer(1.8, true, false, true).timeout
+	if run != _run:
+		return
+	var shut := create_tween()
+	shut.tween_method(func(v: float) -> void: _eye_open = v, 1.0, 0.0, 0.45).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	await shut.finished
+	_eye.visible = false
+	await get_tree().create_timer(0.3, true, false, true).timeout
+	var light := create_tween()
+	light.tween_property(_blackout, "modulate:a", 0.0, 0.8)
+	await light.finished
+	_blackout.visible = false
 
 
 ## A later chapter's start: the ghost sets the scene.
@@ -242,11 +269,9 @@ func _release(countdown: bool) -> void:
 # --- During play --------------------------------------------------------------------
 
 func _process(delta: float) -> void:
-	if _face.visible:
-		# Flicker: mostly faint, with sudden brighter frames.
-		var target := (0.55 if randf() < 0.12 else randf_range(0.05, 0.3)) if _face_on else 0.12
-		_face_alpha = lerpf(_face_alpha, target, 0.35)
-		_face.queue_redraw()
+	if _eye.visible:
+		_eye_time += delta
+		_eye.queue_redraw()
 	if get_tree().paused or phase == "over":
 		return
 	stats["time"] = float(stats.get("time", 0.0)) + delta
@@ -363,7 +388,6 @@ func _reveal(run: int) -> void:
 	if run != _run or not is_instance_valid(_boss):
 		return
 	_hold()
-	var again := Story.is_beaten(chapter["id"])
 	_revealed = true
 	Sfx.play("guard_break")
 	_flash.modulate.a = 0.9
@@ -379,13 +403,10 @@ func _reveal(run: int) -> void:
 	if run != _run:
 		return
 	_dialogue.begin_scene()
-	if again:
-		await _dialogue.say(StoryData.GHOST, [StoryData.REMATCH_LINE, chapter["hint"]], str(chapter["id"]) + "_again")
-	else:
-		await _dialogue.say("", [chapter["reveal"]], str(chapter["id"]) + "_reveal")
-		if run != _run:
-			return
-		await _dialogue.say(StoryData.GHOST, chapter["briefing"], str(chapter["id"]) + "_briefing")
+	await _dialogue.say("", [chapter["reveal"]], str(chapter["id"]) + "_reveal")
+	if run != _run:
+		return
+	await _dialogue.say(StoryData.GHOST, chapter["briefing"], str(chapter["id"]) + "_briefing")
 	if run != _run:
 		return
 	_start_gimmick()
@@ -400,9 +421,8 @@ func _switch_table(run: int) -> void:
 	if run != _run or not is_instance_valid(_boss):
 		return
 	_hold()
-	var again := Story.is_beaten(chapter["id"])
 	Sfx.play("guard_break")
-	await _morph(run, again)
+	await _morph(run)
 	if run != _run or not is_instance_valid(_boss):
 		return
 	_boss.art = str(chapter.get("plain_art", "plain"))
@@ -412,14 +432,13 @@ func _switch_table(run: int) -> void:
 	await get_tree().create_timer(0.6, true, false, true).timeout
 	if run != _run:
 		return
-	if not again:
-		_dialogue.begin_scene()
-		await _dialogue.say(StoryData.GHOST, chapter.get("arrival", []), str(chapter["id"]) + "_arrival")
-		if run != _run:
-			return
-		await _deck_tour(run)
-		if run != _run:
-			return
+	_dialogue.begin_scene()
+	await _dialogue.say(StoryData.GHOST, chapter.get("arrival", []), str(chapter["id"]) + "_arrival")
+	if run != _run:
+		return
+	await _deck_tour(run)
+	if run != _run:
+		return
 	_release(true)
 
 
@@ -432,7 +451,7 @@ const DROP_DISTANCE := 1300.0 # past the bottom of the screen
 ## reveal is told, then drops out of sight, and after a moment of darkness the
 ## new one rises from the bottom of the screen. The ball is put in the new
 ## table's Till (if it has one), which serves it once the fight starts.
-func _morph(run: int, again: bool) -> void:
+func _morph(run: int) -> void:
 	var old: Level = game.level
 	var holder := old.get_parent()
 	# Shaking, under the reveal's line (a rematch just shakes for a moment).
@@ -441,11 +460,8 @@ func _morph(run: int, again: bool) -> void:
 	GameManager.popups_hidden = true # no floating scores over the switch
 	var shaking := [true]
 	_shake_while(shaking)
-	if again:
-		await get_tree().create_timer(1.2, true, false, true).timeout
-	else:
-		_dialogue.begin_scene()
-		await _dialogue.say("", [chapter["switch"]], str(chapter["id"]) + "_switch")
+	_dialogue.begin_scene()
+	await _dialogue.say("", [chapter["switch"]], str(chapter["id"]) + "_switch")
 	shaking[0] = false
 	if run != _run:
 		return
@@ -703,12 +719,18 @@ func _build_fx() -> void:
 	_fx_layer = CanvasLayer.new()
 	_fx_layer.layer = 16 # over the table and HUD, under the dialogue
 	add_child(_fx_layer)
-	_face = Control.new()
-	_face.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_face.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_face.visible = false
-	_face.draw.connect(_draw_face)
-	_fx_layer.add_child(_face)
+	_blackout = ColorRect.new()
+	_blackout.color = Color.BLACK
+	_blackout.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_blackout.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_blackout.visible = false
+	_fx_layer.add_child(_blackout)
+	_eye = Control.new()
+	_eye.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_eye.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_eye.visible = false
+	_eye.draw.connect(_draw_eye)
+	_fx_layer.add_child(_eye)
 	_flash = ColorRect.new()
 	_flash.color = Color.WHITE
 	_flash.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -736,21 +758,77 @@ func _build_fx() -> void:
 		page.add_child(label)
 
 
-## A face in the playfield glass: pale, unsteady, mostly eyes.
-func _draw_face() -> void:
-	var c := Color(0.75, 0.92, 1.0, _face_alpha)
-	var center := Vector2(300, 420)
-	var jitter := Vector2(randf_range(-2.0, 2.0), randf_range(-2.0, 2.0))
-	# Head outline
-	_face.draw_arc(center + jitter, 150.0, PI * 0.08, PI * 0.92, 40, Color(c, c.a * 0.5), 3.0, true)
-	_face.draw_arc(center + jitter + Vector2(0, -30), 165.0, PI * 1.08, PI * 1.92, 40, Color(c, c.a * 0.5), 3.0, true)
-	# Eyes
-	for side: float in [-1.0, 1.0]:
-		var eye := center + jitter + Vector2(side * 62.0, -40.0)
-		_face.draw_set_transform(eye, 0.0, Vector2(1.0, 0.62))
-		_face.draw_circle(Vector2.ZERO, 30.0, Color(c, c.a * 0.9))
-		_face.draw_circle(Vector2.ZERO, 12.0, Color(0, 0, 0, c.a))
-		_face.draw_set_transform(Vector2.ZERO)
-		_face.draw_arc(eye + Vector2(0, -8), 44.0, PI * 1.2, PI * 1.8, 16, Color(c, c.a * 0.7), 3.0, true)
-	# Mouth: a tired half smile
-	_face.draw_arc(center + jitter + Vector2(0, 40), 60.0, PI * 0.2, PI * 0.8, 20, Color(c, c.a * 0.8), 4.0, true)
+## The eye in the dark: a ragged violet glow, a dark eyeball with a magenta
+## rim, a blue iris of fine fibres and a slit pupil, between two lids.
+func _draw_eye() -> void:
+	var t := _eye_time
+	var c := Vector2(300, 520)
+	var r := 150.0
+	var e := _eye
+	# Glow: ragged, slowly breathing layers, pale lavender, brightest at the rim.
+	var breath := 0.85 + 0.15 * sin(t * 1.7)
+	for layer in 9:
+		var k := 1.0 - layer / 9.0 # 1 = outermost
+		var pts := PackedVector2Array()
+		for i in 56:
+			var a := TAU * i / 56.0
+			var wobble := sin(a * 7.0 + t * 1.3) * 0.045 + sin(a * 11.0 - t * 0.9 + layer) * 0.03 + sin(a * 3.0 + t * 0.5) * 0.02
+			pts.append(c + Vector2.from_angle(a) * r * (1.04 + 0.4 * k + wobble * k))
+		var tint := Color(0.78, 0.6, 1.0).lerp(Color(0.97, 0.93, 1.0), 1.0 - k)
+		e.draw_colored_polygon(pts, Color(tint, (0.1 + 0.12 * (1.0 - k)) * breath))
+	# Eyeball: nearly black, a faint violet sheen up top, a hot magenta rim.
+	e.draw_circle(c, r, Color(0.17, 0.05, 0.3))
+	for i in 12:
+		var f := i / 12.0
+		e.draw_circle(c + Vector2(0, r * 0.08 * f), r * (0.98 - 0.45 * f), Color(0.02, 0.0, 0.05, 0.22))
+	e.draw_arc(c + Vector2(-r * 0.12, -r * 0.42), r * 0.5, PI * 1.1, PI * 1.75, 24, Color(0.62, 0.42, 0.95, 0.22), 10.0, true)
+	e.draw_arc(c, r - 2.0, 0.0, TAU, 80, Color(0.95, 0.3, 1.0, 0.95), 4.0, true)
+	e.draw_arc(c, r + 3.0, 0.0, TAU, 80, Color(1.0, 0.85, 1.0, 0.5), 3.0, true)
+	# The iris drifts as it looks around.
+	var look := Vector2(sin(t * 0.9) * 14.0, sin(t * 0.6 + 1.0) * 6.0) * _eye_open
+	var ic := c + look
+	var ir := r * 0.46
+	for g in 4: # its own soft blue glow
+		e.draw_circle(ic, ir * (1.32 - 0.08 * g), Color(0.35, 0.38, 0.95, 0.07))
+	e.draw_circle(ic, ir, Color(0.22, 0.26, 0.6))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 41
+	for i in 140: # fibres
+		var a := TAU * i / 140.0 + rng.randf_range(-0.02, 0.02)
+		var r0 := ir * rng.randf_range(0.22, 0.4)
+		var r1 := ir * rng.randf_range(0.75, 0.98)
+		var tone := rng.randf_range(0.55, 1.0)
+		e.draw_line(ic + Vector2.from_angle(a) * r0, ic + Vector2.from_angle(a) * r1, Color(tone * 0.62, tone * 0.68, tone, 0.6), 1.3, true)
+	e.draw_arc(ic, ir, 0.0, TAU, 48, Color(0.06, 0.05, 0.18, 0.95), 4.0, true)
+	e.draw_circle(ic, ir * 0.34, Color(0.5, 0.55, 1.0, 0.3))
+	# Slit pupil, narrowing a little as it opens.
+	var slit_w := ir * (0.16 - 0.05 * _eye_open + 0.02 * sin(t * 2.0))
+	var slit_h := ir * 0.82
+	var slit := PackedVector2Array()
+	for i in 24:
+		var a := TAU * i / 24.0
+		slit.append(ic + Vector2(cos(a) * slit_w, sin(a) * slit_h))
+	e.draw_colored_polygon(slit, Color(0.01, 0.0, 0.03))
+	slit.append(slit[0])
+	e.draw_polyline(slit, Color(0.75, 0.78, 1.0, 0.9), 2.0, true)
+	# Lids: black from above and below, meeting in a lens shape that opens up.
+	var w := r * 1.75
+	var h := r * 1.75 * _eye_open
+	var top := PackedVector2Array([c + Vector2(-w - 40, -900)])
+	var bottom := PackedVector2Array([c + Vector2(-w - 40, 900)])
+	var edge_top := PackedVector2Array()
+	var edge_bottom := PackedVector2Array()
+	for i in 41:
+		var x := -w + 2.0 * w * i / 40.0
+		var y := h * (1.0 - (x / w) * (x / w))
+		top.append(c + Vector2(x, -y))
+		bottom.append(c + Vector2(x, y))
+		edge_top.append(c + Vector2(x, -y))
+		edge_bottom.append(c + Vector2(x, y))
+	top.append(c + Vector2(w + 40, -900))
+	bottom.append(c + Vector2(w + 40, 900))
+	e.draw_colored_polygon(top, Color.BLACK)
+	e.draw_colored_polygon(bottom, Color.BLACK)
+	if _eye_open > 0.01:
+		e.draw_polyline(edge_top, Color(0.6, 0.35, 0.9, 0.35 * _eye_open), 2.0, true)
+		e.draw_polyline(edge_bottom, Color(0.6, 0.35, 0.9, 0.25 * _eye_open), 2.0, true)

@@ -138,6 +138,9 @@ var combo_bonus_extra: float = 0.0
 var story_chapter: int = 0
 ## Story mode: scene of the chapter's own machine ("" = use start_level).
 var story_level_scene: String = ""
+## Story mode: play the prologue (Sal's handover, the eye, the Journal) before
+## this run, as on the very first visit. Cleared once it starts.
+var story_prologue: bool = false
 ## Multiball Lock: extra balls released by the next boss hit.
 var multiball_locks: int = 0
 ## Multiball: drained balls come back until this time (Time.get_ticks_msec()).

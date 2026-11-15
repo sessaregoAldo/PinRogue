@@ -5,6 +5,17 @@ extends RefCounted
 
 const NOTES: Array[Dictionary] = [
 	{
+		"version": "0.15.6",
+		"name": "Page Turner",
+		"date": "Nov 14, 2026",
+		"notes": [
+			"Turning past the last page of a journal section opens the first page of the next one, and turning back past the first page goes to the previous section's last page.",
+			"The machine wakes up differently the first time you plug it in.",
+			"Story scenes always play in full, on replays and retries too. Tap Skip (or press Esc) to skip one.",
+			"The first page of the journal's Chapters is the Prologue: replay the very beginning from there.",
+		],
+	},
+	{
 		"version": "0.15.5",
 		"name": "Field Notes",
 		"date": "Nov 14, 2026",

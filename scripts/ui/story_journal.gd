@@ -5,7 +5,8 @@ extends Control
 ## pages; tapping a tab, the arrows at the foot of a page, a horizontal swipe
 ## across the page (or Page Up / Page Down, the flipper keys) turns the page.
 ##
-##   Chapters     one page per chapter reached: its machine, best run, Play
+##   Chapters     the prologue, then one page per chapter reached: its
+##                machine, best run, Play
 ##   Story        page one, then one page per chapter with the person behind its boss
 ##   Workshop     spare parts for sale, then the ones owned
 ##   Coins        the strange coins collected, a few per page
@@ -16,6 +17,7 @@ extends Control
 ## closed journal drop in from above and open; leave() closes it and lifts it
 ## away (await it).
 
+## chapter_index -1: the prologue (Sal's handover), then chapter 1.
 signal play_requested(chapter_index: int)
 signal back_requested
 
@@ -169,7 +171,7 @@ func leave() -> void:
 func open() -> void:
 	_pick = -1
 	_section = "chapters"
-	_index = _current_chapter()
+	_index = _default_index("chapters")
 	_focus_after_build = true
 	_show_now()
 
@@ -200,12 +202,24 @@ func _open_section(id: String) -> void:
 func _step(delta: int) -> void:
 	if _turning or animating:
 		return
+	var section := _section
 	var next := _index + delta
-	if next < 0 or next >= _page_count(_section):
-		return
-	if _section == "chapters":
-		_pick = next
-	_turn(_section, next, delta)
+	var order := _section_order(_section)
+	# Past either end of a section: on into the next section's first page, or
+	# back to the previous section's last. The book itself has two ends.
+	if next >= _page_count(_section):
+		if order + 1 >= SECTIONS.size():
+			return
+		section = SECTIONS[order + 1][0]
+		next = 0
+	elif next < 0:
+		if order == 0:
+			return
+		section = SECTIONS[order - 1][0]
+		next = _page_count(section) - 1
+	if section == "chapters" and next > 0:
+		_pick = next - 1 # page 0 is the prologue
+	_turn(section, next, delta)
 
 
 ## Forward: the open page folds away toward the spine, uncovering the next.
@@ -314,7 +328,7 @@ func _section_order(id: String) -> int:
 func _page_count(id: String) -> int:
 	match id:
 		"chapters":
-			return _last_open() + 1 if Story.intro_seen else 1
+			return _last_open() + 2 if Story.intro_seen else 1 # the prologue first
 		"story":
 			return StoryData.CHAPTERS.size() + 1 if Story.intro_seen else 1
 		"workshop":
@@ -331,7 +345,7 @@ func _page_count(id: String) -> int:
 func _default_index(id: String) -> int:
 	match id:
 		"chapters":
-			return _current_chapter() if Story.intro_seen else 0
+			return _current_chapter() + 1 if Story.intro_seen else 0
 		"leaderboard":
 			return _current_chapter() + 1 # the chapter the Chapters pages are on
 	return 0
@@ -427,7 +441,10 @@ func _build(id: String, index: int) -> JournalPage:
 			break
 		number += _page_count(s[0])
 	var head: String = SECTIONS[_section_order(id)][3]
-	var page := JournalPage.new(head, number + index, index, count, _step)
+	var order := _section_order(id)
+	var first := order == 0 and index == 0
+	var last := order == SECTIONS.size() - 1 and index == count - 1
+	var page := JournalPage.new(head, number + index, index, count, _step, not first, not last)
 	match id:
 		"chapters":
 			_fill_chapter(page.body, index)
@@ -444,21 +461,26 @@ func _build(id: String, index: int) -> JournalPage:
 	return page
 
 
-func _fill_chapter(body: VBoxContainer, index: int) -> void:
-	if not Story.intro_seen:
-		_hand_label(body, "The machine", 52, INK, true, HORIZONTAL_ALIGNMENT_CENTER)
-		_hand_label(body, "from Sal's garage", 32, RED_INK, false, HORIZONTAL_ALIGNMENT_CENTER)
+func _fill_chapter(body: VBoxContainer, page: int) -> void:
+	if page == 0:
+		# The prologue: Sal's handover, the machine waking, the Journal. Played
+		# once on the first visit, and replayable from here (it leads into chapter 1).
+		_hand_label(body, "Prologue", 52, INK, true, HORIZONTAL_ALIGNMENT_CENTER)
+		_hand_label(body, "The machine from Sal's garage", 32, RED_INK, false, HORIZONTAL_ALIGNMENT_CENTER)
 		body.add_child(_photo(str(StoryData.chapter(0)["scene"]), -2.0))
 		_text(body, "A pinball machine, bought from a man named Sal. No maker's plate, no serial number.", 18, FADED)
-		_stamp(body, "Begin", 0)
+		_stamp(body, "Replay Prologue" if Story.intro_seen else "Begin", -1)
+		if Story.intro_seen:
+			_text(body, "Plays the beginning again, then chapter 1.", 16, FADED)
 		return
+	var index := page - 1
 	var ch := StoryData.chapter(index)
 	var beaten := Story.is_beaten(ch["id"])
 	_hand_label(body, "Chapter %d" % int(ch["number"]), 52, INK, true, HORIZONTAL_ALIGNMENT_CENTER)
 	_hand_label(body, str(ch["title"]), 36, RED_INK, false, HORIZONTAL_ALIGNMENT_CENTER)
 	# The machine he's met on. The second machine stays a surprise until he's beaten.
 	var scene: String = str(ch.get("boss_scene", ch["scene"])) if beaten else str(ch["scene"])
-	body.add_child(_photo(scene, -2.0 if index % 2 == 0 else 2.0))
+	body.add_child(_photo(scene, 2.0 if index % 2 == 0 else -2.0))
 	var best: Dictionary = Story.best.get(ch["id"], {})
 	var grid := GridContainer.new()
 	grid.columns = 3
@@ -836,6 +858,7 @@ func _ink_button(text: String, min_size: Vector2) -> Button:
 
 
 ## The chapter's big button, like a rubber stamp: a double red border.
+## chapter_index -1 is the prologue.
 func _stamp(body: VBoxContainer, text: String, chapter_index: int) -> void:
 	var b := _ink_button(text, Vector2(CONTENT_W, 68))
 	b.add_theme_font_size_override("font_size", 38)
@@ -914,7 +937,13 @@ class JournalPage:
 	var scroll: ScrollContainer
 	var body: VBoxContainer
 
-	func _init(running_head: String, page_number: int, page_index: int, page_count: int, step: Callable) -> void:
+	var has_prev: bool
+	var has_next: bool
+
+	func _init(running_head: String, page_number: int, page_index: int, page_count: int, step: Callable,
+			can_go_back: bool, can_go_on: bool) -> void:
+		has_prev = can_go_back
+		has_next = can_go_on
 		head = running_head
 		number = page_number
 		index = page_index
@@ -923,7 +952,7 @@ class JournalPage:
 		mouse_filter = Control.MOUSE_FILTER_STOP
 		scroll = ScrollContainer.new()
 		scroll.position = Vector2(54, 58)
-		scroll.size = Vector2(CONTENT_W + 14.0, size.y - 58.0 - (78.0 if count > 1 else 24.0))
+		scroll.size = Vector2(CONTENT_W + 14.0, size.y - 58.0 - 78.0)
 		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 		add_child(scroll)
 		# A thin pencil-grey scrollbar instead of the menu's.
@@ -942,9 +971,9 @@ class JournalPage:
 		body.custom_minimum_size.x = CONTENT_W
 		scroll.add_child(body)
 		TouchScroll.setup(scroll)
-		if count > 1:
-			_arrow(Vector2(46, size.y - 66), -1, step)
-			_arrow(Vector2(size.x - 70, size.y - 66), 1, step)
+		# Arrows on every page: past either end they go on to the neighbouring section.
+		_arrow(Vector2(46, size.y - 66), -1, step)
+		_arrow(Vector2(size.x - 70, size.y - 66), 1, step)
 
 	func _arrow(at: Vector2, dir: int, step: Callable) -> void:
 		var b := Button.new()
@@ -952,7 +981,7 @@ class JournalPage:
 		b.position = at
 		b.size = Vector2(52, 52)
 		b.tooltip_text = "Next page" if dir > 0 else "Previous page"
-		b.disabled = (index == 0 and dir < 0) or (index == count - 1 and dir > 0)
+		b.disabled = not (has_next if dir > 0 else has_prev)
 		b.focus_mode = Control.FOCUS_NONE
 		var empty := StyleBoxEmpty.new()
 		for st: String in ["normal", "hover", "pressed", "disabled", "focus"]:

@@ -330,7 +330,10 @@ func _leave_story() -> void:
 	await fade.finished
 	_story_moving = false
 
+## index -1: the prologue, which leads into chapter 1.
 func _start_story(index: int) -> void:
+	GameManager.story_prologue = index < 0
+	index = maxi(index, 0)
 	GameManager.game_mode = "story"
 	GameManager.story_chapter = index
 	GameManager.start_random = false

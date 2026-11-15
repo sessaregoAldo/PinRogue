@@ -107,6 +107,7 @@ func say(speaker: String, lines: Array, voice_prefix: String = "", first_number:
 	_hint.add_theme_color_override("font_color", Color(INK, 0.6) if ghost else Color(1, 1, 1, 0.55))
 	_skip.add_theme_color_override("font_color", Color(0.45, 0.2, 0.12) if ghost else GOLD)
 	_hint.text = "tap to continue" if _is_touch() else "click or press any key"
+	_skip.text = "  Skip  >>  " if _is_touch() else "  Skip (Esc)  >>  "
 	_note.modulate.a = 0.0
 	for i in lines.size():
 		_text.text = str(lines[i])
@@ -245,9 +246,10 @@ func _input(event: InputEvent) -> void:
 	if not press:
 		return
 	get_viewport().set_input_as_handled() # a dialogue press never reaches the game
-	# A click / tap on Skip ends the whole conversation.
-	if (event is InputEventScreenTouch or event is InputEventMouseButton) \
-			and _skip.get_global_rect().grow(8.0).has_point(event.position):
+	# A click / tap on Skip (or Esc) ends the whole conversation.
+	var on_skip := (event is InputEventScreenTouch or event is InputEventMouseButton) \
+			and _skip.get_global_rect().grow(8.0).has_point(event.position)
+	if on_skip or event.is_action_pressed("pause"):
 		Sfx.play("click")
 		skipping = true
 		advanced.emit()

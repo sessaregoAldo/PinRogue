@@ -53,12 +53,12 @@ const INTRO_SAL: Array[String] = [
 	"Don't ask me where she's from. Came across her at an estate sale, under a sheet. No maker's plate, no serial number, nothing.",
 	"Never got her to do much, to be honest. But you've got that look. Go on, plug her in.",
 ]
-## Shown after the face flickers in the glass and the Journal slides out.
+## Shown after the eye opens in the dark and the Journal slides out.
 const INTRO_JOURNAL: Array[String] = [
 	"A slot you never noticed opens under the coin door. A journal slides out, already open to page one. The ink is still wet.",
 ]
 const INTRO_GHOST: Array[String] = [
-	"Oh! Oh, there's somebody there. Hello. Don't mind the face in the glass, that's only me.",
+	"Oh! Oh, there's somebody there. Hello. Don't mind the eye in the dark, that's only me.",
 	"I built her. Every post, every spring. I was very nearly finished, too. I have been very nearly finished for... well. A while.",
 	"I'd shake your hand, but mine went into the gears somewhere along the way. The rest of me followed. That's the trouble with loving a thing too much.",
 	"So: you be my hands, and I'll be your instructions. I'll write to you in the journal. Help me finish her, and perhaps she lets me go.",
@@ -67,8 +67,6 @@ const INTRO_GHOST: Array[String] = [
 
 ## The ghost's note at the start of a run (after the first one).
 const WHISPER_START := "Center bumper first. Let's see what she's hiding today."
-## When a beaten boss shows up again on a replay.
-const REMATCH_LINE := "Back for another round, is he? He never did know when a meeting was over."
 ## Short lines the ghost writes during play (they don't stop the game).
 const WHISPERS := {
 	"first_launch": "That plunger spring is original. I wound it myself, on a Tuesday.",
@@ -240,7 +238,6 @@ static func voice_lines() -> Array[Dictionary]:
 		add.call(id + "_briefing", GHOST, ch["briefing"])
 		if ch.has("deck_tour"):
 			add.call(id + "_deck", GHOST, ch["deck_tour"])
-		add.call(id + "_again", GHOST, [REMATCH_LINE, ch["hint"]])
 		add.call(id + "_defeat", GHOST, ch["defeat"])
 		add.call(id + "_victory", GHOST, ch["victory"])
 	return out
