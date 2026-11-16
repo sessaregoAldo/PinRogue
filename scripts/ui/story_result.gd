@@ -232,7 +232,7 @@ func open(data: Dictionary) -> void:
 	var closing: Array = ch["victory"] if won else ch["defeat"]
 	_voice_queue.clear()
 	for i in closing.size():
-		_ink(str(closing[i]), 17)
+		_page.add_child(StoryData.rich_label(str(closing[i]), 17, JournalPanel.INK, WIDTH - 60.0))
 		_voice_queue.append("%s_%s_%d" % [ch["id"], "victory" if won else "defeat", i + 1])
 	_speak_next()
 	_page.add_child(JournalPanel.rule())
@@ -267,8 +267,8 @@ func open(data: Dictionary) -> void:
 	if won and data["first"]:
 		_page.add_child(JournalPanel.rule())
 		_ink("New journal page", 20, JournalPanel.RED_INK)
-		_ink(str(ch["journal"]), 16)
-		_ink(str(ch["machine_change"]), 15, JournalPanel.FADED)
+		_page.add_child(StoryData.rich_label(str(ch["journal"]), 16, JournalPanel.INK, WIDTH - 60.0))
+		_page.add_child(StoryData.rich_label(str(ch["machine_change"]), 15, JournalPanel.FADED, WIDTH - 60.0))
 	if won:
 		_button("Continue", func() -> void: menu_pressed.emit()).grab_focus.call_deferred()
 	else:

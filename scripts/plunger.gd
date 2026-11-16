@@ -41,6 +41,13 @@ func has_ball() -> bool:
 	return false
 
 
+## Fire whatever ball rests in the launcher at `power` (0..1), as if the player
+## had pulled and let go (the Clock Tower does this when it tilts the machine).
+func auto_fire(power: float = 1.0) -> void:
+	_set_charge(clampf(power, 0.0, 1.0))
+	_fire()
+
+
 func _set_charge(value: float) -> void:
 	if value != charge:
 		charge = value

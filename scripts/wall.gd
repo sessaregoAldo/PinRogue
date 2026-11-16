@@ -18,6 +18,10 @@ extends StaticBody2D
 	set(value):
 		bounce = value
 		_rebuild()
+@export var friction: float = 0.2:
+	set(value):
+		friction = value
+		_rebuild()
 @export var one_way: bool = false:
 	set(value):
 		one_way = value
@@ -46,7 +50,7 @@ func _rebuild() -> void:
 
 	var mat := PhysicsMaterial.new()
 	mat.bounce = bounce
-	mat.friction = 0.2
+	mat.friction = friction
 	physics_material_override = mat
 
 	for i in range(points.size() - 1):

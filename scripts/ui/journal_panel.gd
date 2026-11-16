@@ -110,8 +110,8 @@ func _show_tab(tab_name: String, click: bool = true) -> void:
 			_fill_coins()
 
 
-func _add(text: String, font_size: int, color: Color = INK) -> Label:
-	var label := ink_label(text, font_size, color)
+func _add(text: String, font_size: int, color: Color = INK) -> Control:
+	var label: Control = StoryData.rich_label(text, font_size, color, WIDTH - 60.0) if "{" in text else ink_label(text, font_size, color)
 	_page.add_child(label)
 	return label
 
@@ -122,16 +122,16 @@ func _fill_story() -> void:
 		_add("Start Story Mode and the journal will find you.", 16, FADED)
 		return
 	_add("Page one", 22, RED_INK)
-	_add("If you are reading this, she has found you. Good. I had hoped somebody would come.", 17)
-	_add("I built her and I am, I'm afraid, still in her. Be my hands. I'll be your instructions. Help me finish her, and perhaps she lets me go.", 17)
-	_add("The coins she pays out are not mine. I never minted them. I would very much like to know who did.", 17)
+	_add("If you are reading this, {she} has found you. Good. I had hoped somebody would come.", 17)
+	_add("I built {her} and I am, I'm afraid, still in {her}. I don't remember much else. Be my hands, and I'll be your instructions. Help me finish {her}, and perhaps I'll remember what {she} cost me.", 17)
+	_add("The coins {she} pays out are not mine. I never minted them. I would very much like to know who did.", 17)
 	for i in StoryData.CHAPTERS.size():
 		var ch: Dictionary = StoryData.CHAPTERS[i]
 		_page.add_child(rule())
 		if Story.is_beaten(ch["id"]):
 			_add("Chapter %d: %s" % [int(ch["number"]), ch["title"]], 22, RED_INK)
 			_add(str(ch["journal"]), 17)
-			_add(str(ch["machine_change"]), 15, FADED)
+			_page.add_child(StoryData.rich_label(str(ch["machine_change"]), 15, FADED, WIDTH - 60.0))
 		else:
 			_add("Chapter %d" % int(ch["number"]), 22, RED_INK)
 			_add("This page hasn't been written yet.", 16, FADED)
@@ -182,7 +182,7 @@ func _fill_parts() -> void:
 func _fill_coins() -> void:
 	_add("%d coins to spend  ·  %d found in all" % [Story.coins, Story.coins_earned], 19, RED_INK)
 	if Story.coin_tray.is_empty():
-		_add("No coins yet. She pays out for every dent you put in whoever is hiding in there, win or lose.", 16, FADED)
+		_add("No coins yet. {She} pays out for every dent you put in whoever is hiding in there, win or lose.", 16, FADED)
 		return
 	_add("None of these should exist.", 15, FADED)
 	var tray := Story.coin_tray.duplicate()

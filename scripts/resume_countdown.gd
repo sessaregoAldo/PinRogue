@@ -56,6 +56,11 @@ func _start() -> void:
 	_counting = true
 	get_tree().paused = true
 	_label.visible = true
+	# A table's clock may stretch the count so play lands on its beat.
+	var step := STEP_TIME
+	var clock := get_tree().get_first_node_in_group("clock_face")
+	if clock and clock.has_method("resume_after"):
+		step = float(clock.resume_after(STEPS * STEP_TIME)) / STEPS
 	for n in range(STEPS, 0, -1):
 		_label.text = str(n)
 		_label.pivot_offset = _label.size * 0.5
@@ -63,9 +68,9 @@ func _start() -> void:
 		_label.modulate.a = 1.0
 		var tween := create_tween()
 		tween.tween_property(_label, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		tween.parallel().tween_property(_label, "modulate:a", 0.35, STEP_TIME).set_delay(0.2)
+		tween.parallel().tween_property(_label, "modulate:a", 0.35, step).set_delay(0.2)
 		Sfx.play("click", 0.0, 1.5)
-		await get_tree().create_timer(STEP_TIME, true, false, true).timeout
+		await get_tree().create_timer(step, true, false, true).timeout
 		if run != _run:
 			return
 	_counting = false

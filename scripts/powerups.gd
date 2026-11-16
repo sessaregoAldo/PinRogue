@@ -124,6 +124,10 @@ var _choice_root: Control
 var _cards_box: HBoxContainer
 var _banner: Label
 var _status: Label
+## Story mode's passive bonus from bosses beaten (GameManager.score_bonus),
+## listed above the parts in its own color: it isn't a part from the lights.
+var _trophies: Label
+var _shown_bonus: float = -1.0
 
 
 func _ready() -> void:
@@ -143,6 +147,9 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	if not is_equal_approx(GameManager.score_bonus, _shown_bonus):
+		_shown_bonus = GameManager.score_bonus
+		_update_status()
 	if not get_tree().paused:
 		_clock += delta
 	_pulse += delta
@@ -152,6 +159,11 @@ func _process(delta: float) -> void:
 
 
 var _shown_deck: UpperDeck
+
+
+## The player is picking a spare part (the cards, or where to place one).
+func is_picking() -> bool:
+	return _placing or (_choice_root != null and _choice_root.visible)
 
 ## While placing, a highlighted part that sits on a second floor brings that
 ## floor into view; it goes again once a first-floor part is highlighted.
@@ -677,7 +689,12 @@ func _draw() -> void:
 # --- Status list --------------------------------------------------------------
 
 func _update_status() -> void:
+	var bonus := roundi((GameManager.score_bonus - 1.0) * 100.0)
+	if _trophies:
+		_trophies.visible = bonus > 0
+		_trophies.text = "Boss trophies: +%d%% score" % bonus
 	if _status:
+		_status.position.y = 52.0 + (18.0 if bonus > 0 else 0.0)
 		_status.text = "\n".join(_status_lines())
 
 
@@ -729,6 +746,16 @@ func _build_ui() -> void:
 	_ui = CanvasLayer.new()
 	_ui.layer = 15 # above the HUD, below the pause menu
 	add_child(_ui)
+
+	_trophies = Label.new()
+	_trophies.position = Vector2(8, 52)
+	_trophies.add_theme_font_size_override("font_size", 13)
+	_trophies.add_theme_color_override("font_color", Color(1.0, 0.78, 0.32)) # gold: earned from bosses
+	_trophies.add_theme_constant_override("outline_size", 4)
+	_trophies.add_theme_color_override("font_outline_color", Color.BLACK)
+	_trophies.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_trophies.visible = false
+	_ui.add_child(_trophies)
 
 	_status = Label.new()
 	_status.position = Vector2(8, 52)

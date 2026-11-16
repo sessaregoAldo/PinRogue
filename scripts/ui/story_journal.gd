@@ -1,6 +1,6 @@
 class_name StoryJournal
 extends Control
-## The Story menu, drawn as the Craftsman's journal: a leather notebook with a
+## The Story menu, drawn as the Ghost's journal: a leather notebook with a
 ## bookmark tab for each section on its fore-edge. Sections hold one or more
 ## pages; tapping a tab, the arrows at the foot of a page, a horizontal swipe
 ## across the page (or Page Up / Page Down, the flipper keys) turns the page.
@@ -490,14 +490,21 @@ func _fill_chapter(body: VBoxContainer, page: int) -> void:
 	_stat(grid, "Best score", GameManager.format_number(float(best["score"])) if best.has("score") else "-", INK)
 	var fastest := float(best.get("fastest_win", 0.0))
 	_stat(grid, "Fastest win", Story.clock(fastest) if fastest > 0.0 else "-", INK)
+	var bosses := Story.beaten.size()
+	if bosses > 0:
+		_text(body, "Every boss beaten adds %d%% to your Story scores:" % roundi(StoryData.SCORE_BONUS_PER_BOSS * 100.0), 16, FADED)
+		var now := _hand_label(body, "+%d%% now" % roundi(StoryData.SCORE_BONUS_PER_BOSS * 100.0 * bosses), 28, RED_INK, true)
+		now.add_theme_constant_override("line_spacing", -8)
 	_stamp(body, ("Replay Chapter %d" if beaten else "Play Chapter %d") % int(ch["number"]), index)
 	var line: String = StoryData.HUB_LINE_START
 	if beaten:
 		line = ch["hub_line"]
 	elif index > 0:
 		line = StoryData.CHAPTERS[index - 1]["hub_line"]
-	_hand_label(body, "“%s”" % line, 27, BLUE_INK)
-	_hand_label(body, "the Craftsman", 23, FADED, false, HORIZONTAL_ALIGNMENT_RIGHT)
+	var hub := StoryData.rich_label("“%s”" % line, 27, BLUE_INK, CONTENT_W, hand(false))
+	hub.add_theme_constant_override("line_separation", -4)
+	body.add_child(hub)
+	_hand_label(body, "the Ghost", 23, FADED, false, HORIZONTAL_ALIGNMENT_RIGHT)
 	if Story.next_chapter() < 0 and index == _last_open():
 		_text(body, StoryData.MORE_SOON, 16, FADED)
 
@@ -509,9 +516,9 @@ func _fill_story(body: VBoxContainer, index: int) -> void:
 		return
 	if index == 0:
 		_hand_label(body, "Page one", 40, RED_INK, true)
-		_text(body, "If you are reading this, she has found you. Good. I had hoped somebody would come.", 19, INK)
-		_text(body, "I built her and I am, I'm afraid, still in her. Be my hands. I'll be your instructions. Help me finish her, and perhaps she lets me go.", 19, INK)
-		_text(body, "The coins she pays out are not mine. I never minted them. I would very much like to know who did.", 19, INK)
+		_rich(body, "If you are reading this, {she} has found you. Good. I had hoped somebody would come.", 19, INK)
+		_rich(body, "I built {her} and I am, I'm afraid, still in {her}. I don't remember much else. Be my hands, and I'll be your instructions. Help me finish {her}, and perhaps I'll remember what {she} cost me.", 19, INK)
+		_rich(body, "The coins {she} pays out are not mine. I never minted them. I would very much like to know who did.", 19, INK)
 		if Story.attempts > 0:
 			_text(body, "Runs played: %d" % Story.attempts, 16, FADED)
 		return
@@ -542,8 +549,8 @@ func _fill_story(body: VBoxContainer, index: int) -> void:
 	boss.custom_minimum_size.x = 0
 	var person := _hand_label(names, str(ch.get("person", "")), 26, RED_INK)
 	person.custom_minimum_size.x = CONTENT_W - 150.0
-	_text(body, str(ch["journal"]), 19, INK)
-	_text(body, str(ch["machine_change"]), 16, FADED)
+	_rich(body, str(ch["journal"]), 19, INK)
+	body.add_child(StoryData.rich_label(str(ch["machine_change"]), 16, FADED, CONTENT_W))
 	var note := PanelContainer.new()
 	var box := StyleBoxFlat.new()
 	box.bg_color = Color(BLUE_INK, 0.05)
@@ -645,7 +652,7 @@ func _fill_coins(body: VBoxContainer, index: int) -> void:
 	var tray := Story.coin_tray.duplicate()
 	tray.reverse() # newest first
 	if tray.is_empty():
-		_text(body, "No coins yet. She pays out for every dent you put in whoever is hiding in there, win or lose.", 19, INK)
+		_rich(body, "No coins yet. {She} pays out for every dent you put in whoever is hiding in there, win or lose.", 19, INK)
 		return
 	for coin: Variant in tray.slice(index * COINS_PER_PAGE, (index + 1) * COINS_PER_PAGE):
 		if not coin is Dictionary:
@@ -801,6 +808,13 @@ func _text(parent: Control, text: String, font_size: int, color: Color) -> Label
 	label.custom_minimum_size = Vector2(CONTENT_W, 0)
 	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", color)
+	parent.add_child(label)
+	return label
+
+
+## Like _text, but any {word} (the machine's names) is drawn in StoryData.MACHINE_FONT.
+func _rich(parent: Control, text: String, font_size: int, color: Color) -> RichTextLabel:
+	var label := StoryData.rich_label(text, font_size, color, CONTENT_W)
 	parent.add_child(label)
 	return label
 
@@ -1071,6 +1085,16 @@ class Sketch:
 				draw_arc(c, 23.0, 0.0, TAU, 32, ink, 2.0, true)
 				draw_polyline(PackedVector2Array([c + Vector2(-4, -40), c + Vector2(4, -22), c + Vector2(-6, -8),
 						c + Vector2(6, 8), c + Vector2(-4, 24), c + Vector2(2, 40)]), ink, 2.4, true)
+			"clock":
+				draw_arc(c, 38.0, 0.0, TAU, 40, ink, 2.4, true)
+				for k in 12: # hour marks
+					var a := TAU * k / 12.0
+					draw_line(c + Vector2.from_angle(a) * 33.0, c + Vector2.from_angle(a) * 37.0, ink, 1.6, true)
+				draw_set_transform(c + Vector2(-10, -6), 0.0, Vector2(0.75, 1.2))
+				draw_circle(Vector2.ZERO, 4.5, ink)
+				draw_set_transform(c + Vector2(10, -6), 0.0, Vector2(0.75, 1.2))
+				draw_circle(Vector2.ZERO, 4.5, ink)
+				draw_set_transform(Vector2.ZERO)
 			"collector":
 				for i in 24:
 					var a := TAU * i / 24.0
@@ -1155,7 +1179,7 @@ class FrontCover:
 			draw_colored_polygon(PackedVector2Array([corner + Vector2(0, -9), corner + Vector2(9, 0), corner + Vector2(0, 9), corner + Vector2(-9, 0)]), GILT)
 		var font := StoryJournal.hand(true)
 		var mid := outer.get_center()
-		_centered(font, "The Craftsman's", 38, mid + Vector2(0, -50), Color(GILT, 0.85))
+		_centered(font, "The Ghost's", 38, mid + Vector2(0, -50), Color(GILT, 0.85))
 		_centered(font, "Journal", 92, mid + Vector2(0, 40), GILT)
 		draw_line(mid + Vector2(-90, 78), mid + Vector2(90, 78), Color(GILT, 0.6), 2.0)
 

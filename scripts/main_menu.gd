@@ -45,7 +45,7 @@ var _splash: Label
 ## The table shown behind the menu.
 var _background_level: Level
 var _story_page: VBoxContainer
-## The Story menu: the Craftsman's journal, drawn over the whole screen.
+## The Story menu: the Ghost's journal, drawn over the whole screen.
 var _story_journal: StoryJournal
 ## Holds the menu pages; faded out while the journal comes and goes.
 var _center: CenterContainer

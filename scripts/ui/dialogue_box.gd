@@ -23,11 +23,14 @@ const NOTE_WIDTH := 430.0
 const GRAVITY := 1100.0
 
 var _panel: PanelContainer
+const TEXT_SIZE := 20
+const NOTE_SIZE := 15
+
 var _speaker: Label
-var _text: Label
+var _text: RichTextLabel
 var _hint: Label
 var _note: PanelContainer
-var _note_text: Label
+var _note_text: RichTextLabel
 var _note_tween: Tween
 var _waiting: bool = false
 ## Set by the Skip button: every say() returns at once until the caller starts
@@ -54,10 +57,7 @@ func _ready() -> void:
 	_speaker = Label.new()
 	_speaker.add_theme_font_size_override("font_size", 18)
 	box.add_child(_speaker)
-	_text = Label.new()
-	_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_text.custom_minimum_size = Vector2(BOX_WIDTH - 44.0, 0)
-	_text.add_theme_font_size_override("font_size", 20)
+	_text = StoryData.rich_label("", TEXT_SIZE, INK, BOX_WIDTH - 44.0)
 	box.add_child(_text)
 	# Bottom row: Skip (for players who have read it all before) and the hint.
 	var bottom := HBoxContainer.new()
@@ -83,12 +83,7 @@ func _ready() -> void:
 	_note.add_theme_stylebox_override("panel", _style(Color(PAPER, 0.85), Color(INK, 0.5), 10.0))
 	_note.modulate.a = 0.0
 	add_child(_note)
-	_note_text = Label.new()
-	_note_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_note_text.custom_minimum_size = Vector2(NOTE_WIDTH - 30.0, 0)
-	_note_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_note_text.add_theme_font_size_override("font_size", 15)
-	_note_text.add_theme_color_override("font_color", INK)
+	_note_text = StoryData.rich_label("", NOTE_SIZE, INK, NOTE_WIDTH - 30.0)
 	_note.add_child(_note_text)
 
 
@@ -103,14 +98,14 @@ func say(speaker: String, lines: Array, voice_prefix: String = "", first_number:
 	_speaker.text = speaker
 	_speaker.visible = speaker != ""
 	_speaker.add_theme_color_override("font_color", Color(0.45, 0.2, 0.12) if ghost else GOLD)
-	_text.add_theme_color_override("font_color", INK if ghost else Color.WHITE)
+	_text.add_theme_color_override("default_color", INK if ghost else Color.WHITE)
 	_hint.add_theme_color_override("font_color", Color(INK, 0.6) if ghost else Color(1, 1, 1, 0.55))
 	_skip.add_theme_color_override("font_color", Color(0.45, 0.2, 0.12) if ghost else GOLD)
 	_hint.text = "tap to continue" if _is_touch() else "click or press any key"
 	_skip.text = "  Skip  >>  " if _is_touch() else "  Skip (Esc)  >>  "
 	_note.modulate.a = 0.0
 	for i in lines.size():
-		_text.text = str(lines[i])
+		_text.text = StoryData.bbcode(str(lines[i]), TEXT_SIZE)
 		_panel.visible = true
 		_panel.modulate.a = 0.0
 		_panel.reset_size()
@@ -159,7 +154,7 @@ func is_talking() -> bool:
 func whisper(text: String, hold: float = 4.0, voice_id: String = "") -> void:
 	if _waiting:
 		return
-	_note_text.text = text
+	_note_text.text = "[center]%s[/center]" % StoryData.bbcode(text, NOTE_SIZE)
 	_note.reset_size()
 	_note_slot = _best_slot()
 	_note.position.y = _note_slot

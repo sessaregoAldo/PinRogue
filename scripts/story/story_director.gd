@@ -94,6 +94,9 @@ func _on_run_started() -> void:
 	GameManager.popups_hidden = false # a restart mid-switch
 	Sfx.unsilence()
 	Sfx.end_battle_music()
+	if chapter.has("music_stage"):
+		Sfx.play_playlist(chapter["music_stage"])
+	GameManager.score_bonus = 1.0 + StoryData.SCORE_BONUS_PER_BOSS * Story.beaten.size()
 	_result.close()
 	_blackout.visible = false
 	_eye.visible = false
@@ -110,7 +113,7 @@ func _on_run_started() -> void:
 	if _boss:
 		# A beaten boss keeps his face: the cap stays cracked on later visits.
 		# (Not when the boss lives on another machine: this one is only borrowed.)
-		var own_face := Story.is_beaten(chapter["id"]) and not chapter.has("boss_scene")
+		var own_face := Story.is_beaten(chapter["id"]) and not chapter.has("boss_scene") 				and bool(chapter.get("keep_face", true))
 		_take_boss(_boss, str(chapter["art"]) if own_face else str(chapter.get("phase_one_art", "plain")))
 		if chapter.has("phase_one_hits"):
 			# Counted in hits: each hit takes one off, whatever the score.
@@ -186,10 +189,10 @@ func _intro(run: int) -> void:
 	await _dialogue.say("", StoryData.INTRO_JOURNAL, "intro_narration")
 	if run != _run:
 		return
-	await _dialogue.say(StoryData.GHOST_UNKNOWN, StoryData.INTRO_GHOST.slice(0, 1), "intro_ghost")
+	await _dialogue.say(StoryData.GHOST_UNKNOWN, StoryData.INTRO_GHOST.slice(0, 3), "intro_ghost") # nameless until he names himself
 	if run != _run:
 		return
-	await _dialogue.say(StoryData.GHOST, StoryData.INTRO_GHOST.slice(1), "intro_ghost", 2)
+	await _dialogue.say(StoryData.GHOST, StoryData.INTRO_GHOST.slice(3), "intro_ghost", 4)
 	if run != _run:
 		return
 	var fade := create_tween()
@@ -390,13 +393,17 @@ func _reveal(run: int) -> void:
 	_hold()
 	_revealed = true
 	Sfx.play("guard_break")
+	_boss.shatter() # the blue bumper bursts; the boss's face is underneath
 	_flash.modulate.a = 0.9
 	create_tween().tween_property(_flash, "modulate:a", 0.0, 0.7)
 	_boss.art = str(chapter["art"])
 	var factor := float(chapter.get("boss_hp_factor", StoryData.BOSS_HP_SCORE_FACTOR))
-	_boss_max = maxf(roundf(GameManager.score * factor), StoryData.BOSS_HP_MIN)
+	_boss_max = maxf(roundf(GameManager.score * factor), float(chapter.get("boss_hp_min", StoryData.BOSS_HP_MIN)))
 	_boss.set_hp(_boss_max)
-	Sfx.play_battle_music()
+	if chapter.has("music_boss"):
+		Sfx.play_playlist(chapter["music_boss"])
+	else:
+		Sfx.play_battle_music()
 	if "hud" in game:
 		game.hud.show_banner(str(chapter["boss"]).to_upper(), 2.2)
 	await get_tree().create_timer(0.8, true, false, true).timeout
@@ -422,6 +429,7 @@ func _switch_table(run: int) -> void:
 		return
 	_hold()
 	Sfx.play("guard_break")
+	_boss.shatter() # the cracked cap finally breaks (its shards fall with the table)
 	await _morph(run)
 	if run != _run or not is_instance_valid(_boss):
 		return
@@ -628,6 +636,8 @@ func _victory(run: int) -> void:
 	if is_instance_valid(_collector):
 		_collector.active = false
 	var at := _boss.global_position if is_instance_valid(_boss) else Vector2(300, 400)
+	if is_instance_valid(_boss):
+		_boss.shatter(true) # the boss bursts, its shards drifting in the slow motion
 	Engine.time_scale = SLOWMO_SCALE
 	if game.has_method("focus_camera"):
 		game.focus_camera(at, CLOSE_UP_ZOOM, 0.7)

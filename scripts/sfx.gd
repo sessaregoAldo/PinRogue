@@ -43,6 +43,8 @@ var _track_started_ms: int = 0
 var _track_length: float = 0.0
 var _fade_started_ms: int = -1
 var _battle: bool = false
+## A chapter's or a table's own tracks, rotated instead of MUSIC_TRACKS while set.
+var _playlist: Array[String] = []
 var _silenced: bool = false
 ## Fade to silence (story mode's victory): start time and length, real time.
 var _fade_out_started_ms: int = -1
@@ -91,7 +93,7 @@ func _start_music() -> void:
 ## Next track from the shuffled queue (never the same one twice in a row).
 func _pick_track() -> String:
 	if _music_queue.is_empty():
-		for path in MUSIC_TRACKS:
+		for path in (_playlist if not _playlist.is_empty() else MUSIC_TRACKS):
 			if ResourceLoader.exists(path):
 				_music_queue.append(path)
 		_music_queue.shuffle()
@@ -165,11 +167,32 @@ func play_theme(path: String) -> void:
 	_fade_to(path)
 
 
-## Back to the normal rotation.
+## Rotate these tracks (crossfading, each played twice) instead of the usual
+## ones, until end_battle_music(): a story chapter's stage or boss music, or a
+## table's own. Starts with a crossfade to the first of them.
+func play_playlist(paths: Array) -> void:
+	var list: Array[String] = []
+	for p in paths:
+		if ResourceLoader.exists(str(p)):
+			list.append(str(p))
+	if list.is_empty() or (list == _playlist and not _battle):
+		return
+	if _silenced:
+		_silenced = false
+		AudioServer.set_bus_mute(_sfx_bus_index, false)
+	_battle = false
+	_playlist = list
+	_music_queue.clear()
+	_fade_to(_pick_track())
+
+
+## Back to the normal rotation (ends a theme and a playlist).
 func end_battle_music() -> void:
-	if not _battle:
+	if not _battle and _playlist.is_empty():
 		return
 	_battle = false
+	_playlist.clear()
+	_music_queue.clear()
 	if not _silenced:
 		_fade_to(_pick_track())
 
@@ -235,6 +258,11 @@ func _fade_to(path: String) -> void:
 	_music_next.volume_db = -80.0
 	if _start_track(_music_next, path):
 		_fade_started_ms = Time.get_ticks_msec()
+
+
+## When the track playing now (or fading in) began, real ms (Time.get_ticks_msec).
+func track_started_ms() -> int:
+	return _track_started_ms
 
 
 ## Name of the track playing now (for tests / a future "now playing").
@@ -377,6 +405,11 @@ func _build_sounds() -> void:
 		return (sin(TAU * 1046.5 * t) + 0.5 * sin(TAU * 1568.0 * t)) / 1.5 * 0.45 * exp(-t * 38.0) + _noise() * 0.2 * exp(-t * 400.0))
 	_streams["click"] = _synth(0.03, func(t: float, _p: float) -> float:
 		return sin(TAU * 1200.0 * t) * 0.4 * exp(-t * 200.0))
+	# A clock bell striking: a low, inharmonic bell tone with a long ring.
+	_streams["chime"] = _synth(1.6, func(t: float, _p: float) -> float:
+		var f := 392.0
+		var tone := sin(TAU * f * t) * exp(-t * 2.2) + 0.55 * sin(TAU * f * 2.0 * t) * exp(-t * 3.0) 				+ 0.4 * sin(TAU * f * 2.76 * t) * exp(-t * 4.5) + 0.25 * sin(TAU * f * 5.4 * t) * exp(-t * 7.0) 				+ 0.3 * sin(TAU * f * 0.5 * t) * exp(-t * 1.6)
+		return tone * 0.32 * minf(1.0, t * 400.0))
 	# A journal page turning: a soft paper rustle that swells and fades.
 	_streams["page"] = _synth(0.32, func(t: float, p: float) -> float:
 		return _noise() * 0.3 * pow(sin(PI * p), 2.0) * (0.65 + 0.35 * sin(TAU * 19.0 * t)))

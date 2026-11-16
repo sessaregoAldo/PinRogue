@@ -35,6 +35,11 @@ var background_texture: Texture2D = null:
 		art_title = value
 		queue_redraw()
 @export var art_title_position: Vector2 = Vector2(180, 860)
+## This table's own music outside story mode (tools/make_music.py): rotated
+## while its boss is hidden, then `boss_music` once a revealed boss shows itself.
+## Empty: the usual rotation.
+@export var stage_music: PackedStringArray = PackedStringArray()
+@export var boss_music: PackedStringArray = PackedStringArray()
 @export_group("Power-up guard positions")
 @export var gap_guard: PackedVector2Array = PackedVector2Array([Vector2(262, 1030), Vector2(298, 1030)])
 @export var left_outlane_guard: PackedVector2Array = PackedVector2Array([Vector2(26, 806), Vector2(55, 806)])
@@ -84,7 +89,7 @@ func _draw() -> void:
 	var tunnels := []
 	_tunnels(self, tunnels)
 	for tunnel: Tunnel in tunnels:
-		if tunnel.path.size() >= 2:
+		if tunnel.path.size() >= 2 and tunnel.table_entry: # not the ones only reached from another ramp
 			var mouth := to_local(tunnel.to_global(tunnel.path[0]))
 			_draw_arrows(mouth, tunnel.path[1] - tunnel.path[0], Color(tunnel.color, 0.45))
 	# Drain hole at the bottom of the funnel.

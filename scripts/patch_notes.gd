@@ -5,6 +5,21 @@ extends RefCounted
 
 const NOTES: Array[Dictionary] = [
 	{
+		"version": "0.16.0",
+		"name": "Clockwork",
+		"date": "Nov 16, 2026",
+		"notes": [
+			"Story Mode chapter 3 is here. Beat chapter 2 and the machine has more to show you.",
+			"The story has been reworked. The man trapped in the machine has lost his memory, and each chapter brings a piece of it back. He goes by the Ghost now.",
+			"A new machine with a clock at its heart: every hour it strikes, the table shakes. Earn it in Story Mode to play it in Endless.",
+			"Every boss you beat in Story Mode adds 15% to all your Story scores. It's listed in gold above your spare parts, and in the journal.",
+			"Each Story chapter has its own music, with a fiercer track once its boss shows itself.",
+			"Chapter 2 is tougher: its first bumper and its boss both have more health.",
+			"Beaten bumpers and bosses now shatter.",
+			"If the machine tilts while the ball is waiting in the launch lane, it fires the ball itself, so a tilt always costs you the ball.",
+		],
+	},
+	{
 		"version": "0.15.7",
 		"name": "Tidy Rails",
 		"date": "Nov 15, 2026",
@@ -29,7 +44,7 @@ const NOTES: Array[Dictionary] = [
 		"name": "Field Notes",
 		"date": "Nov 14, 2026",
 		"notes": [
-			"The Story menu is now the Craftsman's journal. It drops onto the table closed and falls open; Back shuts it and puts it away. Bookmark tabs on its edge open Chapters, Story, Workshop, Coins, Wardrobe and Leaderboard.",
+			"The Story menu is now the Ghost's journal. It drops onto the table closed and falls open; Back shuts it and puts it away. Bookmark tabs on its edge open Chapters, Story, Workshop, Coins, Wardrobe and Leaderboard.",
 			"Swipe across a page, or tap the arrows at its foot, to turn to the next page of a section. Each chapter has its own page.",
 			"The Story pages tell who each boss was, with a sketch and how to beat him.",
 		],

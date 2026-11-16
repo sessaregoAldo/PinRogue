@@ -45,6 +45,9 @@ func _ready() -> void:
 	GameManager.ball_saved.connect(_on_ball_saved)
 	GameManager.game_started.connect(_on_game_started)
 	GameManager.round_continued.connect(_on_round_continued)
+	GameManager.tilted_changed.connect(_on_tilted)
+	if OS.has_feature("editor"):
+		_add_dev_button()
 	GameManager.victory.connect(func(_score: float) -> void: ball.remove_from_play())
 	var stuck_hint := StuckHint.new()
 	stuck_hint.name = "StuckHint"
@@ -109,17 +112,38 @@ func switch_level(index: int) -> void:
 	hud.show_banner("ROUND %d  ·  %s" % [GameManager.boss_round, level.level_name])
 
 
+## Developer play-testing: started as `godot res://scenes/game.tscn -- --level=<scene>`,
+## every machine of the run is that table (drafts included). Ignored in exports.
+func _test_level() -> String:
+	if not OS.has_feature("editor"):
+		return ""
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--level="):
+			var path := arg.trim_prefix("--level=")
+			if ResourceLoader.exists(path):
+				return path
+	return ""
+
+
 func _load_level(index: int) -> void:
 	if level:
 		level_holder.remove_child(level)
 		level.queue_free()
 	# Story chapters can bring their own machine (not part of the Endless rotation).
-	if GameManager.game_mode == "story" and GameManager.story_level_scene != "" 			and ResourceLoader.exists(GameManager.story_level_scene):
+	var test_level := _test_level()
+	if test_level != "":
+		level = (load(test_level) as PackedScene).instantiate() as Level
+	elif GameManager.game_mode == "story" and GameManager.story_level_scene != "" 			and ResourceLoader.exists(GameManager.story_level_scene):
 		level = (load(GameManager.story_level_scene) as PackedScene).instantiate() as Level
 	else:
 		level = LevelRegistry.instantiate(index)
 	level_holder.add_child(level)
 	Cosmetics.apply(level) # the player's flipper / bumper colors and background
+	if GameManager.game_mode != "story": # (story chapters pick their own music)
+		if not level.stage_music.is_empty():
+			Sfx.play_playlist(Array(level.stage_music))
+		else:
+			Sfx.end_battle_music()
 	GameManager.current_level = index
 	GameManager.level_changed.emit(level)
 
@@ -176,6 +200,73 @@ func _nudge(impulse: Vector2) -> void:
 	GameManager.add_tilt(nudge_tilt_cost)
 	_shake(impulse.normalized())
 	nudged.emit(impulse.normalized())
+
+
+## Developer testing (only when running from Godot): a button that beats the
+## centre bumper at once: the ordinary blue bumper (straight to the boss's
+## reveal) or the boss itself (the round / the chapter is won).
+func _add_dev_button() -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 40
+	layer.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(layer)
+	var b := Button.new()
+	b.text = "DEV: beat boss"
+	b.position = Vector2(6, 1036)
+	b.size = Vector2(150, 30)
+	b.focus_mode = Control.FOCUS_NONE # Space / Enter stay with the game
+	b.add_theme_font_size_override("font_size", 13)
+	b.modulate = Color(1, 1, 1, 0.8)
+	b.visible = false
+	b.pressed.connect(func() -> void:
+		var boss := level.boss() if level else null
+		if boss and not get_tree().paused:
+			boss.debug_beat())
+	layer.add_child(b)
+	var timer := Timer.new()
+	timer.wait_time = 0.25
+	timer.autostart = true
+	timer.timeout.connect(func() -> void:
+		var boss := level.boss() if level else null
+		b.visible = boss != null and boss.hp > 0.0 and boss.modulate.a > 0.5 and not get_tree().paused
+		if boss:
+			b.text = "DEV: beat bumper" if boss.is_plain() else "DEV: beat boss")
+	layer.add_child(timer)
+
+
+## Tilted with a ball waiting in the launcher: the machine fires it itself
+## (full power, after a short beat), so a tilt can't be sat out in the lane.
+## It keeps checking while the tilt lasts (a ball can bounce back down into it).
+func _on_tilted(is_tilted: bool) -> void:
+	if not is_tilted:
+		return
+	while GameManager.tilted and not GameManager.is_game_over and is_inside_tree():
+		await get_tree().create_timer(0.5, false).timeout
+		if not GameManager.tilted or level == null:
+			return
+		var plunger := level.get_node_or_null("Plunger") as Plunger
+		if plunger and plunger.has_ball():
+			plunger.auto_fire(1.0)
+
+
+## An involuntary shove (the Clock Tower striking the hour): like a nudge in
+## `dir` (LEFT, RIGHT or UP) at `strength` of a player's, but no cooldown, not
+## counted as the player's nudge, and only `tilt_share` of a nudge's tilt.
+func jolt(dir: Vector2, strength: float = 0.6, tilt_share: float = 0.4) -> void:
+	if GameManager.tilted or GameManager.is_game_over:
+		return
+	var impulse := Vector2(0, -nudge_up_strength)
+	if dir.x < 0.0:
+		impulse = Vector2(-nudge_side_strength, -nudge_side_strength * 0.25)
+	elif dir.x > 0.0:
+		impulse = Vector2(nudge_side_strength, -nudge_side_strength * 0.25)
+	impulse *= strength
+	for node in get_tree().get_nodes_in_group("ball"):
+		var b := node as Ball
+		if b and b.in_play and b.ramp == null:
+			b.add_impulse(impulse)
+	GameManager.add_tilt(nudge_tilt_cost * tilt_share)
+	_shake(impulse.normalized())
 
 
 func _shake(dir: Vector2) -> void:

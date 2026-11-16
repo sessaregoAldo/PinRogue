@@ -76,6 +76,43 @@ const POST_COLOR := Color(0.55, 0.5, 0.55)
 @export var score_value: int = 1000
 ## Lands on this upper deck (UpperDeck) at the far end instead of the playfield.
 @export var to_deck: NodePath
+## Chained ramps: at the far end the ball goes straight on into this ramp
+## instead of dropping to the table (lets a track cross itself: the next ramp
+## sits on its own rail layer, a level higher).
+@export var next_ramp: NodePath
+## A ball on the table can enter at the mouth. Off for a ramp that is only
+## reached from another one (`next_ramp`).
+@export var table_entry: bool = true
+## Keep the track up at that end (no slope down to the table), for the ends
+## where a chained ramp hands over.
+@export var raised_start: bool = false
+@export var raised_end: bool = false
+## With raised_start: the height the track starts at (a chained ramp picking up
+## where a lower one ends), climbing to lift_height over `ramp_rise` px. -1 = off.
+@export var start_lift: float = -1.0
+## How long the climb from (and down to) the table is, at most.
+@export var ramp_rise: float = 140.0
+## Show the whole track whenever a ball rides this ramp or that one (chained ramps).
+@export var reveal_with: NodePath
+## From the table: hide the mouth too (a ramp reached only from another), and/or
+## keep the last `shown_end` px visible (where the ball comes back down).
+@export var hide_mouth: bool = false
+@export var shown_end: float = 0.0
+## Support posts: one every `post_spacing` px; off for a track carried by another's.
+@export var post_spacing: float = 70.0
+## Friction of the rails. 0: a fast ball doesn't lose speed pressing into a curve.
+@export var rail_friction: float = 0.2
+@export var posts_shown: bool = true
+## How fast the track fades back out once no ball rides it (per second; 5 = 0.2 s).
+@export var fade_out_speed: float = 5.0
+## While a ball rides it, show the track only up to this far ahead of the ball
+## (it grows with the ball). -1: the whole track at once. With reveal_with, a
+## ball on that ramp shows this one's start once the window reaches past its end.
+@export var lookahead: float = -1.0
+## While a ball rides it, hide the track more than this far behind the ball (the
+## trail fades out after it). -1: keep it. With next_ramp, a ball that has gone
+## on into that ramp still shows this one's last stretch until the trail passes.
+@export var lookbehind: float = -1.0
 @export var color: Color = Color(0.4, 0.75, 1.0):
 	set(value):
 		color = value
@@ -118,6 +155,9 @@ const POST_COLOR := Color(0.55, 0.5, 0.55)
 @export var booster_speed: float = 650.0
 ## ...accelerating at most this fast (px/s²).
 @export var booster_accel: float = 5000.0
+## Also keep the ball from going faster than booster_speed (downhill, gravity
+## included): it rides the booster's stretch at one steady speed.
+@export var booster_holds_speed: bool = false
 
 var _center := PackedVector2Array()
 var _cum := PackedFloat32Array() # distance along the centerline at each point
@@ -168,8 +208,56 @@ func covers(global_point: Vector2, extra: float = 0.0) -> bool:
 func shown_at(s: float) -> float:
 	if shown_length <= 0.0 or Engine.is_editor_hint():
 		return 1.0
-	var base := 1.0 - smoothstep(shown_length, shown_length + preview_fade, s)
+	var base := 0.0 if hide_mouth else 1.0 - smoothstep(shown_length, shown_length + preview_fade, s)
+	if shown_end > 0.0:
+		base = maxf(base, smoothstep(_length - shown_end - shown_fade, _length - shown_end, s))
+	if (lookahead >= 0.0 or lookbehind >= 0.0) and not _forced:
+		var ahead := 1.0
+		if lookahead >= 0.0:
+			ahead = 0.0 if _reach <= 0.0 else 1.0 - smoothstep(_reach, _reach + shown_fade, s)
+		var behind := 1.0
+		if lookbehind >= 0.0:
+			behind = smoothstep(_tail - shown_fade, _tail, s)
+		return maxf(base, ahead * behind * _reveal)
 	return lerpf(base, 1.0, _reveal)
+
+
+## How far along this track a ball has got (px).
+func progress_of(ball: Ball) -> float:
+	return _track_info(to_local(ball.global_position))[0]
+
+
+## The window a riding ball lets the player see along this track (on this ramp,
+## the one it's chained from, or the one it went on into): [reach, tail] in px.
+## reach -1 = no rider.
+func _rider_window() -> Array:
+	var reach := -1.0
+	var tail := NO_TAIL
+	var before := get_node_or_null(reveal_with) as Tunnel
+	var after := get_node_or_null(next_ramp) as Tunnel
+	for node in get_tree().get_nodes_in_group("ball"):
+		var ball := node as Ball
+		if ball == null or not ball.in_play or ball.ramp == null:
+			continue
+		if ball.ramp == self:
+			var at := progress_of(ball)
+			reach = maxf(reach, at + maxf(lookahead, 0.0))
+			tail = maxf(tail, at - lookbehind)
+		elif before != null and ball.ramp == before:
+			reach = maxf(reach, before.progress_of(ball) + maxf(lookahead, 0.0) - before._length)
+		elif after != null and ball.ramp == after and lookbehind >= 0.0:
+			reach = maxf(reach, _length + shown_fade)
+			tail = maxf(tail, _length + after.progress_of(ball) - lookbehind)
+	return [reach, tail]
+
+
+## How high the track is drawn `s` px along it (px).
+func _lift_at(s: float) -> float:
+	var h := height_along(s)
+	if raised_start and start_lift >= 0.0:
+		var rise := minf(_length * 0.3, ramp_rise)
+		return lerpf(start_lift, lift_height, smoothstep(0.0, rise, s)) * h
+	return lift_height * h
 
 
 ## The track's height `s` px along it: 0 on the table, 1 at the top (an upper
@@ -177,10 +265,12 @@ func shown_at(s: float) -> float:
 func height_along(s: float) -> float:
 	if _deck_edge > 0.0:
 		return smoothstep(0.0, _deck_edge, s)
-	var rise := minf(_length * 0.3, 140.0)
+	var rise := minf(_length * 0.3, ramp_rise)
 	if rise <= 0.0:
 		return 0.0
-	return minf(smoothstep(0.0, rise, s), smoothstep(_length, _length - rise, s))
+	var up := 1.0 if raised_start else smoothstep(0.0, rise, s)
+	var down := 1.0 if raised_end else smoothstep(_length, _length - rise, s)
+	return minf(up, down)
 
 
 ## Height (0..1) of the track at the point nearest `global_point`.
@@ -220,20 +310,19 @@ func _physics_process(delta: float) -> void:
 		if ball.deck != null:
 			continue # up on a deck: the ramps below don't exist for it
 		if ball.ramp == null:
-			if _crosses(prev, cur, _left[0], _right[0]) and step.dot(_mouth_dir()) > 0.0 \
+			if table_entry and _crosses(prev, cur, _left[0], _right[0]) and step.dot(_mouth_dir()) > 0.0 \
 					and _entry_allowed(ball.linear_velocity):
-				var draw_z := z_index + 1
-				if _deck:
-					draw_z = maxi(draw_z, _deck.z_index + 2) # its end runs under the deck's floor
-				ball.enter_ramp(self, 1 << (rail_layer - 1), draw_z, ramp_damp)
-				_stall_time[ball] = 0.0
-				_last_along.erase(ball)
+				take_ball(ball)
 				Sfx.play("ramp_enter")
 		elif ball.ramp == self:
 			var last := _center.size() - 1
 			if _crosses(prev, cur, _left[last], _right[last]) and step.dot(_exit_dir()) > 0.0:
 				# Keep the momentum: same speed, pointed out of the end of the track.
 				var speed := minf(ball.linear_velocity.length(), exit_max_speed)
+				var chained := get_node_or_null(next_ramp) as Tunnel
+				if chained:
+					chained.take_ball(ball) # straight on, still up in the air
+					continue
 				var upper := get_node_or_null(to_deck) as Node2D
 				if upper:
 					ball.enter_deck(upper)
@@ -250,6 +339,17 @@ func _physics_process(delta: float) -> void:
 				_guide(ball, cur, delta)
 				_apply_booster(ball, cur, delta)
 				_check_stall(ball, delta)
+
+
+## Lift the ball onto this track (its mouth, or the end of a chained ramp).
+func take_ball(ball: Ball) -> void:
+	var draw_z := z_index + 1
+	if _deck:
+		draw_z = maxi(draw_z, _deck.z_index + 2) # its end runs under the deck's floor
+	ball.enter_ramp(self, 1 << (rail_layer - 1), draw_z, ramp_damp)
+	_prev_pos[ball] = to_local(ball.global_position)
+	_stall_time[ball] = 0.0
+	_last_along.erase(ball)
 
 
 ## Steer the ball along the track: damp its sideways motion (relative to the
@@ -288,6 +388,9 @@ func _apply_booster(ball: Ball, local_pos: Vector2, delta: float) -> void:
 		return
 	var tangent := global_transform.basis_xform(info[1]).normalized()
 	var along := ball.linear_velocity.dot(tangent)
+	if booster_holds_speed and along > booster_speed:
+		ball.add_impulse(-tangent * minf(booster_accel * delta, along - booster_speed))
+		return
 	if along < booster_speed:
 		if _boost_glow < 0.2:
 			Sfx.play("booster", -4.0, 1.0, 250)
@@ -327,8 +430,17 @@ func _process(delta: float) -> void:
 		return
 	var target := 1.0 if _has_rider() or _forced else 0.0
 	if _reveal != target and shown_length > 0.0 and not (_force_tween and _force_tween.is_running()):
-		_reveal = move_toward(_reveal, target, delta * 5.0)
+		_reveal = move_toward(_reveal, target, delta * (5.0 if target > _reveal else fade_out_speed))
 		queue_redraw()
+	if lookahead >= 0.0 or lookbehind >= 0.0:
+		var win := _rider_window()
+		if win[0] > _reach or win[1] > _tail:
+			_reach = maxf(_reach, win[0]) # the window only ever moves forward during a ride
+			_tail = maxf(_tail, win[1])
+			queue_redraw()
+		elif win[0] < 0.0 and _reveal <= 0.0:
+			_reach = 0.0
+			_tail = NO_TAIL
 	if not booster_enabled:
 		return
 	_anim += delta
@@ -337,6 +449,9 @@ func _process(delta: float) -> void:
 
 
 var _forced: bool = false
+var _reach: float = 0.0 # lookahead: shown up to here (px along the track)
+var _tail: float = NO_TAIL # lookbehind: hidden before here
+const NO_TAIL := -100000.0
 var _force_tween: Tween
 
 ## Show the whole track (or let it go back to normal), also while the game is
@@ -361,6 +476,10 @@ func _has_rider() -> bool:
 		# (A ball that has gone up onto this track's deck no longer counts: the
 		# track fades and the deck is drawn without it.)
 		if ball and ball.in_play and ball.ramp == self:
+			return true
+		if ball and ball.in_play and ball.ramp != null and not reveal_with.is_empty() 				and ball.ramp == get_node_or_null(reveal_with):
+			return true
+		if ball and ball.in_play and ball.ramp != null and lookbehind >= 0.0 and not next_ramp.is_empty() 				and ball.ramp == get_node_or_null(next_ramp):
 			return true
 	return false
 
@@ -443,6 +562,7 @@ func _add_rail(points: PackedVector2Array, bits: int) -> void:
 	rail.physics_layers = bits
 	rail.thickness = rail_thickness
 	rail.bounce = 0.0 # dead rails: the ball slides along instead of bouncing back
+	rail.friction = rail_friction
 	rail.color = RAIL_COLOR
 	rail.points = points
 	rail.visible = false # drawn by the tunnel, which fades the unridden part
@@ -522,7 +642,7 @@ func _draw() -> void:
 	var drop := PackedFloat32Array()
 	for i in n:
 		shown.append(shown_at(_cum[i]))
-		drop.append(lift_height * height_along(_cum[i]))
+		drop.append(_lift_at(_cum[i]))
 	# Soft shadow on the table straight below the track (deeper where it runs
 	# higher), then the track itself. Each goes out as one triangle list.
 	var bands := []
@@ -533,9 +653,9 @@ func _draw() -> void:
 	# track itself is hidden, so its route can be read from the table.
 	var next_post := 60.0
 	for i in n:
-		if _cum[i] < next_post:
+		if not posts_shown or _cum[i] < next_post:
 			continue
-		next_post = _cum[i] + 70.0
+		next_post = _cum[i] + post_spacing
 		if drop[i] < 6.0:
 			continue
 		var foot := _center[i] + Vector2(0, drop[i])
@@ -562,13 +682,15 @@ func _draw() -> void:
 	# Chevrons at the mouth show which way the ball has to be going to get in.
 	var dir := _mouth_dir()
 	var side := dir.orthogonal() * width * 0.3
+	var mouth_a := 0.0 if hide_mouth else 1.0 # a hidden mouth is a seamless join: never marked
 	for k in 2:
 		var base := _center[0] + dir * (10.0 + k * 12.0)
-		draw_polyline(PackedVector2Array([base + side, base + dir * 8.0, base - side]), color, 3.0, true)
-	# Mouth and exit lips (a track that ends under a deck has no visible exit).
+		draw_polyline(PackedVector2Array([base + side, base + dir * 8.0, base - side]), Color(color, mouth_a), 3.0, true)
+	# Mouth and exit lips (a track that ends under a deck, or runs straight on
+	# into a chained ramp, has no visible exit).
 	var last := _center.size() - 1
-	draw_line(_left[0], _right[0], Color(color, 0.9), 3.0, true)
-	if _deck_edge < 0.0:
+	draw_line(_left[0], _right[0], Color(color, 0.9 * mouth_a), 3.0, true)
+	if _deck_edge < 0.0 and next_ramp.is_empty():
 		# The exit always shows (lip and arrows out), so you can see where the ball comes back.
 		var out := _exit_dir()
 		var out_side := out.orthogonal() * width * 0.25
