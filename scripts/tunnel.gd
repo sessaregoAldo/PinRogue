@@ -85,12 +85,14 @@ const POST_COLOR := Color(0.55, 0.5, 0.55)
 @export_group("Look")
 ## How much of the track, from the mouth, is always shown. The rest only
 ## appears while a ball rides it (0 = always show the whole track).
-@export var shown_length: float = 110.0:
+@export var shown_length: float = 40.0:
 	set(value):
 		shown_length = value
 		queue_redraw()
 ## Over how many px the always-shown part fades out.
 @export var shown_fade: float = 90.0
+## How long the preview (shown_length, from the table) takes to fade out (px).
+@export var preview_fade: float = 60.0
 ## How high the track runs: how far its shadow falls (and its posts reach) at the
 ## top. Tracks to an upper deck climb all the way; the others rise and come back down.
 @export var lift_height: float = 30.0:
@@ -166,7 +168,7 @@ func covers(global_point: Vector2, extra: float = 0.0) -> bool:
 func shown_at(s: float) -> float:
 	if shown_length <= 0.0 or Engine.is_editor_hint():
 		return 1.0
-	var base := 1.0 - smoothstep(shown_length, shown_length + shown_fade, s)
+	var base := 1.0 - smoothstep(shown_length, shown_length + preview_fade, s)
 	return lerpf(base, 1.0, _reveal)
 
 
@@ -352,11 +354,13 @@ func set_forced(on: bool) -> void:
 		queue_redraw(), _reveal, target, 0.35).set_trans(Tween.TRANS_SINE)
 
 
-## A ball is riding this track (or has ridden it up onto its deck).
+## A ball is riding this track (not counting one that has gone up onto its deck).
 func _has_rider() -> bool:
 	for node in get_tree().get_nodes_in_group("ball"):
 		var ball := node as Ball
-		if ball and ball.in_play and (ball.ramp == self or (_deck != null and ball.deck == _deck)):
+		# (A ball that has gone up onto this track's deck no longer counts: the
+		# track fades and the deck is drawn without it.)
+		if ball and ball.in_play and ball.ramp == self:
 			return true
 	return false
 
