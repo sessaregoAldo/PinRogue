@@ -125,7 +125,7 @@ func _tile(group: String, it: Dictionary) -> Button:
 	b.add_child(swatch)
 	var name_label := _tile_label(str(it["name"]), 12, SOFT if owned else DIM, 68)
 	b.add_child(name_label)
-	var state_text := "In use" if equipped else ("Owned" if owned else "%d coins" % int(it["price"]))
+	var state_text := "In use" if equipped else ("Owned" if owned else (Cosmetics.unlock_note(it) if it.has("unlock") else "%d coins" % int(it["price"])))
 	b.add_child(_tile_label(state_text, 11, GOLD if equipped or not owned else DIM, 84))
 	b.pressed.connect(_select.bind(group, it))
 	# Pointing at it (mouse) or moving onto it (keys) previews it.
@@ -182,6 +182,9 @@ func _update_action() -> void:
 	elif Story.owns_cosmetic(_selected):
 		_action.text = "Use"
 		_action.disabled = false
+	elif _selected.has("unlock"):
+		_action.text = Cosmetics.unlock_note(_selected)
+		_action.disabled = true
 	else:
 		var cost := int(_selected["price"])
 		_action.text = "Buy  ·  %d coins" % cost

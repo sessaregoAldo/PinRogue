@@ -37,6 +37,14 @@ var goal: bool = false:
 		goal = value
 		queue_redraw()
 
+## A ball that touches the button is pushed straight off the wall it's on
+## (straight off the bar, on the ball's side, for a free-standing one):
+## it keeps its speed along the wall, and bounces away from it at least this fast.
+## (Without this, the bar's round ends could spike a ball down or flick it up.)
+const PUSH_SPEED := 260.0
+const BOUNCE := 0.55
+const ALONG_KEEP := 0.9
+
 var _flash: float = 0.0
 var _last_hit_ms: int = -100000
 
@@ -76,7 +84,9 @@ func _rebuild() -> void:
 	area.monitorable = false
 	area.set_meta("generated", true)
 	var trigger := RectangleShape2D.new()
-	trigger.size = Vector2(edge.length() + thickness + 6.0, thickness + 14.0)
+	# Longer than the bar, so a ball rolling along the wall is caught before it
+	# reaches a round end.
+	trigger.size = Vector2(edge.length() + thickness + 24.0, thickness + 14.0)
 	_add_shape(area, trigger, mid, edge.angle())
 	add_child(area)
 	if not Engine.is_editor_hint():
@@ -102,7 +112,10 @@ func _process(delta: float) -> void:
 
 func _on_body_entered(body: Node) -> void:
 	var ball := body as Ball
-	if ball == null or not ball.in_play or GameManager.tilted:
+	if ball == null or not ball.in_play:
+		return
+	_push_off(ball)
+	if GameManager.tilted:
 		return
 	var now := Time.get_ticks_msec()
 	if now - _last_hit_ms < 150:
@@ -110,6 +123,17 @@ func _on_body_entered(body: Node) -> void:
 	_last_hit_ms = now
 	_flash = 1.0
 	hit.emit(self)
+
+
+func _push_off(ball: Ball) -> void:
+	var n := global_transform.basis_xform((point_b - point_a).orthogonal()).normalized()
+	if n.dot(ball.global_position - center_global()) < 0.0:
+		n = -n # toward the ball's side: away from the wall (or a free-standing bar)
+	var v := ball.linear_velocity
+	var across := v.dot(n)
+	var along := v - n * across
+	var out := maxf(-across * BOUNCE, PUSH_SPEED) if across < 0.0 else maxf(across, PUSH_SPEED)
+	ball.set_velocity_safe(along * ALONG_KEEP + n * out)
 
 
 func flash() -> void:

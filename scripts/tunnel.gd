@@ -23,6 +23,11 @@ const SHADOW_LAYERS := [[1.0, 7.0, 0.07], [0.72, 4.0, 0.09], [0.45, 1.0, 0.13]]
 const RAIL_COLOR := Color(0.85, 0.88, 0.95)
 const POST_COLOR := Color(0.55, 0.5, 0.55)
 
+## A ball rode this track (and any ramps chained after it) all the way out.
+signal completed(ball: Ball)
+## A ball was lifted onto this track (its mouth, or from a chained ramp).
+signal entered(ball: Ball)
+
 @export var path: PackedVector2Array = PackedVector2Array([Vector2(0, 0), Vector2(0, -200)]):
 	set(value):
 		path = value
@@ -332,6 +337,7 @@ func _physics_process(delta: float) -> void:
 				GameManager.add_score(score_value * (1 + GameManager.ramp_turbo), to_global(_center[_center.size() - 1]))
 				Sfx.play("ramp_land")
 				Sfx.play("ramp_complete")
+				completed.emit(ball)
 			elif _crosses(prev, cur, _left[0], _right[0]) and step.dot(_mouth_dir()) < 0.0:
 				ball.leave_ramp() # rolled back out of the mouth
 				Sfx.play("ramp_land", -6.0)
@@ -343,6 +349,7 @@ func _physics_process(delta: float) -> void:
 
 ## Lift the ball onto this track (its mouth, or the end of a chained ramp).
 func take_ball(ball: Ball) -> void:
+	entered.emit(ball)
 	var draw_z := z_index + 1
 	if _deck:
 		draw_z = maxi(draw_z, _deck.z_index + 2) # its end runs under the deck's floor

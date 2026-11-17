@@ -22,19 +22,20 @@ const GALLERY_SECONDS := 2.5
 const REARRANGE_AT: Array[float] = [2.0 / 3.0, 1.0 / 3.0]
 const SLIDE_SECONDS := 0.9
 ## Where the moving parts go, per arrangement after the first (the first is the
-## table as built). Cases also get a new eject direction, toward the middle.
+## table as built). Cases also get a new eject direction: hard up the table
+## and a little outward, so they never fire the ball into each other.
 const ARRANGEMENTS := [
 	{
 		"Bumpers/BumperLeft": [Vector2(125, 330)],
 		"Bumpers/BumperRight": [Vector2(435, 330)],
-		"CaseLeft": [Vector2(185, 262), Vector2(430, -160)],
-		"CaseRight": [Vector2(375, 262), Vector2(-430, -160)],
+		"CaseLeft": [Vector2(185, 262), Vector2(-60, -830)],
+		"CaseRight": [Vector2(375, 262), Vector2(60, -830)],
 	},
 	{
 		"Bumpers/BumperLeft": [Vector2(140, 380)],
 		"Bumpers/BumperRight": [Vector2(420, 380)],
-		"CaseLeft": [Vector2(195, 250), Vector2(420, -180)],
-		"CaseRight": [Vector2(365, 250), Vector2(-420, -180)],
+		"CaseLeft": [Vector2(195, 250), Vector2(-80, -830)],
+		"CaseRight": [Vector2(365, 250), Vector2(80, -830)],
 	},
 ]
 

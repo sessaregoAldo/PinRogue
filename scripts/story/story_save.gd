@@ -18,6 +18,8 @@ var intro_seen: bool = false
 var beaten: Array[String] = []
 ## Spare parts bought in the Workshop (the starting ones are always unlocked).
 var unlocked: Array[String] = []
+## Passive upgrades bought in the Workshop (StoryData.PASSIVES ids).
+var passives: Array[String] = []
 ## Strange coins collected: [{year, text}], newest last.
 var coin_tray: Array = []
 ## Best run per chapter id: {score, damage, time (seconds, of the best-score
@@ -28,6 +30,10 @@ var _saved_beaten_reset: int = 0
 ## Cosmetics (see Cosmetics): ids bought, and the one in use per group.
 var cosmetics_owned: Array[String] = []
 var cosmetics_equipped: Dictionary = {}
+## Story chapters: true = the boss's painting fills the table from his reveal;
+## false = the player's own background all the way (Wardrobe toggle). A
+## preference, so Reset Progress keeps it.
+var boss_backgrounds: bool = true
 ## Main menu: open the Story page when it loads (set when a story run ends).
 var return_to_hub: bool = false
 
@@ -42,6 +48,7 @@ func load_save() -> void:
 	intro_seen = false
 	beaten = []
 	unlocked = []
+	passives = []
 	coin_tray = []
 	best = {}
 	attempts = 0
@@ -58,6 +65,8 @@ func load_save() -> void:
 		beaten.append(chapter_id)
 	for id in cfg.get_value("story", "unlocked", []):
 		unlocked.append(str(id))
+	for id in cfg.get_value("story", "passives", []):
+		passives.append(str(id))
 	var tray: Variant = cfg.get_value("story", "coin_tray", [])
 	coin_tray = tray if tray is Array else []
 	var best_value: Variant = cfg.get_value("story", "best", {})
@@ -69,6 +78,7 @@ func load_save() -> void:
 		cosmetics_owned.append(str(id))
 	var worn: Variant = cfg.get_value("story", "cosmetics_equipped", {})
 	cosmetics_equipped = worn if worn is Dictionary else {}
+	boss_backgrounds = bool(cfg.get_value("story", "boss_backgrounds", true))
 	# Development reset (StoryData.BEATEN_RESET), editor runs only: chapters
 	# count as not beaten again, once per raise of that number.
 	if OS.is_debug_build() and int(cfg.get_value("story", "beaten_reset", 0)) != StoryData.BEATEN_RESET:
@@ -87,11 +97,13 @@ func save() -> void:
 	cfg.set_value("story", "intro_seen", intro_seen)
 	cfg.set_value("story", "beaten", beaten)
 	cfg.set_value("story", "unlocked", unlocked)
+	cfg.set_value("story", "passives", passives)
 	cfg.set_value("story", "coin_tray", coin_tray)
 	cfg.set_value("story", "best", best)
 	cfg.set_value("story", "attempts", attempts)
 	cfg.set_value("story", "cosmetics_owned", cosmetics_owned)
 	cfg.set_value("story", "cosmetics_equipped", cosmetics_equipped)
+	cfg.set_value("story", "boss_backgrounds", boss_backgrounds)
 	cfg.set_value("story", "coin_reset", StoryData.COIN_RESET)
 	# Kept as it was outside the editor, so a released build never clears it.
 	cfg.set_value("story", "beaten_reset", StoryData.BEATEN_RESET if OS.is_debug_build() else _saved_beaten_reset)
@@ -108,6 +120,7 @@ func reset_progress() -> void:
 	intro_seen = false
 	beaten = []
 	unlocked = []
+	passives = []
 	coin_tray = []
 	best = {}
 	attempts = 0
@@ -166,6 +179,8 @@ static func clock(seconds: float) -> String:
 # --- Cosmetics ----------------------------------------------------------------------
 
 func owns_cosmetic(item: Dictionary) -> bool:
+	if item.has("unlock"): # a chapter's painting: earned, never bought
+		return is_beaten(str(item["unlock"]))
 	return int(item.get("price", 0)) <= 0 or cosmetics_owned.has(item["id"])
 
 
@@ -175,7 +190,7 @@ func is_equipped(group: String, item: Dictionary) -> bool:
 
 ## Buys a cosmetic and puts it on. False if it can't be afforded.
 func buy_cosmetic(group: String, item: Dictionary) -> bool:
-	if owns_cosmetic(item) or coins < int(item["price"]):
+	if item.has("unlock") or owns_cosmetic(item) or coins < int(item["price"]):
 		return false
 	coins -= int(item["price"])
 	cosmetics_owned.append(str(item["id"]))
@@ -220,5 +235,29 @@ func buy(part_id: String) -> bool:
 		return false
 	coins -= cost
 	unlocked.append(part_id)
+	save()
+	return true
+
+
+# --- Passive upgrades ---------------------------------------------------------------
+
+func has_passive(id: String) -> bool:
+	return passives.has(id)
+
+
+func passive_price(id: String) -> int:
+	for p: Dictionary in StoryData.PASSIVES:
+		if p["id"] == id:
+			return int(p["price"])
+	return -1
+
+
+## Buys a passive upgrade. Returns false if it can't be afforded or is owned.
+func buy_passive(id: String) -> bool:
+	var cost := passive_price(id)
+	if cost < 0 or has_passive(id) or coins < cost:
+		return false
+	coins -= cost
+	passives.append(id)
 	save()
 	return true

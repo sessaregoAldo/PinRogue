@@ -8,7 +8,7 @@ extends Control
 ##   Chapters     the prologue, then one page per chapter reached: its
 ##                machine, best run, Play
 ##   Story        page one, then one page per chapter with the person behind its boss
-##   Workshop     spare parts for sale, then the ones owned
+##   Workshop     spare parts for sale, the ones owned, then passive upgrades
 ##   Coins        the strange coins collected, a few per page
 ##   Wardrobe     one page per cosmetics group, with a small preview table
 ##   Leaderboard  Endless, then each chapter's board
@@ -332,7 +332,7 @@ func _page_count(id: String) -> int:
 		"story":
 			return StoryData.CHAPTERS.size() + 1 if Story.intro_seen else 1
 		"workshop":
-			return 2
+			return 3
 		"coins":
 			return maxi(1, ceili(Story.coin_tray.size() / float(COINS_PER_PAGE)))
 		"wardrobe":
@@ -492,8 +492,8 @@ func _fill_chapter(body: VBoxContainer, page: int) -> void:
 	_stat(grid, "Fastest win", Story.clock(fastest) if fastest > 0.0 else "-", INK)
 	var bosses := Story.beaten.size()
 	if bosses > 0:
-		_text(body, "Every boss beaten adds %d%% to your Story scores:" % roundi(StoryData.SCORE_BONUS_PER_BOSS * 100.0), 16, FADED)
-		var now := _hand_label(body, "+%d%% now" % roundi(StoryData.SCORE_BONUS_PER_BOSS * 100.0 * bosses), 28, RED_INK, true)
+		_text(body, "Every boss beaten adds %d%% to your damage on the center bumper in Story runs:" % roundi(StoryData.DAMAGE_BONUS_PER_BOSS * 100.0), 16, FADED)
+		var now := _hand_label(body, "+%d%% now" % roundi(StoryData.DAMAGE_BONUS_PER_BOSS * 100.0 * bosses), 28, RED_INK, true)
 		now.add_theme_constant_override("line_spacing", -8)
 	_stamp(body, ("Replay Chapter %d" if beaten else "Play Chapter %d") % int(ch["number"]), index)
 	var line: String = StoryData.HUB_LINE_START
@@ -598,14 +598,33 @@ func _fill_workshop(body: VBoxContainer, index: int) -> void:
 			_text(body, "Every part is yours. The shelves are empty.", 19, INK)
 		for part in for_sale:
 			_part_row(body, part, false)
-	else:
+	elif index == 1:
 		_hand_label(body, "In the toolbox", 40, INK, true)
 		_text(body, "Parts the machine can offer you in Story runs.", 18, FADED)
 		for part in owned:
 			_part_row(body, part, true)
+	else:
+		_hand_label(body, "Upgrades", 40, INK, true)
+		_text(body, "Passive upgrades: bought once, always on in Story runs.", 18, FADED)
+		var bosses := Story.beaten.size()
+		_check_row(body, "Boss trophies  ·  +%d%%" % roundi(StoryData.DAMAGE_BONUS_PER_BOSS * 100.0 * bosses),
+				"Every boss beaten adds %d%% to your damage on the center bumper, the blue one and the boss. Not for sale: earned." % roundi(StoryData.DAMAGE_BONUS_PER_BOSS * 100.0),
+				bosses > 0, -1, Callable())
+		for passive: Dictionary in StoryData.PASSIVES:
+			var id: String = passive["id"]
+			_check_row(body, str(passive["title"]), str(passive["desc"]), Story.has_passive(id), int(passive["price"]),
+					func() -> bool: return Story.buy_passive(id))
 
 
 func _part_row(body: VBoxContainer, part: Dictionary, owned: bool) -> void:
+	var id: String = part["id"]
+	_check_row(body, "%s  ·  %s" % [part["title"], part["tier"]], str(part["desc"]), owned, Story.price(id),
+			func() -> bool: return Story.buy(id))
+
+
+## A ticked (owned) or empty box, a title and a description, and a price
+## button while not owned (price < 0: nothing to buy). `buy` returns success.
+func _check_row(body: VBoxContainer, title_text: String, desc_text: String, owned: bool, cost: int, buy_action: Callable) -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 12)
 	row.custom_minimum_size.y = 58
@@ -622,21 +641,19 @@ func _part_row(body: VBoxContainer, part: Dictionary, owned: bool) -> void:
 	info.add_theme_constant_override("separation", 0)
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(info)
-	var title := _text(info, "%s  ·  %s" % [part["title"], part["tier"]], 20, INK)
-	title.custom_minimum_size.x = CONTENT_W - (170.0 if not owned else 44.0)
-	var desc := _text(info, str(part["desc"]), 15, FADED)
+	var title := _text(info, title_text, 20, INK)
+	title.custom_minimum_size.x = CONTENT_W - (170.0 if not owned and cost >= 0 else 44.0)
+	var desc := _text(info, desc_text, 15, FADED)
 	desc.custom_minimum_size.x = title.custom_minimum_size.x
-	if not owned:
-		var cost := Story.price(part["id"])
+	if not owned and cost >= 0:
 		var buy := _ink_button("%d coins" % cost, Vector2(110, 46))
 		buy.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		buy.disabled = Story.coins < cost
 		buy.tooltip_text = "" if not buy.disabled else "%d more coins needed" % (cost - Story.coins)
-		var id: String = part["id"]
 		buy.pressed.connect(func() -> void:
 			if _gesture():
 				return
-			if Story.buy(id):
+			if buy_action.call():
 				Sfx.play("powerup")
 				refresh()
 			else:
@@ -706,6 +723,10 @@ func _fill_wardrobe(body: VBoxContainer, index: int) -> void:
 	elif Story.owns_cosmetic(picked):
 		action.text = "Use"
 		state.text = "Yours. Not in use."
+	elif picked.has("unlock"):
+		action.text = "Locked"
+		action.disabled = true
+		state.text = "%s to unlock it." % Cosmetics.unlock_note(picked)
 	else:
 		var cost := int(picked.get("price", 0))
 		action.text = "Buy  ·  %d coins" % cost
@@ -730,7 +751,42 @@ func _fill_wardrobe(body: VBoxContainer, index: int) -> void:
 	var items := Cosmetics.items(group_id)
 	for it: Dictionary in items:
 		grid.add_child(_swatch(group_id, it, picked, preview))
+	if group_id == "background":
+		_boss_background_toggle(body)
 	preview.show_look({group_id: picked}, str(picked.get("name", "")))
+
+
+## Story chapters: the boss's painting from his reveal, or the player's own
+## background all the way. A tick box; the whole row toggles it.
+func _boss_background_toggle(body: VBoxContainer) -> void:
+	body.add_child(_rule())
+	var on := Story.boss_backgrounds
+	var row := Button.new()
+	row.flat = true
+	row.custom_minimum_size = Vector2(CONTENT_W, 52)
+	row.focus_mode = Control.FOCUS_ALL
+	body.add_child(row)
+	var check := Control.new()
+	check.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	check.position = Vector2(4, 12)
+	check.custom_minimum_size = Vector2(28, 28)
+	check.draw.connect(func() -> void:
+		check.draw_rect(Rect2(2, 2, 24, 24), INK, false, 2.0)
+		if on:
+			check.draw_polyline(PackedVector2Array([Vector2(5, 15), Vector2(12, 23), Vector2(29, -2)]), BLUE_INK, 3.5, true))
+	row.add_child(check)
+	var label := _hand_label(row, "Boss paintings in Story chapters", 30, INK, true)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.position = Vector2(44, 4)
+	label.custom_minimum_size.x = CONTENT_W - 44.0
+	row.pressed.connect(func() -> void:
+		if _gesture():
+			return
+		Story.boss_backgrounds = not Story.boss_backgrounds
+		Story.save()
+		Sfx.play("click")
+		refresh())
+	_text(body, "On: once a chapter's boss shows himself, the table takes on his painting. Off: your background stays all the way through." , 15, FADED)
 
 
 func _swatch(group_id: String, it: Dictionary, picked: Dictionary, preview: CosmeticsPanel.CosmeticsPreview) -> Button:
@@ -766,7 +822,7 @@ func _swatch(group_id: String, it: Dictionary, picked: Dictionary, preview: Cosm
 		face.draw_arc(c, 22.0, 0.0, TAU, 32, Color(INK, 0.6), 2.0, true)
 		var font := ThemeDB.fallback_font
 		face.draw_string(font, Vector2(2, 74), str(it["name"]), HORIZONTAL_ALIGNMENT_CENTER, 84, 13, INK)
-		var note := "In use" if worn else ("Owned" if owned else "%d coins" % int(it["price"]))
+		var note := "In use" if worn else ("Owned" if owned else (Cosmetics.unlock_note(it).replace("Beat chapter", "Ch.") if it.has("unlock") else "%d coins" % int(it["price"])))
 		face.draw_string(hand(true), Vector2(2, 98), note, HORIZONTAL_ALIGNMENT_CENTER, 84, 20, RED_INK if worn else FADED))
 	b.add_child(face)
 	b.pressed.connect(func() -> void:

@@ -124,7 +124,7 @@ var _choice_root: Control
 var _cards_box: HBoxContainer
 var _banner: Label
 var _status: Label
-## Story mode's passive bonus from bosses beaten (GameManager.score_bonus),
+## Story mode's passive damage bonus from bosses beaten (GameManager.story_damage_bonus),
 ## listed above the parts in its own color: it isn't a part from the lights.
 var _trophies: Label
 var _shown_bonus: float = -1.0
@@ -147,8 +147,8 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	if not is_equal_approx(GameManager.score_bonus, _shown_bonus):
-		_shown_bonus = GameManager.score_bonus
+	if not is_equal_approx(GameManager.story_damage_bonus, _shown_bonus):
+		_shown_bonus = GameManager.story_damage_bonus
 		_update_status()
 	if not get_tree().paused:
 		_clock += delta
@@ -689,10 +689,10 @@ func _draw() -> void:
 # --- Status list --------------------------------------------------------------
 
 func _update_status() -> void:
-	var bonus := roundi((GameManager.score_bonus - 1.0) * 100.0)
+	var bonus := roundi((GameManager.story_damage_bonus - 1.0) * 100.0)
 	if _trophies:
 		_trophies.visible = bonus > 0
-		_trophies.text = "Boss trophies: +%d%% score" % bonus
+		_trophies.text = "Boss trophies: +%d%% boss damage" % bonus
 	if _status:
 		_status.position.y = 52.0 + (18.0 if bonus > 0 else 0.0)
 		_status.text = "\n".join(_status_lines())

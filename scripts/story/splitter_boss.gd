@@ -168,7 +168,7 @@ func _on_half_struck(half: SplitHalf) -> void:
 		return
 	if half.hp <= 0.0:
 		return # already emptied: nothing left to take from this half
-	var damage := maxf(roundf(GameManager.score * GameManager.boss_damage_mult), 1.0)
+	var damage := maxf(roundf(GameManager.score * GameManager.boss_damage_mult * GameManager.story_damage_bonus), 1.0)
 	var now := Time.get_ticks_msec()
 	var doubled := _last_half != null and _last_half != half and now - _last_hit_ms <= int(COMBO_WINDOW * 1000.0)
 	if doubled:

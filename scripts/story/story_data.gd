@@ -9,8 +9,12 @@ extends RefCounted
 ## calls it "It" / "Its", with a capital I, as if It were a name. Menus and
 ## other game text just say "the machine".
 ## Write the narrator's It as {It} / {Its}, and the Ghost's she / her (meaning
-## the machine) as {she} / {her} / {herself}: any {word} is drawn in MACHINE_FONT
+## the machine) as {she} / {her} / {herself}: any {word} (or {whole phrase}) is drawn in MACHINE_FONT
 ## (see rich_label). Sal's "she" is just how people talk about old machines: no marks.
+## A boss's "boss_taunt" (said after the reveal) is the man as the Ghost's anger
+## remembers him, and a word or two of it is the machine's ({word} marks): the
+## memory has been tampered with. "boss_last" (said once he's beaten) is the man
+## as he really was: no marks.
 
 const GHOST := "The Ghost"
 const GHOST_UNKNOWN := "???"
@@ -24,9 +28,10 @@ const PHASE_ONE_HP := 200000.0
 const BOSS_HP_SCORE_FACTOR := 192.0
 ## The boss never has less than this, however low the score at the reveal.
 const BOSS_HP_MIN := 1000000.0
-## Every story boss beaten adds this to all scoring in story runs (a passive
-## upgrade, so each chapter's bigger boss health is a little less of a wall).
-const SCORE_BONUS_PER_BOSS := 0.15
+## Every story boss beaten adds this to the damage dealt to the center bumper
+## (the blue one and the boss) in story runs: a passive upgrade, so each
+## chapter's bigger boss health is less of a wall.
+const DAMAGE_BONUS_PER_BOSS := 0.4
 
 # --- Coins --------------------------------------------------------------------------
 ## Up to this many coins for the share of the first bumper's HP removed.
@@ -47,6 +52,19 @@ const BEATEN_RESET := 2
 const STARTING_PARTS: Array[String] = ["extra_ball", "outlane_guards", "steady_hands", "multiplier", "boss_crusher"]
 ## Workshop prices (coins) for the rest. Turbo Ramps isn't sold yet: the only
 ## story ramp so far is the Showroom's lift, in chapter 2.
+## Passive upgrades: bought once in the Workshop, then always on in Story runs.
+## Effects are applied by StoryDirector._apply_passives (and the coin payout).
+const PASSIVES: Array[Dictionary] = [
+	{"id": "warm_start", "title": "Warm Start", "price": 80,
+		"desc": "A 5-second ball saver after every launch."},
+	{"id": "deep_pockets", "title": "Deep Pockets", "price": 100,
+		"desc": "Every Story run pays 25% more coins."},
+	{"id": "spare_ball", "title": "Spare Ball", "price": 150,
+		"desc": "Start every Story run with an extra ball: 4 instead of 3."},
+]
+const WARM_START_SECONDS := 5.0
+const DEEP_POCKETS_BONUS := 0.25
+
 const PART_PRICES := {
 	"bouncy_ball": 40,
 	"gap_guard": 45,
@@ -108,11 +126,21 @@ const CHAPTERS: Array[Dictionary] = [
 		"art": "splitter",
 		"reveal": "Something behind the bumper comes loose. The cap cracks down the middle.",
 		"briefing": [
-			"That crack. I know that crack... Corwin. Corwin! I'd lost his name until this very moment.",
-			"My partner. \"Fifty-fifty,\" he'd say, and then he'd count, and somehow his fifty was always the bigger one.",
-			"While I was building something that mattered, he sat at the books, counting, complaining, calling my best work a waste of time.",
-			"And when I needed him most, he split the company in two and walked off with the half that paid. The Splitter. He earned that name.",
-			"Knock him three times and he comes apart in two, each half holding its share. Hit one half, then the other, quick as you can. He never could stand being caught on both sides.",
+			"That crack... Cor-win? Corwin! I'd forgotten all about him until this very moment!",
+			"Always counting, that one.",
+			"Knock him three times and he comes apart in two. Hit one half, then the other, quick as you can.",
+		],
+		# The boss himself: corrupted after the reveal, himself once beaten.
+		"boss_name": "Corwin",
+		"boss_taunt": [
+			"Fifty-fifty, partner. And your fifty is the {HALF} that breaks.",
+			"You built toys while I paid for it. Every coin in this box is {MINE}.",
+			"Go on, hit me. You never could finish {ANYTHING ANYWAYS}.",
+		],
+		"boss_last": [
+			"Easy, old friend. I'm not counting anything.",
+			"Just trying to keep us afloat, while you worked on what you loved.",
+			"I'm sorry it didn't work out... but I barely knew you by the end...",
 		],
 		"hint": "Every third hit splits him in two. Hit one half, then the other, for double damage.",
 		"defeat": [
@@ -120,9 +148,9 @@ const CHAPTERS: Array[Dictionary] = [
 			"Take the coins. Odd things, aren't they? I never minted them. I don't know who did.",
 		],
 		"victory": [
-			"There. He's quiet now. And now that he is... I remember his laugh. It used to fill the whole workshop.",
-			"He didn't take the half that paid. He took the half I'd stopped looking after, and kept it alive for both of us. I'm the one who split.",
-			"I think... I think I miss him. Don't write that down. Oh. It's already written down.",
+			"There. He's quiet now. It feels strange.",
+			"He used to laugh, you know. It filled the whole workshop.",
+			"He was more than just a business partner. He was like family. I miss him...",
 		],
 		"journal": "Corwin kept the books and I kept the workshop, and for eleven good years we built the finest machines on the coast. Then {she} came along, and {she} took my evenings, then my weekends, then the orders we'd promised. Corwin kept the shop alive while I disappeared into {her}.\n\nIn the end he split the company so that half of it would survive me. I built his face into the center bumper so I'd have somebody to be angry at. It is easier to hit a man than to admit he was right.",
 		"machine_change": "The center bumper keeps its crack. Each time the Ghost says Corwin's name, {It} glows a little brighter, as if {It} likes the sound.",
@@ -170,15 +198,25 @@ const CHAPTERS: Array[Dictionary] = [
 		],
 		"reveal": "The bumper's cap flips over like a coin on a counter. The other side is gold, with a jeweller's loupe screwed into it.",
 		"briefing": [
-			"Pell. Ambrose Pell. I'd forgotten him completely, and now I can smell his cigar smoke. He ran the arcade at the end of the old pier, and he owned everything on it.",
-			"He bought everything I built, and he always wanted more. One night he leaned over my bench and demanded one table that could be every table. A Tuesday machine and a Saturday machine, all in one.",
-			"He paid in advance so I couldn't say no, then hung that commission round my neck and watched me drown in it. Everything {she} cost me, {she} cost me for him.",
+			"Pell. Ambrose Pell. I can smell his cigar smoke from here.",
+			"Of course it's him. Come to make more demands, you greedy old goat?!",
 			"He can't keep his eyes off a fine piece. When the ball comes out of the Till's sparkling door, he stops to admire it: hit him then. And anything that falls on him from the gallery up top hurts twice over.",
 		],
 		# Said while the table's second floor (and the ramps up to it) are shown.
 		"deck_tour": [
 			"And that's the gallery, up there. A second floor. Whoever I drew it for liked his best pieces where the public could see them, and never touch them.",
 			"You'll only see it while the ball's up there. Ride the lift on the right to reach it. It has flippers of its own, and a hole that drops the ball straight down onto the center bumper.",
+		],
+		"boss_name": "Pell",
+		"boss_taunt": [
+			"Is that all? I expected {MORE} from you.",
+			"One table that is every table. Build it. Build it. {BUILD} it for me.",
+			"You're nothing without my money. Back to {WORK}.",
+		],
+		"boss_last": [
+			"My, look at that. It's your best work yet! You never cease to amaze me.",
+			"To have lived in the same age as one of the best craftsmen the arcade industry has seen...",
+			"Your work is always welcome here.",
 		],
 		"hint": "A ball out of the Till's sparkling exit deals triple damage on its next hit. One dropped from the gallery onto him deals double. At two-thirds and one-third health the table rearranges itself.",
 		"whispers": {
@@ -194,8 +232,7 @@ const CHAPTERS: Array[Dictionary] = [
 		],
 		"victory": [
 			"There. He's still. Looking at something, I think. He always had that look when a machine was finished.",
-			"He didn't demand anything. He asked, once, and smiled, and told me to take all the time I needed. He waited at the pier for years, because I told him to.",
-			"It wasn't his fault, you know. He only asked. I'm the one who couldn't stop.",
+			"He waited at the end of that pier for years. But {she} had to be perfect...",
 		],
 		"journal": "Ambrose Pell ran the arcade at the end of the pier and bought every machine I built, paid in advance so I'd never have to choose between a commission and a meal. He was the kindest customer I ever had.
 
@@ -232,21 +269,30 @@ One night he asked for a table that could be every table. He meant it as a compl
 		],
 		"reveal": "The blue cap bursts apart. Underneath, the bumper is bare and white, and two dark marks on it begin to turn after the ball.",
 		"briefing": [
-			"Silas Ward. Master Ward. He kept the tower clock in Haverly, and he never let me forget whose clock it was.",
-			"Nothing was ever good enough for him. A tooth a hair too wide, a second lost in a year, and he'd sweep my work off the bench in front of everyone. He drove me out of that shop.",
-			"And he's been in my ear ever since. Too slow. Too loose. Every corner of {her} I couldn't get right, that was him. Well, {she} ticks truer than his tower ever did. Let him count that.",
+			"Master Ward. Of course. But why him? Why here?",
+			"Still counting my mistakes, Master?",
 			"Mind the hours: every one he strikes shakes the table, and if he gets to twelve he'll tilt it out from under you.",
 		],
-		"hint": "Every hour the clock strikes, the table shakes once per chime, and twelve chimes in a row tilt the machine. The hands circle the clock and hide its hour lights. The winding ramp on the right wall loops all the way round the clock.",
+		"boss_name": "Silas Ward",
+		"boss_taunt": [
+			"Too slow. Too loose. {AGAIN}.",
+			"Every mistake costs time. Every hour you wasted was {MINE}.",
+			"{ARE YOU EVEN PAYING ATTENTION? IS THAT THE BEST YOU CAN DO?}",
+		],
+		"boss_last": [
+			"You have steady hands. Steadier than mine ever were.",
+			"I kept every piece you made, lad. In the drawer, with notes. For when you came back.",
+			"\"Again\" only ever meant I liked watching your work. You had a real gift for it...",
+		],
+		"hint": "Every hour the clock strikes, the table shakes once per chime, and twelve chimes in a row tilt the machine. The hands circle the clock and hide its hour lights. The winding ramp on the right wall loops all the way round the clock; once he shows himself, every third loop strikes him for twice your score.",
 		"defeat": [
 			"Too slow, he'd say. Always too slow.",
 			"Take the coins. Wind yourself up and try again; he'll keep the time for you.",
 		],
 		"victory": [
-			"There. The hands have stopped. I don't think I ever saw them still.",
-			"He never swept my work off the bench. He kept every piece I made, in a drawer, with notes on how to make it better. I found that drawer once. I burned it.",
-			"I built {her} to prove him wrong, and went looking for something beyond the gears to do it. That voice in my ear was never his.",
-			"Wait. Corwin's crack. Pell's commission. Ward's voice over my shoulder. {She} was there every time, wasn't {she}? Long before I ever drew {her}.",
+			"The hands have stopped. I don't think I ever saw them still.",
+			"That drawer. I never dared look through it.",
+			"Is this why {she} had to be perfect? Is this where my obsession started?",
 		],
 		"journal": "Silas Ward kept the tower clock above Haverly square and taught me every secret of the gear: patience, precision, the tooth that has to be exactly right. I told myself nothing I made was ever good enough for him. It wasn't true. He kept every piece I made, with notes on how to make it better, and I took his care for contempt. I stopped trying and took my hands to pinball, where a machine only has to be fun.
 
@@ -310,10 +356,14 @@ static func voice_lines() -> Array[Dictionary]:
 		if ch.has("arrival"):
 			add.call(id + "_arrival", GHOST, ch["arrival"])
 		add.call(id + "_reveal", "Narration", [ch["reveal"]])
+		if ch.has("boss_taunt"):
+			add.call(id + "_boss_taunt", str(ch["boss"]) + " (corrupted)", ch["boss_taunt"])
 		add.call(id + "_briefing", GHOST, ch["briefing"])
 		if ch.has("deck_tour"):
 			add.call(id + "_deck", GHOST, ch["deck_tour"])
 		add.call(id + "_defeat", GHOST, ch["defeat"])
+		if ch.has("boss_last"):
+			add.call(id + "_boss_last", str(ch["boss_name"]), ch["boss_last"])
 		add.call(id + "_victory", GHOST, ch["victory"])
 	return out
 
@@ -340,7 +390,7 @@ static func bbcode(text: String, font_size: int) -> String:
 
 static func _marks() -> RegEx:
 	var re := RegEx.new()
-	re.compile("[{]([A-Za-z']+)[}]")
+	re.compile("[{]([A-Za-z' ,.?!-]+)[}]") # a word or a whole phrase
 	return re
 
 

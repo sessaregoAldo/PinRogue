@@ -13,6 +13,12 @@ const PAPER := Color(0.93, 0.88, 0.74)
 const INK := Color(0.17, 0.13, 0.1)
 const DARK := Color(0.07, 0.08, 0.14, 0.95)
 const GOLD := Color(1.0, 0.85, 0.3)
+## say(..., MOOD_CORRUPT): a boss as the Ghost's anger remembers him. A
+## blood-dark box, and words that won't hold still.
+const MOOD_CORRUPT := "corrupt"
+const CORRUPT_BOX := Color(0.13, 0.02, 0.04, 0.96)
+const CORRUPT_RED := Color(0.95, 0.25, 0.25)
+const CORRUPT_TEXT := Color(1.0, 0.86, 0.84)
 ## Presses are ignored for this long after a line appears (no accidental skips).
 const MIN_SHOW := 0.3
 const BOX_WIDTH := 540.0
@@ -90,22 +96,30 @@ func _ready() -> void:
 ## Show each line in turn; the player advances. Use with await.
 ## Voice-over: line n plays assets/voice/<voice_prefix>_<n>.mp3 if it exists
 ## (n counts from `first_number`).
-func say(speaker: String, lines: Array, voice_prefix: String = "", first_number: int = 1) -> void:
+## mood: "" (the usual look) or MOOD_CORRUPT.
+func say(speaker: String, lines: Array, voice_prefix: String = "", first_number: int = 1, mood: String = "") -> void:
 	if skipping:
 		return
-	var ghost := speaker == StoryData.GHOST or speaker == StoryData.GHOST_UNKNOWN or speaker == ""
-	_panel.add_theme_stylebox_override("panel", _style(PAPER, INK) if ghost else _style(DARK, Color(1, 1, 1, 0.35)))
+	var corrupt := mood == MOOD_CORRUPT
+	var ghost := not corrupt and (speaker == StoryData.GHOST or speaker == StoryData.GHOST_UNKNOWN or speaker == "")
+	var accent := Color(0.45, 0.2, 0.12) if ghost else (CORRUPT_RED if corrupt else GOLD)
+	if corrupt:
+		_panel.add_theme_stylebox_override("panel", _style(CORRUPT_BOX, Color(CORRUPT_RED, 0.7)))
+	else:
+		_panel.add_theme_stylebox_override("panel", _style(PAPER, INK) if ghost else _style(DARK, Color(1, 1, 1, 0.35)))
 	_speaker.text = speaker
 	_speaker.visible = speaker != ""
-	_speaker.add_theme_color_override("font_color", Color(0.45, 0.2, 0.12) if ghost else GOLD)
-	_text.add_theme_color_override("default_color", INK if ghost else Color.WHITE)
+	_speaker.add_theme_color_override("font_color", accent)
+	_text.add_theme_color_override("default_color", INK if ghost else (CORRUPT_TEXT if corrupt else Color.WHITE))
 	_hint.add_theme_color_override("font_color", Color(INK, 0.6) if ghost else Color(1, 1, 1, 0.55))
-	_skip.add_theme_color_override("font_color", Color(0.45, 0.2, 0.12) if ghost else GOLD)
+	_skip.add_theme_color_override("font_color", accent)
 	_hint.text = "tap to continue" if _is_touch() else "click or press any key"
 	_skip.text = "  Skip  >>  " if _is_touch() else "  Skip (Esc)  >>  "
 	_note.modulate.a = 0.0
 	for i in lines.size():
 		_text.text = StoryData.bbcode(str(lines[i]), TEXT_SIZE)
+		if corrupt:
+			_text.text = "[shake rate=14.0 level=6 connected=1]%s[/shake]" % _text.text
 		_panel.visible = true
 		_panel.modulate.a = 0.0
 		_panel.reset_size()

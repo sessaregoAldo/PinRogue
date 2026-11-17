@@ -50,8 +50,52 @@ var background_texture: Texture2D = null:
 @export var upper_flipper_right: Vector2 = Vector2(524, 740)
 
 
+## Every this-many ramp rides completed (all the way out, chained ramps
+## counting as one), the center bumper spins, blinks and shakes for a moment,
+## then takes the player's score x loop_strike_factor as damage. 0 = off.
+## Only against the boss in `loop_strike_art` (the Clock Tower: the revealed
+## Timekeeper, "clock"); loops before he shows himself don't count.
+@export var loop_strike_every: int = 0
+@export var loop_strike_factor: float = 2.0
+@export var loop_strike_art: String = "clock"
+var _loops: int = 0
+
+
 func _ready() -> void:
 	queue_redraw.call_deferred() # tunnels are ready by then, for the arrows
+	if loop_strike_every > 0 and not Engine.is_editor_hint():
+		var tunnels := []
+		_tunnels(self, tunnels)
+		for tunnel: Tunnel in tunnels:
+			tunnel.completed.connect(_on_loop_completed.bind(tunnel))
+			if tunnel.get_node_or_null(tunnel.next_ramp) == null: # the loop itself (last of a chain)
+				tunnel.entered.connect(_on_loop_entered)
+		GameManager.game_started.connect(func() -> void: _loops = 0)
+
+
+## The ball is on its way round for the loop that strikes: the boss starts
+## spinning while the player is still completing it.
+func _on_loop_entered(_ball: Ball) -> void:
+	var b := boss()
+	if b == null or GameManager.is_game_over or b.art != loop_strike_art:
+		return
+	if _loops % loop_strike_every == loop_strike_every - 1:
+		b.begin_strike()
+
+
+func _on_loop_completed(_ball: Ball, tunnel: Tunnel) -> void:
+	var b := boss()
+	if b == null or GameManager.is_game_over or b.art != loop_strike_art:
+		_loops = 0 # nothing counts until the boss is out
+		return
+	_loops += 1
+	var count := (_loops - 1) % loop_strike_every + 1
+	var at := tunnel.to_global(tunnel.path[tunnel.path.size() - 1])
+	if count < loop_strike_every:
+		GameManager.popup("Loop %d/%d" % [count, loop_strike_every], at + Vector2(0, -24), Color(1.0, 0.85, 0.45))
+		return
+	GameManager.popup("Loop %d/%d!" % [count, loop_strike_every], at + Vector2(0, -24), Color(1.0, 0.6, 0.3), true)
+	b.land_strike(loop_strike_factor)
 
 
 ## The level's boss bumper (or null).

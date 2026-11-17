@@ -83,6 +83,22 @@ var _pop: float = 1.0
 var hp: float = 0.0
 var _shown_hp: float = 0.0 # animated value the dial draws
 var _hurt: float = 0.0 # white flash on the dial when damaged
+## The ramp-loop strike (begin_strike / land_strike): spinning, the moment
+## the strike lands and its damage factor, and the shake.
+const STRIKE_TURNS_PER_SECOND := 2.5
+const STRIKE_SETTLE := 0.35
+## A strike that never lands (the ball left the loop some other way) gives up.
+const STRIKE_GIVE_UP := 5.0
+var _striking: bool = false
+var _strike_age: float = 0.0
+var _landing: float = 0.0
+var _land_from: float = 0.0
+var _land_to: float = 0.0
+var _strike_factor: float = 0.0
+var _spin: float = 0.0
+var _shake: Vector2 = Vector2.ZERO
+## What _draw draws through (pop-in scale, the strike's spin and shake).
+var _base_xform: Transform2D = Transform2D.IDENTITY
 
 
 func _ready() -> void:
@@ -128,7 +144,7 @@ func _after_hit(ball: Ball) -> void:
 		var bonus := 1.0
 		if hit_multiplier.is_valid():
 			bonus = float(hit_multiplier.call(ball))
-		damage = maxf(roundf(damage * GameManager.boss_damage_mult * bonus), 1.0)
+		damage = maxf(roundf(damage * GameManager.boss_damage_mult * GameManager.story_damage_bonus * bonus), 1.0)
 	_apply_damage(damage)
 
 
@@ -252,6 +268,64 @@ func _burst(cap: Color) -> void:
 
 
 ## Give the boss a new health pool (story mode: the reveal, the Splitter).
+## The ramp-loop strike, part one: start spinning counter-clockwise (the way
+## the ball goes round him), blinking and shaking, until land_strike().
+func begin_strike() -> void:
+	if hp <= 0.0 or _striking:
+		return
+	_striking = true
+	_strike_age = 0.0
+	_landing = 0.0
+	Sfx.play("powerup", -2.0, 0.7)
+
+
+## Part two: the loop is done. Settle over STRIKE_SETTLE seconds, then take
+## the player's score x `factor` (at that moment) as damage.
+func land_strike(factor: float) -> void:
+	if not _striking:
+		begin_strike()
+		if not _striking:
+			return
+	if _landing > 0.0:
+		return
+	_strike_factor = factor
+	_landing = STRIKE_SETTLE
+	_land_from = _spin
+	_land_to = floorf(_spin / TAU) * TAU # carry on round to the next upright
+
+
+func _update_strike(delta: float) -> void:
+	if not _striking:
+		return
+	_strike_age += delta
+	var settled := false
+	if _strike_factor > 0.0: # landing
+		_landing = maxf(0.0, _landing - delta)
+		var k := 1.0 - _landing / STRIKE_SETTLE
+		_spin = lerpf(_land_from, _land_to, 1.0 - pow(1.0 - k, 3.0))
+		settled = _landing <= 0.0
+	else:
+		var speed := TAU * STRIKE_TURNS_PER_SECOND * minf(1.0, _strike_age / 0.4)
+		_spin -= speed * delta # negative: counter-clockwise on screen
+	var amount := 5.0 if _strike_factor <= 0.0 else 5.0 * _landing / STRIKE_SETTLE
+	_shake = Vector2(randf_range(-amount, amount), randf_range(-amount, amount))
+	_flash = 1.0 if int(_strike_age * 12.0) % 2 == 0 else 0.0
+	_hurt = _flash * 0.6
+	if settled or (_strike_factor <= 0.0 and _strike_age > STRIKE_GIVE_UP):
+		var factor := _strike_factor
+		_striking = false
+		_strike_factor = 0.0
+		_spin = 0.0
+		_shake = Vector2.ZERO
+		_flash = 0.0
+		_hurt = 0.0
+		if settled and hp > 0.0:
+			Sfx.play("guard_break")
+			var damage := fixed_damage if fixed_damage > 0.0 else maxf(roundf(GameManager.score * factor), 1.0)
+			_apply_damage(damage)
+	queue_redraw()
+
+
 func set_hp(new_max: float, current: float = -1.0) -> void:
 	max_hp = maxf(new_max, 1.0)
 	hp = max_hp if current < 0.0 else clampf(current, 0.0, max_hp)
@@ -261,6 +335,7 @@ func set_hp(new_max: float, current: float = -1.0) -> void:
 
 func _process(delta: float) -> void:
 	super(delta)
+	_update_strike(delta)
 	if art == "clock" and not Engine.is_editor_hint():
 		_watch_ball(delta)
 	if absf(_shown_hp - hp) > maxf(0.5, max_hp * 1e-6) or _hurt > 0.0:
@@ -272,8 +347,9 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
-	if _pop != 1.0:
-		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE * _pop)
+	_base_xform = Transform2D(_spin, Vector2.ONE * _pop, 0.0, _shake)
+	if _base_xform != Transform2D.IDENTITY:
+		draw_set_transform_matrix(_base_xform)
 	if art == "plain":
 		_draw_plain()
 		return
@@ -365,9 +441,9 @@ func _draw_oval(angle: float, dist: float, size: float) -> void:
 	# which leaves the oval upright whatever the angle).
 	var across := Vector2.from_angle(angle) * 0.78 # short side, along the hand
 	var along := Vector2.from_angle(angle + PI * 0.5) * 1.25 # long side, square to it
-	draw_set_transform_matrix(Transform2D(across, along, Vector2.from_angle(angle) * dist))
+	draw_set_transform_matrix(_base_xform * Transform2D(across, along, Vector2.from_angle(angle) * dist))
 	draw_circle(Vector2.ZERO, size, CLOCK_INK)
-	draw_set_transform(Vector2.ZERO)
+	draw_set_transform_matrix(_base_xform)
 
 
 ## Art "clock": both hands turn toward the nearest ball, the minute hand

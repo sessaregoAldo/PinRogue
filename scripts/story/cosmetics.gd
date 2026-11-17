@@ -38,6 +38,15 @@ const BACKGROUNDS: Array[Dictionary] = [
 	{"id": "bg_royal", "name": "Royal purple", "color": Color(0.12, 0.06, 0.2), "price": 40},
 ]
 
+## Each Story chapter's boss has his own painting (tools/make_backgrounds.py),
+## each darker and stranger than the last. It fills the table once he shows himself, and
+## beating his chapter unlocks it here, free, for every mode.
+const STORY_BACKGROUNDS: Array[Dictionary] = [
+	{"id": "bg_workshop", "name": "Workshop", "image": "res://assets/story_backgrounds/workshop.png", "price": 0, "unlock": "splitter"},
+	{"id": "bg_gallery", "name": "Card Room", "image": "res://assets/story_backgrounds/gallery.png", "price": 0, "unlock": "collector", "smoke": true},
+	{"id": "bg_tower", "name": "Tower", "image": "res://assets/story_backgrounds/tower.png", "price": 0, "unlock": "timekeeper"},
+]
+
 static var _image_items: Array[Dictionary] = []
 static var _images_scanned: bool = false
 
@@ -53,6 +62,7 @@ static func items(group: String) -> Array[Dictionary]:
 		"background":
 			var out: Array[Dictionary] = []
 			out.append_array(BACKGROUNDS)
+			out.append_array(STORY_BACKGROUNDS)
 			out.append_array(_background_images())
 			return out
 	return []
@@ -63,6 +73,24 @@ static func item(group: String, id: String) -> Dictionary:
 		if it["id"] == id:
 			return it
 	return items(group)[0]
+
+
+## The painting of a Story chapter's boss ({} if it has none).
+static func chapter_background(chapter_id: String) -> Dictionary:
+	for it: Dictionary in STORY_BACKGROUNDS:
+		if it["unlock"] == chapter_id:
+			return it
+	return {}
+
+
+## For an item unlocked by a chapter: "Beat chapter N" ("" for anything else).
+static func unlock_note(it: Dictionary) -> String:
+	if not it.has("unlock"):
+		return ""
+	for ch: Dictionary in StoryData.CHAPTERS:
+		if ch["id"] == it["unlock"]:
+			return "Beat chapter %d" % int(ch["number"])
+	return "Locked"
 
 
 static func default_id(group: String) -> String:
@@ -126,13 +154,30 @@ static func apply(level: Node, look: Dictionary = {}) -> void:
 	var bumper: Dictionary = look.get("bumpers", equipped("bumpers"))
 	var background: Dictionary = look.get("background", equipped("background"))
 	_dress(level, flipper.get("color", Palette.FLIPPER), bumper.get("color", Palette.BUMPER))
-	if level is Level:
-		var table := level as Level
-		if background.has("image") and ResourceLoader.exists(background["image"]):
-			table.background_texture = load(background["image"]) as Texture2D
-		else:
-			table.background_texture = null
-			table.background_color = background.get("color", BACKGROUNDS[0]["color"])
+	set_background(level, background)
+
+
+## Put a background item (a color or a picture) on a table.
+static func set_background(level: Node, background: Dictionary) -> void:
+	if not level is Level:
+		return
+	var table := level as Level
+	# A picture with smoke over it ("smoke": true) gets a live SmokeLayer just
+	# above the background, under every part of the table.
+	var smoke := table.get_node_or_null("BackgroundSmoke")
+	if bool(background.get("smoke", false)):
+		if smoke == null:
+			smoke = SmokeLayer.new()
+			smoke.name = "BackgroundSmoke"
+			table.add_child(smoke)
+			table.move_child(smoke, 0)
+	elif smoke != null:
+		smoke.queue_free()
+	if background.has("image") and ResourceLoader.exists(background["image"]):
+		table.background_texture = load(background["image"]) as Texture2D
+	else:
+		table.background_texture = null
+		table.background_color = background.get("color", BACKGROUNDS[0]["color"])
 
 
 static func _dress(node: Node, flipper_c: Color, bumper_c: Color) -> void:

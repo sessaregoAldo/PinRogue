@@ -86,14 +86,16 @@ color = Color(0.8, 0.92, 1, 1)
 [node name="CaseLeft" type="Area2D" parent="."]
 position = Vector2(125, 330)
 script = ExtResource("12_saucer")
-eject_velocity = Vector2(460, -90)
+eject_velocity = Vector2(110, -830)
+eject_jitter_deg = 3.0
 legend_name = "Display case"
 color = Color(0.8, 0.95, 1, 1)
 
 [node name="CaseRight" type="Area2D" parent="."]
 position = Vector2(435, 330)
 script = ExtResource("12_saucer")
-eject_velocity = Vector2(-460, -90)
+eject_velocity = Vector2(-110, -830)
+eject_jitter_deg = 3.0
 legend_name = "Display case"
 color = Color(0.8, 0.95, 1, 1)
 

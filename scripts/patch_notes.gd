@@ -5,6 +5,21 @@ extends RefCounted
 
 const NOTES: Array[Dictionary] = [
 	{
+		"version": "0.16.1",
+		"name": "Old Grudges",
+		"date": "Nov 17, 2026",
+		"notes": [
+			"Boss trophies now add damage instead of score: every Story boss beaten adds 40% to your damage on the center bumper.",
+			"New Workshop page, Upgrades: passive bonuses you buy once with coins, always on in Story runs. Warm Start, Deep Pockets and Spare Ball.",
+			"Bosses have a few words of their own now.",
+			"Each Story boss brings his own painting to the table once he shows himself, darker and stranger with every chapter. Beat his chapter to unlock it as a table background for every mode. A tick box in the Wardrobe keeps your own background in Story instead.",
+			"Showroom: the display cases fire the ball harder, up the table, and never into each other.",
+			"Clock Tower: the winding ramp now fires the ball across at the right slingshot, and the new Escapement below the clock sends the ball back to the top, firing it at the boss from near the side walls.",
+			"Clock Tower: once its boss shows himself, every third loop of the winding ramp strikes him for twice your score.",
+			"Wall buttons push the ball straight off the wall, instead of their ends spiking it down or flicking it up.",
+		],
+	},
+	{
 		"version": "0.16.0",
 		"name": "Clockwork",
 		"date": "Nov 16, 2026",

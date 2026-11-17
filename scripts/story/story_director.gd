@@ -73,6 +73,18 @@ func _ready() -> void:
 		game.nudged.connect(func(_dir: Vector2) -> void: stats["nudges"] = int(stats.get("nudges", 0)) + 1)
 
 
+## The run's passive upgrades: the boss trophies' damage bonus and the
+## Workshop's passives (StoryData.PASSIVES). GameManager.restart() has just
+## reset everything they touch.
+func _apply_passives() -> void:
+	GameManager.story_damage_bonus = 1.0 + StoryData.DAMAGE_BONUS_PER_BOSS * Story.beaten.size()
+	if Story.has_passive("spare_ball"):
+		GameManager.balls_left += 1
+		GameManager.balls_changed.emit(GameManager.balls_left)
+	if Story.has_passive("warm_start"):
+		GameManager.ball_save_seconds += StoryData.WARM_START_SECONDS
+
+
 func _exit_tree() -> void:
 	GameManager.popups_hidden = false # leaving mid-switch must not carry over
 
@@ -96,7 +108,7 @@ func _on_run_started() -> void:
 	Sfx.end_battle_music()
 	if chapter.has("music_stage"):
 		Sfx.play_playlist(chapter["music_stage"])
-	GameManager.score_bonus = 1.0 + StoryData.SCORE_BONUS_PER_BOSS * Story.beaten.size()
+	_apply_passives()
 	_result.close()
 	_blackout.visible = false
 	_eye.visible = false
@@ -124,6 +136,8 @@ func _on_run_started() -> void:
 		_phase_one_max = _boss.max_hp
 	if Story.is_beaten(chapter["id"]) and game.level:
 		game.level.modulate = chapter.get("tint", Color.WHITE)
+	if game.level:
+		Cosmetics.set_background(game.level, Cosmetics.equipped("background")) # the boss's painting comes with the reveal
 	# Every run opens with its scene, replays and retries too (Skip is the
 	# player's call): the prologue the first time (or when asked for from the
 	# journal), otherwise the chapter's own opening.
@@ -397,6 +411,10 @@ func _reveal(run: int) -> void:
 	_flash.modulate.a = 0.9
 	create_tween().tween_property(_flash, "modulate:a", 0.0, 0.7)
 	_boss.art = str(chapter["art"])
+	# Under the flash, the table takes on the boss's painting.
+	var painting := Cosmetics.chapter_background(str(chapter["id"]))
+	if Story.boss_backgrounds and not painting.is_empty() and game.level:
+		Cosmetics.set_background(game.level, painting)
 	var factor := float(chapter.get("boss_hp_factor", StoryData.BOSS_HP_SCORE_FACTOR))
 	_boss_max = maxf(roundf(GameManager.score * factor), float(chapter.get("boss_hp_min", StoryData.BOSS_HP_MIN)))
 	_boss.set_hp(_boss_max)
@@ -413,6 +431,11 @@ func _reveal(run: int) -> void:
 	await _dialogue.say("", [chapter["reveal"]], str(chapter["id"]) + "_reveal")
 	if run != _run:
 		return
+	# The boss himself, the way the Ghost's anger remembers him.
+	if chapter.has("boss_taunt"):
+		await _dialogue.say(str(chapter["boss"]), chapter["boss_taunt"], str(chapter["id"]) + "_boss_taunt", 1, DialogueBox.MOOD_CORRUPT)
+		if run != _run:
+			return
 	await _dialogue.say(StoryData.GHOST, chapter["briefing"], str(chapter["id"]) + "_briefing")
 	if run != _run:
 		return
@@ -659,6 +682,12 @@ func _victory(run: int) -> void:
 	await get_tree().create_timer(SILENT_TILT_SECONDS, true, false, true).timeout
 	if run != _run:
 		return
+	# In the silence, the boss speaks once more: as the man he really was.
+	if chapter.has("boss_last"):
+		_dialogue.begin_scene()
+		await _dialogue.say(str(chapter["boss_name"]), chapter["boss_last"], str(chapter["id"]) + "_boss_last")
+		if run != _run:
+			return
 	# A sad sort of win: the quiet song comes in before the page does.
 	Sfx.play_theme(Sfx.QUIET_WIN_TRACK)
 	await get_tree().create_timer(QUIET_SONG_LEAD_SECONDS, true, false, true).timeout
@@ -693,6 +722,8 @@ func _finish(won: bool) -> void:
 	if won:
 		first = Story.beat_chapter(chapter["id"])
 		coins += StoryData.COINS_FIRST_DEFEAT if first else StoryData.COINS_REPEAT_DEFEAT
+	if Story.has_passive("deep_pockets"):
+		coins = roundi(coins * (1.0 + StoryData.DEEP_POCKETS_BONUS))
 	var records: Dictionary = Story.record_run(chapter["id"], GameManager.score, float(stats["damage"]), float(stats["time"]), won)
 	var coin := Story.add_coins(coins)
 	Story.save()
