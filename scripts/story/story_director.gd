@@ -78,6 +78,8 @@ func _ready() -> void:
 ## reset everything they touch.
 func _apply_passives() -> void:
 	GameManager.story_damage_bonus = 1.0 + StoryData.DAMAGE_BONUS_PER_BOSS * Story.beaten.size()
+	if Story.has_passive("trophy_shine"):
+		GameManager.score_bonus = 1.0 + StoryData.TROPHY_SHINE_PER_BOSS * Story.beaten.size()
 	if Story.has_passive("spare_ball"):
 		GameManager.balls_left += 1
 		GameManager.balls_changed.emit(GameManager.balls_left)

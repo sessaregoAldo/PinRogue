@@ -61,7 +61,11 @@ const PASSIVES: Array[Dictionary] = [
 		"desc": "Every Story run pays 25% more coins."},
 	{"id": "spare_ball", "title": "Spare Ball", "price": 150,
 		"desc": "Start every Story run with an extra ball: 4 instead of 3."},
+	{"id": "trophy_shine", "title": "Trophy Shine", "price": 120,
+		"desc": "Every boss you've beaten adds 20% to all your scoring in Story runs."},
 ]
+## Trophy Shine: score bonus per boss beaten.
+const TROPHY_SHINE_PER_BOSS := 0.2
 const WARM_START_SECONDS := 5.0
 const DEEP_POCKETS_BONUS := 0.25
 

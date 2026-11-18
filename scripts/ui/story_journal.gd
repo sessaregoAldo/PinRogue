@@ -176,6 +176,45 @@ func open() -> void:
 	_show_now()
 
 
+## Back from a story run: the last of the pages riffling back from the result
+## screen, slowing down, until the Chapters page swings in and lands. Call
+## after open(); the menu fades in from black while it plays.
+func riffle_in(pages: int = 16) -> void:
+	animating = true
+	var real := _page
+	real.visible = false
+	var leaves: Array[Control] = []
+	for k in pages:
+		var t := float(k) / (pages - 1)
+		var swing := lerpf(0.05, 0.2, t * t) # fast at first, slowing to a stop
+		var leaf := JournalPage.new(str(SECTIONS[0][3]), real.number + (pages - k) * 3, 0, 1, func(_d: int) -> void: pass, false, false)
+		leaf.mouse_filter = Control.MOUSE_FILTER_STOP
+		_holder.add_child(leaf)
+		leaves.append(leaf)
+		await _swing_in(leaf, swing, k % 3 == 0)
+	# The Chapters page itself is the last one over.
+	_holder.move_child(real, _holder.get_child_count() - 1)
+	real.visible = true
+	await _swing_in(real, TURN_TIME, true)
+	for leaf in leaves:
+		leaf.queue_free()
+	animating = false
+
+
+func _swing_in(leaf: Control, time: float, sound: bool) -> void:
+	if sound:
+		Sfx.play("page", -5.0, randf_range(0.95, 1.3))
+	leaf.pivot_offset = Vector2(0, PAGE.size.y * 0.5)
+	leaf.scale.x = 0.001
+	leaf.modulate = Color(0.62, 0.56, 0.5)
+	var tw := create_tween().set_parallel()
+	tw.tween_property(leaf, "scale:x", 1.0, time).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tw.tween_property(leaf, "modulate", Color.WHITE, time)
+	await get_tree().create_timer(time * 0.6).timeout
+	if leaf == _page:
+		await tw.finished
+
+
 ## Rebuilds the open page in place (after a purchase, for instance).
 func refresh() -> void:
 	_index = clampi(_index, 0, _page_count(_section) - 1)

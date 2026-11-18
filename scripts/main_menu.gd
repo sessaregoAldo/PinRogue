@@ -100,6 +100,7 @@ func _ready() -> void:
 		Story.return_to_hub = false
 		_show_page(_story_page)
 		_story_journal.open()
+		_story_journal.riffle_in() # the result screen's riffle, landing on the Chapters page
 	else:
 		_show_page(_main_page)
 	_fade.modulate.a = 1.0

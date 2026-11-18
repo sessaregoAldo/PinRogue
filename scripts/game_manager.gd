@@ -185,7 +185,7 @@ func _process(delta: float) -> void:
 func add_score(points: float, at: Variant = null) -> void:
 	if tilted or is_game_over:
 		return
-	points = roundf(points)
+	points = roundf(points * score_bonus)
 	score = minf(score + points, BOSS_HP_CAP)
 	score_changed.emit(score)
 	if at is Vector2:
@@ -306,10 +306,13 @@ func set_plunger_charge(charge: float) -> void:
 ## to the center bumper (the blue one and the boss). Set by the StoryDirector
 ## each run; back to 1 for every other run.
 var story_damage_bonus: float = 1.0
+## Story mode, Trophy Shine passive: all scoring x this (1 = none).
+var score_bonus: float = 1.0
 
 
 func restart() -> void:
 	story_damage_bonus = 1.0
+	score_bonus = 1.0
 	round_id += 1
 	score = 0.0
 	balls_left = STARTING_BALLS

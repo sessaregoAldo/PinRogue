@@ -5,6 +5,17 @@ extends RefCounted
 
 const NOTES: Array[Dictionary] = [
 	{
+		"version": "0.16.2",
+		"name": "Inner Dial",
+		"date": "Nov 18, 2026",
+		"notes": [
+			"Fixed: on Classic and Gauntlet, the button beside the top of the launch lane could stop the ball from launching.",
+			"Story: the blue bumper before a boss shows its health on a dial inside it, like every other bumper, instead of a bar floating above it.",
+			"Story: after a Victory or Defeat, Next turns the page to the chapter's leaderboard. As you type your name it shows where you'd land; post it or just move on. Going back riffles the journal to the start.",
+			"New Workshop upgrade, Trophy Shine: every boss you've beaten adds 20% to all your scoring in Story runs.",
+		],
+	},
+	{
 		"version": "0.16.1",
 		"name": "Old Grudges",
 		"date": "Nov 17, 2026",

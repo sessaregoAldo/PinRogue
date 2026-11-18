@@ -46,6 +46,13 @@ const BOUNCE := 0.55
 const ALONG_KEEP := 0.9
 
 var _flash: float = 0.0
+## Balls inside the trigger zone: true once this visit has touched the bar.
+## The zone reaches a little past the bar so a ball rolling along the wall is
+## caught before its round end, but only a ball actually against the bar is
+## pushed or counts as a hit (a ball just passing by, like a launch up the
+## shooter lane beside a button, is left alone).
+var _watch: Dictionary = {}
+const CONTACT_MARGIN := 4.0
 var _last_hit_ms: int = -100000
 
 
@@ -91,6 +98,7 @@ func _rebuild() -> void:
 	add_child(area)
 	if not Engine.is_editor_hint():
 		area.body_entered.connect(_on_body_entered)
+		area.body_exited.connect(func(body: Node) -> void: _watch.erase(body))
 	queue_redraw()
 
 
@@ -114,6 +122,33 @@ func _on_body_entered(body: Node) -> void:
 	var ball := body as Ball
 	if ball == null or not ball.in_play:
 		return
+	_watch[ball] = false
+	_check_contact(ball)
+
+
+func _physics_process(_delta: float) -> void:
+	if Engine.is_editor_hint() or _watch.is_empty():
+		return
+	for ball in _watch.keys():
+		if not is_instance_valid(ball):
+			_watch.erase(ball)
+		elif not _watch[ball]:
+			_check_contact(ball)
+
+
+func _check_contact(ball: Ball) -> void:
+	if not ball.in_play:
+		return
+	var a := to_global(point_a)
+	var b := to_global(point_b)
+	var nearest := Geometry2D.get_closest_point_to_segment(ball.global_position, a, b)
+	if ball.global_position.distance_to(nearest) > thickness * 0.5 + ball.radius + CONTACT_MARGIN:
+		return
+	_watch[ball] = true
+	_touch(ball)
+
+
+func _touch(ball: Ball) -> void:
 	_push_off(ball)
 	if GameManager.tilted:
 		return

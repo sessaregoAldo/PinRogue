@@ -78,6 +78,16 @@ func _init(paper: bool = false) -> void:
 var _ending: String = ""
 ## Bumped on every refresh, so an older, slower request can't add rows.
 var _generation: int = 0
+## A run not posted yet, shown in gold where it would land while its name is
+## being typed (as in Endless): {score, won, time}. Empty = none.
+var pending: Dictionary = {}
+## The name being typed for the pending run (updated live, no reload).
+var pending_name: String = "":
+	set(value):
+		pending_name = value
+		if is_instance_valid(_pending_label):
+			_pending_label.text = _pending_text()
+var _pending_label: Label = null
 
 
 func refresh() -> void:
@@ -98,15 +108,45 @@ func refresh() -> void:
 	var entries: Array = res["entries"]
 	var me := Leaderboard.last_name # this device's player
 	var me_shown := false
+	_pending_label = null
+	# Where the pending run would land (after equal scores / times, which keep
+	# the older run first). Beyond the top 10 it goes below, with its rank.
+	var pend_at := -1
+	if _pending_fits(by_time):
+		pend_at = 0
+		for e: Dictionary in entries:
+			if (float(e.get("time", INF)) <= float(pending["time"])) if by_time else (float(e["score"]) >= float(pending["score"])):
+				pend_at += 1
+	var rank := 0
 	for i in entries.size():
+		if i == pend_at:
+			rank += 1
+			_pending_row(rank)
+		if rank >= Leaderboard.TOP_COUNT:
+			break # the pending run pushed the last one off the top 10
 		var e: Dictionary = entries[i]
-		var c := _top if i < 3 else _rest
-		if not me_shown and me != "" and e["name"] == me:
+		rank += 1
+		var c := _top if rank <= 3 else _rest
+		if not me_shown and me != "" and e["name"] == me and pending.is_empty():
 			c = _mine # the player's best score is in the top 10
 			me_shown = true
-		_cell("%d." % (i + 1), c, HORIZONTAL_ALIGNMENT_RIGHT)
+		_cell("%d." % rank, c, HORIZONTAL_ALIGNMENT_RIGHT)
 		_grid.add_child(RunIcon.name_cell(str(e["name"]), bool(e["won"]), c, 18))
 		_cell(_value_text(e), c, HORIZONTAL_ALIGNMENT_RIGHT)
+	if pend_at == entries.size() and pend_at < Leaderboard.TOP_COUNT:
+		_pending_row(pend_at + 1)
+	elif pend_at >= Leaderboard.TOP_COUNT:
+		var far := 0
+		if by_time:
+			far = await Leaderboard.fetch_time_rank(float(pending["time"]), board)
+		else:
+			far = await Leaderboard.fetch_rank(float(pending["score"]), _ending, true, board)
+		if not is_visible_in_tree() or gen != _generation:
+			return
+		_cell("", _mine, HORIZONTAL_ALIGNMENT_RIGHT)
+		_cell("···", _faint, HORIZONTAL_ALIGNMENT_LEFT)
+		_cell("", _mine, HORIZONTAL_ALIGNMENT_RIGHT)
+		_pending_row(maxi(far, Leaderboard.TOP_COUNT + 1))
 	var notes: Array[String] = []
 	if entries.is_empty():
 		if by_time:
@@ -126,7 +166,7 @@ func refresh() -> void:
 	if res["error"] != "":
 		notes.append(res["error"])
 	_note.text = "\n".join(notes)
-	if me != "" and not me_shown and not entries.is_empty():
+	if me != "" and not me_shown and not entries.is_empty() and pending.is_empty():
 		await _add_player_row(me, entries.size(), gen)
 
 
@@ -142,6 +182,28 @@ func _add_player_row(player_name: String, shown: int, gen: int) -> void:
 	_cell("%d." % int(best["rank"]), _mine, HORIZONTAL_ALIGNMENT_RIGHT)
 	_grid.add_child(RunIcon.name_cell(player_name, bool(best["won"]), _mine, 18))
 	_cell(_value_text(best), _mine, HORIZONTAL_ALIGNMENT_RIGHT)
+
+
+func _pending_fits(by_time: bool) -> bool:
+	if pending.is_empty():
+		return false
+	if by_time:
+		return bool(pending.get("won", false)) and float(pending.get("time", 0.0)) > 0.0
+	return _ending == "" or (_ending == "won") == bool(pending.get("won", false))
+
+
+func _pending_text() -> String:
+	return pending_name if pending_name != "" else "?????"
+
+
+## The run being named: in gold, its name following the typing.
+func _pending_row(rank: int) -> void:
+	_cell("%d." % rank, _mine, HORIZONTAL_ALIGNMENT_RIGHT)
+	var cell := RunIcon.name_cell(_pending_text(), bool(pending.get("won", false)), _mine, 18)
+	_pending_label = cell.get_child(0) as Label
+	_grid.add_child(cell)
+	var shown := {"score": pending["score"], "time": pending.get("time", 0.0)}
+	_cell(_value_text(shown), _mine, HORIZONTAL_ALIGNMENT_RIGHT)
 
 
 ## The number shown for a row: the score, or the run time on the time board.

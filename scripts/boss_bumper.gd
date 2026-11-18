@@ -38,10 +38,10 @@ var story_controlled: bool = false
 ## Story mode: (ball) -> damage multiplier for this hit (a boss gimmick's bonus).
 var hit_multiplier: Callable = Callable()
 ## Story mode: when above 0, every hit deals exactly this (a phase counted in hits).
-## The health bar then shows one segment per hit.
+## The dial then shows a crack per hit.
 var fixed_damage: float = 0.0
-## Look: "" = the health dial; "plain" = an ordinary bumper with a health bar
-## above it (story phase 1); "splitter" = the dial, cracked down the middle;
+## Look: "" = the health dial; "plain" / "plain_dial" = an ordinary blue
+## bumper with the health dial inside it (before a boss shows himself); "splitter" = the dial, cracked down the middle;
 ## "collector" = the dial in a gold, coin-milled rim with a jeweller's loupe;
 ## "clock" = a white face with two dots (its hands' tips) that turn to watch the ball.
 ## A table can pick it in the scene (story mode may change it).
@@ -350,16 +350,13 @@ func _draw() -> void:
 	_base_xform = Transform2D(_spin, Vector2.ONE * _pop, 0.0, _shake)
 	if _base_xform != Transform2D.IDENTITY:
 		draw_set_transform_matrix(_base_xform)
-	if art == "plain":
-		_draw_plain()
-		return
 	if art == "clock":
 		_draw_clock_face()
 		return
 	# The Collector is all coin: an old-gold body instead of the boss red.
 	# "plain_dial" is an ordinary bumper's blue with the Endless boss's dial.
 	var plain_blue := Palette.BUMPER if Engine.is_editor_hint() else Cosmetics.bumper_color()
-	var body := Color(0.45, 0.33, 0.12) if art == "collector" else (plain_blue if art == "plain_dial" else color)
+	var body := Color(0.45, 0.33, 0.12) if art == "collector" else (plain_blue if art in ["plain", "plain_dial"] else color)
 	var fill := body.lerp(Color.WHITE, _flash * 0.7)
 	draw_circle(Vector2.ZERO, radius + _flash * 6.0, body.darkened(0.5))
 	draw_circle(Vector2.ZERO, radius, fill)
@@ -526,36 +523,6 @@ func _draw_collector() -> void:
 	# Its chain, hanging down the bumper's side.
 	draw_polyline(PackedVector2Array([loupe + Vector2(radius * 0.2, radius * 0.17), Vector2(radius * 0.86, radius * 0.1),
 			Vector2(radius * 0.8, radius * 0.5)]), gold.darkened(0.2), 1.5, true)
-
-
-## Story art "plain": looks like any pop bumper, with a health bar above it.
-func _draw_plain() -> void:
-	var base := Palette.BUMPER if Engine.is_editor_hint() else Cosmetics.bumper_color()
-	var fill := base.lerp(Color.WHITE, _flash * 0.7)
-	draw_circle(Vector2.ZERO, radius + _flash * 6.0, base.darkened(0.5))
-	draw_circle(Vector2.ZERO, radius, fill)
-	draw_circle(Vector2.ZERO, radius * 0.55, base.darkened(0.3))
-	draw_arc(Vector2.ZERO, radius, 0.0, TAU, 48, Color.WHITE, 2.0, true)
-	var w := radius * 2.4
-	var bar := Rect2(-w * 0.5, -radius - 22.0, w, 9.0)
-	var ratio := clampf(_shown_hp / float(max_hp), 0.0, 1.0)
-	draw_rect(bar.grow(2.0), Color(0, 0, 0, 0.85))
-	draw_rect(bar, Color(0.18, 0.2, 0.3))
-	var health := Color(0.4, 0.95, 0.5).lerp(Color(1.0, 0.3, 0.3), 1.0 - ratio).lerp(Color.WHITE, _hurt * 0.5)
-	draw_rect(Rect2(bar.position, Vector2(bar.size.x * ratio, bar.size.y)), health)
-	if fixed_damage > 0.0:
-		# Counted in hits: one segment per hit, no number.
-		var hits := roundi(max_hp / fixed_damage)
-		for i in range(1, hits):
-			var x := bar.position.x + bar.size.x * float(i) / hits
-			draw_line(Vector2(x, bar.position.y), Vector2(x, bar.end.y), Color(0, 0, 0, 0.9), 2.0)
-		return
-	if show_hp_number and not Engine.is_editor_hint():
-		var font := ThemeDB.fallback_font
-		var text := GameManager.format_short(hp)
-		var pos := Vector2(-w * 0.5, bar.position.y - 5.0)
-		draw_string_outline(font, pos, text, HORIZONTAL_ALIGNMENT_CENTER, w, 13, 4, Color(0, 0, 0, 0.9))
-		draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_CENTER, w, 13, Color.WHITE)
 
 
 ## 100000 -> "100K", 69900 -> "69.9K"

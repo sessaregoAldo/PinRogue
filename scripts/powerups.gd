@@ -147,8 +147,8 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	if not is_equal_approx(GameManager.story_damage_bonus, _shown_bonus):
-		_shown_bonus = GameManager.story_damage_bonus
+	if not is_equal_approx(GameManager.story_damage_bonus + GameManager.score_bonus * 10.0, _shown_bonus):
+		_shown_bonus = GameManager.story_damage_bonus + GameManager.score_bonus * 10.0
 		_update_status()
 	if not get_tree().paused:
 		_clock += delta
@@ -690,9 +690,10 @@ func _draw() -> void:
 
 func _update_status() -> void:
 	var bonus := roundi((GameManager.story_damage_bonus - 1.0) * 100.0)
+	var shine := roundi((GameManager.score_bonus - 1.0) * 100.0)
 	if _trophies:
 		_trophies.visible = bonus > 0
-		_trophies.text = "Boss trophies: +%d%% boss damage" % bonus
+		_trophies.text = "Boss trophies: +%d%% boss damage" % bonus + ("  ·  +%d%% score" % shine if shine > 0 else "")
 	if _status:
 		_status.position.y = 52.0 + (18.0 if bonus > 0 else 0.0)
 		_status.text = "\n".join(_status_lines())
