@@ -5,8 +5,8 @@ extends Node
 ##   1. "plain": a normal game. The center bumper looks ordinary and has a
 ##      health bar (the first Endless boss's HP).
 ##   2. "boss":  at 0 the boss reveals itself: new art, battle music, HP scaled
-##      from the player's score (StoryData.BOSS_HP_SCORE_FACTOR, or the chapter's
-##      "boss_hp_factor") and its gimmick.
+##      from the player's score (StoryData.hp_value: the chapter's own, or the
+##      previous chapter's x BOSS_HP_GROWTH) and its gimmick.
 ## A chapter with a "boss_scene" opens with a "prelude" on the last chapter's
 ## machine: after "phase_one_hits" hits on its bumper that table drops away and
 ## the chapter's own rises in its place, where phases 1 and 2 are played.
@@ -77,9 +77,9 @@ func _ready() -> void:
 ## Workshop's passives (StoryData.PASSIVES). GameManager.restart() has just
 ## reset everything they touch.
 func _apply_passives() -> void:
-	GameManager.story_damage_bonus = 1.0 + StoryData.DAMAGE_BONUS_PER_BOSS * Story.beaten.size()
+	GameManager.score_bonus = 1.0 + StoryData.SCORE_BONUS_PER_BOSS * Story.beaten.size()
 	if Story.has_passive("trophy_shine"):
-		GameManager.score_bonus = 1.0 + StoryData.TROPHY_SHINE_PER_BOSS * Story.beaten.size()
+		GameManager.story_damage_bonus = 1.0 + StoryData.TROPHY_SHINE_PER_BOSS * Story.beaten.size()
 	if Story.has_passive("spare_ball"):
 		GameManager.balls_left += 1
 		GameManager.balls_changed.emit(GameManager.balls_left)
@@ -134,7 +134,7 @@ func _on_run_started() -> void:
 			_boss.fixed_damage = 1.0
 			_boss.set_hp(float(chapter["phase_one_hits"]))
 		else:
-			_boss.set_hp(float(chapter.get("phase_one_hp", StoryData.PHASE_ONE_HP)))
+			_boss.set_hp(StoryData.hp_value(StoryData.chapter_index(chapter["id"]), "phase_one_hp"))
 		_phase_one_max = _boss.max_hp
 	if Story.is_beaten(chapter["id"]) and game.level:
 		game.level.modulate = chapter.get("tint", Color.WHITE)
@@ -417,8 +417,9 @@ func _reveal(run: int) -> void:
 	var painting := Cosmetics.chapter_background(str(chapter["id"]))
 	if Story.boss_backgrounds and not painting.is_empty() and game.level:
 		Cosmetics.set_background(game.level, painting)
-	var factor := float(chapter.get("boss_hp_factor", StoryData.BOSS_HP_SCORE_FACTOR))
-	_boss_max = maxf(roundf(GameManager.score * factor), float(chapter.get("boss_hp_min", StoryData.BOSS_HP_MIN)))
+	var at := StoryData.chapter_index(chapter["id"])
+	var factor := StoryData.hp_value(at, "boss_hp_factor")
+	_boss_max = maxf(roundf(GameManager.score * factor), StoryData.hp_value(at, "boss_hp_min"))
 	_boss.set_hp(_boss_max)
 	if chapter.has("music_boss"):
 		Sfx.play_playlist(chapter["music_boss"])
@@ -459,7 +460,7 @@ func _switch_table(run: int) -> void:
 	if run != _run or not is_instance_valid(_boss):
 		return
 	_boss.art = str(chapter.get("plain_art", "plain"))
-	_boss.set_hp(float(chapter.get("phase_one_hp", StoryData.PHASE_ONE_HP)))
+	_boss.set_hp(StoryData.hp_value(StoryData.chapter_index(chapter["id"]), "phase_one_hp"))
 	_phase_one_max = _boss.max_hp
 	phase = "plain"
 	await get_tree().create_timer(0.6, true, false, true).timeout
@@ -545,7 +546,7 @@ func _morph(run: int) -> void:
 		# Rises already looking as it will be fought: the plain blue bumper, even on a
 		# replay (the reveal still flips it), with no health bar flashing by.
 		_take_boss(_boss, str(chapter.get("plain_art", "plain")))
-		_boss.set_hp(float(chapter.get("phase_one_hp", StoryData.PHASE_ONE_HP)))
+		_boss.set_hp(StoryData.hp_value(StoryData.chapter_index(chapter["id"]), "phase_one_hp"))
 	Sfx.play("ramp_complete", -4.0, 0.5)
 	var rise := create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	rise.tween_property(fresh, "position:y", 0.0, RISE_SECONDS).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)

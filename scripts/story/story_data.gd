@@ -28,10 +28,13 @@ const PHASE_ONE_HP := 200000.0
 const BOSS_HP_SCORE_FACTOR := 192.0
 ## The boss never has less than this, however low the score at the reveal.
 const BOSS_HP_MIN := 1000000.0
-## Every story boss beaten adds this to the damage dealt to the center bumper
-## (the blue one and the boss) in story runs: a passive upgrade, so each
-## chapter's bigger boss health is less of a wall.
-const DAMAGE_BONUS_PER_BOSS := 0.4
+## A chapter that doesn't set its own health ("phase_one_hp", "boss_hp_factor",
+## "boss_hp_min") gets the previous chapter's x this: each boss about 60% tougher
+## than the one before (chapter 1 -> 2 is set by hand, 2.5x).
+const BOSS_HP_GROWTH := 1.6
+## Boss trophies (earned): every story boss beaten adds this to all scoring
+## in story runs.
+const SCORE_BONUS_PER_BOSS := 0.4
 
 # --- Coins --------------------------------------------------------------------------
 ## Up to this many coins for the share of the first bumper's HP removed.
@@ -62,9 +65,10 @@ const PASSIVES: Array[Dictionary] = [
 	{"id": "spare_ball", "title": "Spare Ball", "price": 150,
 		"desc": "Start every Story run with an extra ball: 4 instead of 3."},
 	{"id": "trophy_shine", "title": "Trophy Shine", "price": 120,
-		"desc": "Every boss you've beaten adds 20% to all your scoring in Story runs."},
+		"desc": "Every boss you've beaten adds 20% to your damage on the center bumper in Story runs."},
 ]
-## Trophy Shine: score bonus per boss beaten.
+## Trophy Shine (bought): extra damage on the center bumper (the blue one and
+## the boss) per boss beaten.
 const TROPHY_SHINE_PER_BOSS := 0.2
 const WARM_START_SECONDS := 5.0
 const DEEP_POCKETS_BONUS := 0.25
@@ -260,10 +264,7 @@ One night he asked for a table that could be every table. He meant it as a compl
 		"phase_one_art": "plain_dial",
 		# Starts as the blue bumper even when replayed (the clock watches for its reveal).
 		"keep_face": false,
-		# 2.5x chapter 2.
-		"phase_one_hp": 1250000.0,
-		"boss_hp_factor": 1200.0,
-		"boss_hp_min": 6250000.0,
+		# Health: chapter 2 x BOSS_HP_GROWTH (no numbers set here).
 		"gimmick": "",
 		"art": "clock",
 		"opening": [
@@ -414,6 +415,25 @@ static func rich_label(text: String, font_size: int, color: Color, width: float,
 		label.add_theme_font_override("normal_font", base_font)
 	label.text = bbcode(text, font_size)
 	return label
+
+
+## A chapter's health number (key "phase_one_hp", "boss_hp_factor" or
+## "boss_hp_min"): its own if it sets one, otherwise the previous chapter's
+## x BOSS_HP_GROWTH (chapter 1 falls back to the constants above).
+static func hp_value(index: int, key: String) -> float:
+	var ch: Dictionary = CHAPTERS[clampi(index, 0, CHAPTERS.size() - 1)]
+	if ch.has(key):
+		return float(ch[key])
+	if index <= 0:
+		return {"phase_one_hp": PHASE_ONE_HP, "boss_hp_factor": BOSS_HP_SCORE_FACTOR, "boss_hp_min": BOSS_HP_MIN}[key]
+	return roundf(hp_value(index - 1, key) * BOSS_HP_GROWTH)
+
+
+static func chapter_index(chapter_id: String) -> int:
+	for i in CHAPTERS.size():
+		if CHAPTERS[i]["id"] == chapter_id:
+			return i
+	return 0
 
 
 static func chapter(index: int) -> Dictionary:

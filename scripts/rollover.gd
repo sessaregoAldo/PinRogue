@@ -23,10 +23,17 @@ extends Area2D
 @export var bonus_step: int = 0
 @export_range(1, 9) var sets_per_step: int = 2
 
+## Bumpers that can sit on top of this light (the Clock Tower's hour hand).
+## While one covers it, the light counts as on, so its group needs one light
+## less; once uncovered it counts as off again (unless the ball lit it).
+@export var blockers: Array[NodePath] = []
+
 ## Sets completed so far, per group (shared by its rollovers; reset with the table).
 static var _sets: Dictionary = {}
 
 var lit: bool = false
+## A blocker is over it (see `blockers`).
+var covered: bool = false
 var _flash: float = 0.0
 
 
@@ -50,6 +57,13 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	if not blockers.is_empty() and not Engine.is_editor_hint():
+		var now := _is_covered()
+		if now != covered:
+			covered = now
+			queue_redraw()
+			if covered and not GameManager.tilted:
+				_check_group() # the last light it needed has just been covered
 	if _flash > 0.0:
 		_flash = maxf(0.0, _flash - delta * 0.8)
 		queue_redraw()
@@ -65,10 +79,37 @@ func _on_body_entered(body: Node) -> void:
 		return
 	lit = true
 	queue_redraw()
+	_check_group()
+
+
+## Lit or covered: what counts toward the group.
+func counts_on() -> bool:
+	return lit or covered
+
+
+func _is_covered() -> bool:
+	for path in blockers:
+		var b := get_node_or_null(path) as Node2D
+		if b == null:
+			continue
+		var reach: float = (b.get("radius") if b.get("radius") != null else 20.0) + minf(size.x, size.y) * 0.5
+		if b.global_position.distance_to(global_position) < reach:
+			return true
+	return false
+
+
+## Every light in the group on (lit or covered): pay the bonus, offer the
+## part, and start the set again.
+func _check_group() -> void:
+	var any_lit := false
 	for node in get_tree().get_nodes_in_group(group_name):
 		var other := node as Rollover
-		if other and not other.lit:
+		if other and not other.counts_on():
 			return
+		if other and other.lit:
+			any_lit = true
+	if not any_lit:
+		return # covered lights alone never complete a set
 	var done: int = _sets.get(group_name, 0)
 	GameManager.add_score(group_bonus + bonus_step * (done / sets_per_step), global_position + Vector2(0, -26))
 	_sets[group_name] = done + 1
@@ -83,7 +124,7 @@ func _on_body_entered(body: Node) -> void:
 
 
 func _draw() -> void:
-	var on := lit or (_flash > 0.0 and fmod(_flash * 8.0, 1.0) > 0.5)
+	var on := counts_on() or (_flash > 0.0 and fmod(_flash * 8.0, 1.0) > 0.5)
 	var r := minf(size.x, size.y) * 0.5
 	if on:
 		draw_circle(Vector2.ZERO, r + 4.0, Color(color, 0.25))

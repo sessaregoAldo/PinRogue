@@ -88,6 +88,8 @@ position = Vector2(125, 330)
 script = ExtResource("12_saucer")
 eject_velocity = Vector2(110, -830)
 eject_jitter_deg = 3.0
+rearm_time = 3.0
+linked_group = &"display_cases"
 legend_name = "Display case"
 color = Color(0.8, 0.95, 1, 1)
 
@@ -96,6 +98,8 @@ position = Vector2(435, 330)
 script = ExtResource("12_saucer")
 eject_velocity = Vector2(-110, -830)
 eject_jitter_deg = 3.0
+rearm_time = 3.0
+linked_group = &"display_cases"
 legend_name = "Display case"
 color = Color(0.8, 0.95, 1, 1)
 

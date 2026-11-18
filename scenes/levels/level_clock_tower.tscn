@@ -44,6 +44,7 @@ script = ExtResource("6_rollover")
 group_name = &"hour_lights"
 legend_name = "Hour light"
 color = Color(0.95, 0.85, 0.5, 1)
+blockers = Array[NodePath]([NodePath("../../Bumpers/HourHand")])
 
 [node name="HourLight6" type="Area2D" parent="Rollovers"]
 position = Vector2(280, 540)
@@ -58,6 +59,7 @@ script = ExtResource("6_rollover")
 group_name = &"hour_lights"
 legend_name = "Hour light"
 color = Color(0.95, 0.85, 0.5, 1)
+blockers = Array[NodePath]([NodePath("../../Bumpers/HourHand")])
 
 [node name="ChimeLeft" type="Area2D" parent="Rollovers"]
 position = Vector2(180, 610)

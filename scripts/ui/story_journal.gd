@@ -531,8 +531,8 @@ func _fill_chapter(body: VBoxContainer, page: int) -> void:
 	_stat(grid, "Fastest win", Story.clock(fastest) if fastest > 0.0 else "-", INK)
 	var bosses := Story.beaten.size()
 	if bosses > 0:
-		_text(body, "Every boss beaten adds %d%% to your damage on the center bumper in Story runs:" % roundi(StoryData.DAMAGE_BONUS_PER_BOSS * 100.0), 16, FADED)
-		var now := _hand_label(body, "+%d%% now" % roundi(StoryData.DAMAGE_BONUS_PER_BOSS * 100.0 * bosses), 28, RED_INK, true)
+		_text(body, "Every boss beaten adds %d%% to your Story scores:" % roundi(StoryData.SCORE_BONUS_PER_BOSS * 100.0), 16, FADED)
+		var now := _hand_label(body, "+%d%% now" % roundi(StoryData.SCORE_BONUS_PER_BOSS * 100.0 * bosses), 28, RED_INK, true)
 		now.add_theme_constant_override("line_spacing", -8)
 	_stamp(body, ("Replay Chapter %d" if beaten else "Play Chapter %d") % int(ch["number"]), index)
 	var line: String = StoryData.HUB_LINE_START
@@ -646,8 +646,8 @@ func _fill_workshop(body: VBoxContainer, index: int) -> void:
 		_hand_label(body, "Upgrades", 40, INK, true)
 		_text(body, "Passive upgrades: bought once, always on in Story runs.", 18, FADED)
 		var bosses := Story.beaten.size()
-		_check_row(body, "Boss trophies  ·  +%d%%" % roundi(StoryData.DAMAGE_BONUS_PER_BOSS * 100.0 * bosses),
-				"Every boss beaten adds %d%% to your damage on the center bumper, the blue one and the boss. Not for sale: earned." % roundi(StoryData.DAMAGE_BONUS_PER_BOSS * 100.0),
+		_check_row(body, "Boss trophies  ·  +%d%% score" % roundi(StoryData.SCORE_BONUS_PER_BOSS * 100.0 * bosses),
+				"Every boss beaten adds %d%% to all your scoring in Story runs. Not for sale: earned." % roundi(StoryData.SCORE_BONUS_PER_BOSS * 100.0),
 				bosses > 0, -1, Callable())
 		for passive: Dictionary in StoryData.PASSIVES:
 			var id: String = passive["id"]

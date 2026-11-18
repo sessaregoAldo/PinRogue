@@ -5,6 +5,17 @@ extends RefCounted
 
 const NOTES: Array[Dictionary] = [
 	{
+		"version": "0.16.3",
+		"name": "Trophy Swap",
+		"date": "Nov 18, 2026",
+		"notes": [
+			"Story bonuses swapped: every boss you beat now adds 40% to your Story scores, and the Trophy Shine upgrade adds 20% boss damage per boss beaten.",
+			"Clock Tower: an hour light covered by the hour hand counts as lit while it's covered, so you need one light fewer for the set.",
+			"Story: from chapter 3 on, each boss is about 60% tougher than the one before (it was 2.5 times), so chapter 3 is a little gentler.",
+			"Showroom: after a display case fires, both cases stay shut for 3 seconds (dimmed, with a lid), so the ball can't loop between them.",
+		],
+	},
+	{
 		"version": "0.16.2",
 		"name": "Inner Dial",
 		"date": "Nov 18, 2026",

@@ -19,6 +19,12 @@ extends Area2D
 ## bumper can't end up bouncing dead straight back and forth.
 @export_range(0.0, 20.0) var eject_jitter_deg: float = 5.0
 @export var max_capture_speed: float = 1100.0
+## After firing, how long it stays shut (dimmed) before it can catch again.
+@export var rearm_time: float = 0.6
+## Saucers sharing a group shut together: when one fires, none of them can
+## catch for `rearm_time`, so a ball can't bounce from one straight into the
+## other (or back into the same one) over and over.
+@export var linked_group: StringName = &""
 @export var score_value: int = 500
 ## Name shown in the pause menu's scoring legend.
 @export var legend_name: String = "Saucer"
@@ -43,6 +49,7 @@ func _ready() -> void:
 	cs.shape = circle
 	add_child(cs)
 	body_entered.connect(_on_body_entered)
+	_ready_group()
 
 
 func _on_body_entered(body: Node) -> void:
@@ -71,7 +78,7 @@ func _physics_process(delta: float) -> void:
 	if _held_for >= hold_time or GameManager.tilted:
 		_held.set_velocity_safe(eject_velocity.rotated(deg_to_rad(randf_range(-eject_jitter_deg, eject_jitter_deg))))
 		_held = null
-		_cooldown = 0.6
+		_shut()
 		_flash = 1.0
 		Sfx.play("launch", -4.0)
 		return
@@ -80,7 +87,25 @@ func _physics_process(delta: float) -> void:
 	_held.set_velocity_safe(Vector2.ZERO)
 
 
+func _ready_group() -> void:
+	if linked_group != &"" and not Engine.is_editor_hint():
+		add_to_group(linked_group)
+
+
+func _shut() -> void:
+	if linked_group == &"":
+		_cooldown = rearm_time
+		return
+	for node in get_tree().get_nodes_in_group(linked_group):
+		var other := node as Saucer
+		if other:
+			other._cooldown = maxf(other._cooldown, rearm_time)
+			other.queue_redraw()
+
+
 func _process(delta: float) -> void:
+	if _cooldown > 0.0 and rearm_time > 1.0:
+		queue_redraw() # the shut look fades as it rearms
 	if _flash > 0.0 or _held != null:
 		_flash = maxf(0.0, _flash - delta * 3.0)
 		queue_redraw()
@@ -88,8 +113,13 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	var rim := color.lerp(Color.WHITE, _flash * 0.7)
+	# Shut for a while after firing (long rearm only): dim, with a lid.
+	var shut := clampf(_cooldown / 0.5, 0.0, 1.0) if rearm_time > 1.0 else 0.0
+	rim = rim.lerp(rim.darkened(0.65), shut)
 	draw_circle(Vector2.ZERO, radius + 3.0, color.darkened(0.6))
 	draw_circle(Vector2.ZERO, radius, Color(0.02, 0.02, 0.05))
+	if shut > 0.0: # a lid over the hole while it's shut
+		draw_circle(Vector2.ZERO, radius - 3.0, Color(color.darkened(0.55), 0.85 * shut))
 	draw_arc(Vector2.ZERO, radius + 1.5, 0.0, TAU, 32, rim, 3.0, true)
 	# Arrow showing where the ball will be fired.
 	if eject_velocity.length() > 1.0:
